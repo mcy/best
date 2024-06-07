@@ -43,7 +43,7 @@ function download_bazelisk() {
 }
 
 if [[ ! -f "$_BZ_PATH" ]]; then
-  download_bazelisk
+  download_bazelisk >&2
 fi
 
 exec "$_BZ_PATH" $@
