@@ -1,0 +1,2 @@
+# Makes bazel test always print errors.
+test --test_output=errors

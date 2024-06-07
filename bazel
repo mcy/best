@@ -1,0 +1,49 @@
+#!/bin/bash
+
+# Executes bazelisk, downloading it if necessary.
+
+set -e
+set -o pipefail
+
+_BZ_PATH="/tmp/bazelisk-$(realpath $0 | tr './' -)"
+_BZ_VERSION="1.20.0"
+
+function download_bazelisk() {
+  local uname_os="$(uname -s)"
+  local uname_cpu="$(uname -m)"
+
+  case "$uname_os" in
+    Linux*)
+      local os="linux"
+      ;;
+    Darwin*)
+      local os="darwin"
+      ;;
+    *)
+      echo "bazelisk: unsupported os $uname_os"
+      exit 128
+  esac
+
+  case "$uname_cpu" in
+    arm64*)
+      local cpu="arm64"
+      ;;
+    x86_64*)
+      local cpu="amd64"
+      ;;
+    *)
+      echo "bazelisk: unsupported cpu $uname_cpu"
+      exit 128
+  esac
+
+  local url="https://github.com/bazelbuild/bazelisk/releases/download/v$_BZ_VERSION/bazelisk-$os-$cpu"
+  echo "bazelisk: downloading $url to $_BZ_PATH"
+  curl --proto '=https' --tlsv1.2 -sSfL -o "$_BZ_PATH" "$url"
+  chmod +x "$_BZ_PATH"
+}
+
+if [[ ! -f "$_BZ_PATH" ]]; then
+  download_bazelisk
+fi
+
+exec "$_BZ_PATH" $@
