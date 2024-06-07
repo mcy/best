@@ -30,6 +30,8 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Find clang-format.
+set -e
+./bazel build --color=yes --curses=no @llvm//:clang-format
 CLANG_FORMAT=$(./bazel cquery \
     --color=yes \
     --curses=no \
@@ -37,6 +39,7 @@ CLANG_FORMAT=$(./bazel cquery \
     --starlark:expr='target.files_to_run.executable.path' \
      @llvm//:clang-format)
 echo
+set +e
 
 bad=0
 total=0
