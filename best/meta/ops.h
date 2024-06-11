@@ -5,9 +5,9 @@
 
 #include <compare>
 #include <concepts>
+#include <functional>
 #include <utility>
 
-#include "best/base/port.h"
 #include "best/meta/internal/ops.h"
 
 //! Helpers for working with overloadable operators.
@@ -129,6 +129,23 @@ using order_type = decltype([] {
   }
 }());
 
+/// Compares any two pointers for address equality.
+inline constexpr auto addr_eq(const volatile void *a, const volatile void *b) {
+  return a == b;
+}
+
+/// Compares any two pointers for address order.
+inline constexpr std::strong_ordering addr_cmp(const volatile void *a,
+                                               const volatile void *b) {
+  if (a == b) {
+    return std::strong_ordering::equal;
+  }
+  if (std::less<decltype(a)>{}(a, b)) {
+    return std::strong_ordering::less;
+  }
+  return std::strong_ordering::greater;
+}
+
 /// Calls a function.
 ///
 /// This is a highly generic operation: it emulates the behavior of std::invoke,
@@ -139,7 +156,7 @@ using order_type = decltype([] {
 /// Additionally, any type parameters passed to this function will be forwarded
 /// to `call`.
 template <typename... TParams>
-BEST_INLINE_SYNTHETIC constexpr auto call(auto &&...args)
+constexpr auto call(auto &&...args)
     -> decltype(ops_internal::call<TParams...>(BEST_FWD(args)...)) {
   return ops_internal::call<TParams...>(BEST_FWD(args)...);
 }

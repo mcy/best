@@ -4,6 +4,15 @@
 //! Miscellaneous helper/portability macros.
 
 namespace best {
+/// Returns whether this program should have debug assertions enabled.
+inline constexpr bool is_debug() {
+#ifdef NDEBUG
+  return false;
+#else
+  return true;
+#endif
+}
+
 /// Stringifies a token string.
 #define BEST_STRINGIFY(...) BEST_STRINGIFY_(__VA_ARGS__)
 #define BEST_STRINGIFY_(...) #__VA_ARGS__

@@ -7,7 +7,6 @@
 
 #include "best/meta/bit_enum.h"
 #include "best/meta/internal/init.h"
-#include "best/meta/tags.h"
 
 //! Concepts for determining when a type can be initialized in a particular
 //! way.
@@ -137,68 +136,6 @@ concept destructible =
      (types<trivially> <= types<Args...> ? std::is_trivially_destructible_v<T>
                                          : std::is_destructible_v<T>));
 
-namespace init_internal {
-template <typename T>
-using filter_type = std::conditional_t<
-    best::void_type<T>, best::empty,
-    std::conditional_t<best::object_type<T>, T, best::as_ptr<T>>>;
-}  // namespace init_internal
-
-// Like alignof(), but works on multiple types; returns the maximum alignment.
-//
-// If the pack is empty, returns 1.
-template <typename... Ts>
-constexpr size_t align_of() {
-  size_t align = 1;
-  best::types<init_internal::filter_type<Ts>...>.each(
-      [&]<typename T> { align = (align > alignof(T) ? align : alignof(T)); });
-  return align;
-}
-
-// Like sizeof(), but works on multiple types; returns the size they would
-// have if laid out in an aligned struct.
-template <typename... Ts>
-constexpr size_t size_of() {
-  size_t size = 0, align = 1;
-
-  auto align_to = [&size](size_t align) {
-    auto remainder = size % align;
-    if (remainder != 0) {
-      size += align - remainder;
-    }
-  };
-
-  best::types<init_internal::filter_type<Ts>...>.each([&]<typename T> {
-    align_to(alignof(T));
-    align = (align > alignof(T) ? align : alignof(T));
-    size += sizeof(T);
-  });
-
-  align_to(align);
-  return size;
-}
-
-// Like sizeof(), but works on multiple types; returns the alignment they would
-// have if laid out in an aligned struct.
-template <typename... Ts>
-constexpr size_t size_of_union() {
-  size_t size = 0, align = 1;
-  auto align_to = [&](size_t align) {
-    auto remainder = size % align;
-    if (remainder != 0) {
-      size += align - remainder;
-    }
-  };
-
-  best::types<init_internal::filter_type<Ts>...>.each([&]<typename T> {
-    align = (align > alignof(T) ? align : alignof(T));
-    size = (size > sizeof(T) ? size : sizeof(T));
-  });
-
-  align_to(align);
-  return size;
-}
-
 /// Struct that groups most of the above information, along with some other
 /// useful data, about a list of types.
 struct init_info_t {
@@ -206,17 +143,9 @@ struct init_info_t {
   bool can_copy, trivial_copy;
   bool can_move, trivial_move;
   bool can_dtor, trivial_dtor;
-
-  /// The size of a struct/union having the element types of members.
-  /// void types are treated as empty structs, and references are treated
-  /// as pointers.
-  ///
-  /// The alignment of both is always the same.
-  size_t size, union_size;
-  size_t align;
 };
 
-/// The inti_info for a particular list of types.
+/// The init_info for a particular list of types.
 template <typename... Ts>
 inline constexpr init_info_t init_info = {
     .can_default = (best::constructible<Ts> && ...),
@@ -230,10 +159,6 @@ inline constexpr init_info_t init_info = {
 
     .can_dtor = (best::destructible<Ts> && ...),
     .trivial_dtor = (best::destructible<Ts, trivially> && ...),
-
-    .size = best::size_of<Ts...>(),
-    .union_size = best::size_of_union<Ts...>(),
-    .align = best::align_of<Ts...>(),
 };
 
 /// Options for `best::init_from`.

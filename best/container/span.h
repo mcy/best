@@ -52,10 +52,9 @@ concept static_contiguous = static_size<T>.has_value();
 
 /// Represents whether T is best::span<U, n> for some U, n.
 template <typename T>
-concept is_span =
-    std::is_same_v<std::remove_cvref_t<T>,
-                   best::span<typename std::remove_cvref_t<T>::type,
-                              std::remove_cvref_t<T>::extent>>;
+concept is_span = best::same<std::remove_cvref_t<T>,
+                             best::span<typename std::remove_cvref_t<T>::type,
+                                        std::remove_cvref_t<T>::extent>>;
 
 /// Given T = best::span<U, n>, returns U.
 template <is_span T>
@@ -65,6 +64,12 @@ using span_type = typename std::remove_cvref_t<T>::type;
 template <is_span T>
 inline constexpr best::option<size_t> span_extent =
     std::remove_cvref_t<T>::extent;
+
+// Temporary hack until BestFmt.
+template <typename Os>
+Os& operator<<(Os& os, std::byte b) {
+  return os << std::hex << int(b);
+}
 
 /// A pointer and a length.
 ///
@@ -167,8 +172,8 @@ class span final {
         extent.value_or() == best::static_size<Range>.value_or()))
       span(Range&& range,  //
            best::location loc = best::here)
-    requires best::qualifies_to<
-                 std::remove_reference_t<decltype(*std::data(range))>, T> &&
+    requires best::qualifies_to<best::as_deref<decltype(*std::data(range))>,
+                                T> &&
              (is_dynamic || best::static_size<Range>.is_empty() ||
               extent == best::static_size<Range>)
       : span(std::data(range), std::size(range), loc) {}
@@ -212,7 +217,7 @@ class span final {
 
   /// Extracts a subspan.
   ///
-  /// Crashes if the requested range is out-of-bounds, returns best::none.
+  /// Crashes if the requested range is out-of-bounds.
   constexpr best::span<T> operator[](best::bounds::with_location range) const {
     auto count = range.compute_count(size());
     return as_dynamic{data() + range.start, count};
@@ -292,54 +297,7 @@ class span final {
   }
 
   /// A span iterator.
-  struct iter final {
-    constexpr iter() = default;
-
-    constexpr bool operator==(const iter& that) const = default;
-
-    constexpr decltype(auto) operator*() const { return (*this)[0]; }
-    constexpr best::as_ptr<T> operator->() const { return ptr_.operator->(); }
-    constexpr decltype(auto) operator[](size_t idx) const {
-      if constexpr (best::void_type<T>)
-        return best::empty{};
-      else {
-        return ptr_[idx];
-      }
-    }
-
-    constexpr iter& operator++() {
-      if constexpr (best::void_type<T>) --idx_;
-      ++ptr_;
-      return *this;
-    }
-    constexpr iter operator++(int) {
-      auto prev = *this;
-      ++*this;
-      return prev;
-    }
-
-    constexpr iter& operator--() {
-      if constexpr (best::void_type<T>) ++idx_;
-      --ptr_;
-      return *this;
-    }
-    constexpr iter operator--(int) {
-      auto prev = *this;
-      --*this;
-      return prev;
-    }
-
-   private:
-    friend span;
-    constexpr iter(best::object_ptr<T> ptr, size_t idx) : ptr_(ptr) {
-      if constexpr (best::void_type<T>) idx_ = idx;
-    }
-    best::object_ptr<T> ptr_;
-    [[no_unique_address]] std::conditional_t<best::void_type<T>, size_t,
-                                             best::empty>
-        idx_{};
-  };
-
+  struct iter;
   /// Spans are iterable ranges.
   constexpr iter begin() const { return {data(), size()}; }
   constexpr iter end() const { return {data() + size(), 0}; }
@@ -443,6 +401,55 @@ class span final {
 
  private:
   span_internal::repr<T, n> repr_;
+};
+
+template <typename T, best::option<size_t> n>
+struct span<T, n>::iter final {
+  constexpr iter() = default;
+
+  constexpr bool operator==(const iter& that) const = default;
+
+  constexpr decltype(auto) operator*() const { return (*this)[0]; }
+  constexpr best::as_ptr<T> operator->() const { return ptr_.operator->(); }
+  constexpr decltype(auto) operator[](size_t idx) const {
+    if constexpr (best::void_type<T>)
+      return best::empty{};
+    else {
+      return ptr_[idx];
+    }
+  }
+
+  constexpr iter& operator++() {
+    if constexpr (best::void_type<T>) --idx_;
+    ++ptr_;
+    return *this;
+  }
+  constexpr iter operator++(int) {
+    auto prev = *this;
+    ++*this;
+    return prev;
+  }
+
+  constexpr iter& operator--() {
+    if constexpr (best::void_type<T>) ++idx_;
+    --ptr_;
+    return *this;
+  }
+  constexpr iter operator--(int) {
+    auto prev = *this;
+    --*this;
+    return prev;
+  }
+
+ private:
+  friend span;
+  constexpr iter(best::object_ptr<T> ptr, size_t idx) : ptr_(ptr) {
+    if constexpr (best::void_type<T>) idx_ = idx;
+  }
+  best::object_ptr<T> ptr_;
+  [[no_unique_address]] std::conditional_t<best::void_type<T>, size_t,
+                                           best::empty>
+      idx_{};
 };
 
 inline constexpr best::option<size_t> BestStaticSize(auto,

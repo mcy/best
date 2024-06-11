@@ -155,7 +155,7 @@ class pun final {
 
  public:
   // Public so that best::pun can be structural.
-  pun_internal::impl<best::init_info<Alts...>, Alts...> BEST_PUN_IMPL_;
+  pun_internal::impl<pun_internal::info<Alts...>, Alts...> BEST_PUN_IMPL_;
 #define BEST_PUB_IMPL_ _private
 };
 }  // namespace best

@@ -112,26 +112,26 @@ class object_ptr final {
             const_cast<std::remove_const_t<typename object_ptr<U>::pointee>*>(
                 ptr.raw())) {}
 
+  /// Returns a non-null but dangling pointer, which is unique for the choice of
+  /// `T`.
+  static constexpr object_ptr dangling() { return std::addressof(dangling_); }
+
   /// Pointers may be compared by address.
   template <typename U>
   constexpr bool operator==(object_ptr<U> that) const {
-    return static_cast<const volatile void*>(raw()) ==
-           static_cast<const volatile void*>(that.raw());
+    return best::addr_eq(raw(), that.raw());
   };
   template <typename U>
   constexpr std::strong_ordering operator<=>(object_ptr<U> that) const {
-    return static_cast<const volatile void*>(raw()) <=>
-           static_cast<const volatile void*>(that.raw());
+    return best::addr_cmp(raw(), that.raw());
   };
   template <typename U>
   constexpr bool operator==(U* that) const {
-    return static_cast<const volatile void*>(raw()) ==
-           static_cast<const volatile void*>(that);
+    return best::addr_eq(raw(), that);
   };
   template <typename U>
   constexpr std::strong_ordering operator<=>(U* that) const {
-    return static_cast<const volatile void*>(raw()) <=>
-           static_cast<const volatile void*>(that);
+    return best::addr_cmp(raw(), that);
   };
   constexpr operator pointee*() const { return raw(); }
 
@@ -236,6 +236,9 @@ class object_ptr final {
   {
     if constexpr (best::object_type<T>) {
       std::destroy_at(raw());
+      if (!std::is_constant_evaluated() && best::is_debug()) {
+        std::memset(raw(), 0xcd, sizeof(pointee));
+      }
     }
   }
 
@@ -252,6 +255,50 @@ class object_ptr final {
     }
   }
 
+  /// Constructs a copy of `that`'s pointee.
+  ///
+  /// `is_init` specifies whether to construct or assign in-place.
+  BEST_INLINE_SYNTHETIC constexpr void copy_from(object_ptr<const T> that,
+                                                 bool is_init) const
+    requires best::copyable<T>
+  {
+    if constexpr (!best::void_type<T>) {
+      if (is_init) {
+        assign(*that);
+      } else {
+        construct_in_place(*that);
+      }
+    }
+  }
+
+  /// Constructs a move of `that`'s pointee.
+  ///
+  /// `is_init` specifies whether to construct or assign in-place.
+  BEST_INLINE_SYNTHETIC constexpr void move_from(object_ptr that,
+                                                 bool is_init) const
+    requires best::moveable<T>
+  {
+    if constexpr (!best::void_type<T>) {
+      if (is_init) {
+        assign(static_cast<rref>(*that));
+      } else {
+        construct_in_place(static_cast<rref>(*that));
+      }
+    }
+  }
+
+  /// Relocates `that`'s pointee. In other words, this moves from and then
+  /// destroys *that.
+  ///
+  /// `is_init` specifies whether to construct or assign in-place.
+  BEST_INLINE_SYNTHETIC constexpr void relocate_from(object_ptr that,
+                                                     bool is_init) const
+    requires best::relocatable<T>
+  {
+    move_from(that, is_init);
+    that.destroy_in_place();
+  }
+
   /// Whether this value is a niche representation.
   constexpr bool is_niche() const {
     if constexpr (best::has_niche<T>) {
@@ -266,6 +313,10 @@ class object_ptr final {
 
   /// Returns the raw underlying pointer.
   constexpr pointee* raw() const { return BEST_OBJECT_PTR_; }
+
+ private:
+  inline static std::conditional_t<best::void_type<T>, best::empty, pointee>
+      dangling_;
 
  public:
   // Public for structural-ness.
@@ -344,6 +395,16 @@ class object {
   constexpr rref operator*() && { return static_cast<rref>(**this); }
   constexpr cptr operator->() const { return as_ptr().operator->(); }
   constexpr ptr operator->() { return as_ptr().operator->(); }
+
+  constexpr bool operator==(const object& that) const
+    requires best::equatable<T, T>
+  {
+    if constexpr (best::void_type<T>) {
+      return true;
+    } else {
+      return **this == *that;
+    }
+  }
 
  public:
   // Public for structural-ness.

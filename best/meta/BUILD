@@ -36,6 +36,7 @@ cc_test(
   srcs = ["init_test.cc"],
   deps = [
     ":init",
+    "//best/container:vec",
     "//best/test:fodder",
   ]
 )

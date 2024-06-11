@@ -6,6 +6,7 @@
 
 #include "best/base/port.h"
 #include "best/container/object.h"
+#include "best/memory/layout.h"
 #include "best/meta/concepts.h"
 #include "best/meta/init.h"
 #include "best/meta/tags.h"
@@ -13,6 +14,17 @@
 //! Internal implementation of best::pun.
 
 namespace best::pun_internal {
+struct info_t {
+  const init_info_t& init;
+  best::layout layout;
+};
+
+template <typename... Ts>
+inline constexpr info_t info{
+    .init = init_info<Ts...>,
+    .layout = best::layout::of_union<Ts...>(),
+};
+
 template <size_t pad_to, typename T>
 struct pad {
   static constexpr bool needs_padding = pad_to > sizeof(best::object<T>);
@@ -41,10 +53,10 @@ struct pad {
 };
 
 // A raw union.
-template <const init_info_t& info, typename... Ts>
+template <const info_t& info, typename... Ts>
 union impl;
 
-template <const init_info_t& info>
+template <const info_t& info>
 union impl<info> {
   constexpr impl() = default;
 
@@ -60,28 +72,28 @@ union impl<info> {
   constexpr const uint8_t* uninit() const { return uninit_; }
   constexpr uint8_t* uninit() { return uninit_; }
 
-  alignas(info.align) uint8_t uninit_[info.union_size];
+  alignas(info.layout.align()) uint8_t uninit_[info.layout.size()];
 };
 
-template <const init_info_t& info, typename H, typename... T>
+template <const info_t& info, typename H, typename... T>
 union BEST_RELOCATABLE impl<info, H, T...> {
  public:
   // clang-format off
-  constexpr impl() requires (info.trivial_default) = default;
-  constexpr impl() requires (!info.trivial_default) : t_{} {}
+  constexpr impl() requires (info.init.trivial_default) = default;
+  constexpr impl() requires (!info.init.trivial_default) : t_{} {}
 
-  constexpr impl(const impl&) requires (info.trivial_copy) = default;
-  constexpr impl& operator=(const impl&) requires (info.trivial_copy) = default;
-  constexpr impl(const impl&) requires (!info.trivial_copy) {}
-  constexpr impl& operator=(const impl&) requires (!info.trivial_copy) { return *this; }
+  constexpr impl(const impl&) requires (info.init.trivial_copy) = default;
+  constexpr impl& operator=(const impl&) requires (info.init.trivial_copy) = default;
+  constexpr impl(const impl&) requires (!info.init.trivial_copy) {}
+  constexpr impl& operator=(const impl&) requires (!info.init.trivial_copy) { return *this; }
 
-  constexpr impl(impl&&) requires (info.trivial_move) = default;
-  constexpr impl& operator=(impl&&) requires (info.trivial_move) = default;
-  constexpr impl(impl&&) requires (!info.trivial_move) {}
-  constexpr impl& operator=(impl&&) requires (!info.trivial_move) { return *this; }
+  constexpr impl(impl&&) requires (info.init.trivial_move) = default;
+  constexpr impl& operator=(impl&&) requires (info.init.trivial_move) = default;
+  constexpr impl(impl&&) requires (!info.init.trivial_move) {}
+  constexpr impl& operator=(impl&&) requires (!info.init.trivial_move) { return *this; }
 
-  constexpr ~impl() requires (info.trivial_dtor) = default;
-  constexpr ~impl() requires (!info.trivial_dtor) {}
+  constexpr ~impl() requires (info.init.trivial_dtor) = default;
+  constexpr ~impl() requires (!info.init.trivial_dtor) {}
   // clang-format on
 
   constexpr explicit impl(best::uninit_t) : t_(best::uninit) {}
@@ -153,7 +165,7 @@ union BEST_RELOCATABLE impl<info, H, T...> {
 
   /// NOTE: This type (and the union members) have very short names
   /// to minimize the size of mangled symbols that contain puns.
-  pad<info.union_size, H> h_;
+  pad<info.layout.size(), H> h_;
   impl<info, T...> t_;
 };
 }  // namespace best::pun_internal

@@ -17,11 +17,8 @@
 //! It is essentially std::basic_string_view with a nicer API (compare with
 //! best::span).
 //!
-//! best::encoded_buf (NYI) is a buffer that backs a best::encoded. It
-//! corresponds to std::basic_string.
-//!
-//! best::str and best::str_buf are type aliases corresponding to the UTF-8
-//! specializations of the above.
+//! best::str, best::str16, and best::str32 are type aliases corresponding to
+//! the UTF-8/16/32 specializations of the above.
 
 namespace best {
 /// An reference to contiguous textual data.

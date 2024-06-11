@@ -4,11 +4,12 @@
 
 #include <cstdlib>
 #include <iostream>
-#include <vector>
+
+#include "best/container/vec.h"
 
 namespace best {
 namespace {
-std::vector<best::test*> all_tests;
+best::vec<best::test*> all_tests;
 
 best::str symbol_name(const void* ptr, best::location loc) {
   ::Dl_info di;
@@ -33,7 +34,7 @@ inline constexpr best::str Red = "\N{ESCAPE}[31m";
 }  // namespace
 
 void test::init() {
-  all_tests.push_back(this);
+  all_tests.push(this);
   name_ = symbol_name(this, where());
 }
 
@@ -45,22 +46,22 @@ bool test::run_all(int argc, char** argv) {
   std::cout << "\n";
   std::cout << "executing " << all_tests.size() << " test(s)\n\n";
 
-  std::vector<best::test*> successes;
-  std::vector<best::test*> failures;
+  best::vec<best::test*> successes;
+  best::vec<best::test*> failures;
   for (auto* test : all_tests) {
     std::cout << Bold << "[ TEST: " << test->name() << " ]\n" << Reset;
     if (!test->run()) {
       std::cout << Bold << Red << "[ FAIL: " << test->name() << " ]\n" << Reset;
-      failures.push_back(test);
+      failures.push(test);
     } else {
       std::cout << Bold << "[ OK: " << test->name() << " ]\n" << Reset;
-      successes.push_back(test);
+      successes.push(test);
     }
   }
 
   std::cout << "\n";
   std::cout << Bold << "[ RESULTS ]\n" << Reset;
-  if (!successes.empty()) {
+  if (!successes.is_empty()) {
     std::cout << Bold << "passed " << successes.size() << " test(s) \n"
               << Reset;
     for (auto* test : successes) {
@@ -68,7 +69,7 @@ bool test::run_all(int argc, char** argv) {
     }
   }
 
-  if (!failures.empty()) {
+  if (!failures.is_empty()) {
     std::cout << Bold << Red << "failed " << failures.size() << " test(s) \n"
               << Reset;
     for (auto* test : failures) {
@@ -76,7 +77,7 @@ bool test::run_all(int argc, char** argv) {
     }
   }
 
-  return failures.empty();
+  return failures.is_empty();
 }
 }  // namespace best
 

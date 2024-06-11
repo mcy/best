@@ -44,6 +44,10 @@ using as_rref = as_ref<T, ref_kind::Rvalue>;
 template <typename T>
 using as_deref = std::remove_reference_t<T>;
 
+/// Removes cv-qualifiers from T.
+template <typename T>
+using as_dequal = std::remove_cv_t<T>;
+
 /// Adds a pointer to T, if it is a pointable type.
 ///
 /// If T is a reference, the reference is replaced with a pointer, so
