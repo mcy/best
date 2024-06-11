@@ -2,9 +2,12 @@
 #define BEST_TEST_TEST_H_
 
 #include <functional>
+#include <iomanip>
+#include <ios>
 #include <iostream>
 
 #include "best/log/location.h"
+#include "best/meta/ops.h"
 #include "best/strings/str.h"
 
 //! The best unit testing library.
@@ -133,14 +136,34 @@ class test final {
     if (!cond) {
       std::cerr << "failed " << func << "() at " << loc << "\n"
                 << "expected these values to be equal:\n"
-                << "  " << a << "\n"
-                << "  " << b << "\n";
+                << "  " << print_any{a} << "\n"
+                << "  " << print_any{b} << "\n";
       if (!message.is_empty()) {
         std::cerr << "  " << message << "\n";
       }
       failed_ = true;
     }
     return cond;
+  }
+
+  template <typename T>
+  struct print_any {
+    const T& r;
+  };
+  template <typename T>
+  print_any(T) -> print_any<T>;
+  template <typename Os, typename T>
+  friend Os& operator<<(Os& os, print_any<T> p) {
+    if constexpr (best::has_op<best::op::Shl, Os&, const T&>) {
+      return os << p.r;
+    }
+
+    os << "unprintable value: ";
+    const char* ptr = reinterpret_cast<const char*>(std::addressof(p.r));
+    for (size_t i = 0; i < sizeof(T); ++i) {
+      os << std::hex << std::setw(2) << std::setfill('0') << ptr[i];
+    }
+    return os;
   }
 
   std::function<void(test&)> body_;

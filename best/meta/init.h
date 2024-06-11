@@ -6,6 +6,7 @@
 #include <type_traits>
 
 #include "best/meta/bit_enum.h"
+#include "best/meta/concepts.h"
 #include "best/meta/internal/init.h"
 
 //! Concepts for determining when a type can be initialized in a particular
@@ -180,6 +181,14 @@ concept init_from =
         ((opts & init_by::Convert) == 0) ||
         best::convertible<T, Args...>)&&(((opts & init_by::Assign) == 0) ||
                                          best::assignable<T, Args...>);
+
+/// A callback that constructs a `T`.
+///
+/// Currently only available for object types.
+template <best::object_type T>
+inline constexpr auto ctor =
+    [](auto&&... args) -> T { return T{BEST_FWD(args)...}; };
+
 }  // namespace best
 
 #endif  // BEST_META_INIT_H_

@@ -145,6 +145,10 @@ struct bounds final {
     constexpr operator bounds() const { return to_bounds(); }
   };
 
+  constexpr operator with_location() const {
+    return {start, end, including_end, count};
+  }
+
  private:
   /// Prints a nice error for bounds check failure and crashes.
   [[noreturn]] void crash(size_t max_size, best::location loc) const;

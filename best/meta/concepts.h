@@ -6,6 +6,7 @@
 
 #include <type_traits>
 
+#include "best/base/port.h"
 #include "best/meta/internal/abominable.h"
 #include "best/meta/internal/quals.h"
 #include "best/meta/tlist.h"
@@ -65,6 +66,13 @@ using copy_quals = best::quals_internal::quals<Dst, Src>::copied;
 /// Dst, as-if by best::as_ref.
 template <typename Dst, typename Src>
 using copy_ref = best::quals_internal::refs<Dst, Src>::copied;
+
+/// Like std::move, but also works on const references to produce const&&
+/// references.
+template <typename T>
+BEST_INLINE_SYNTHETIC constexpr best::as_rref<best::as_deref<T>> move(T&& x) {
+  return static_cast<best::as_rref<best::as_deref<T>>>(x);
+}
 
 /// An object type, i.e., anything that is not a reference, a function type,
 /// or a void type.

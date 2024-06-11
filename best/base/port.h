@@ -3,6 +3,8 @@
 
 //! Miscellaneous helper/portability macros.
 
+#include <ios>
+#include <utility>
 namespace best {
 /// Returns whether this program should have debug assertions enabled.
 inline constexpr bool is_debug() {
@@ -99,6 +101,12 @@ BEST_INLINE_ALWAYS constexpr void assume(bool truth) {
 #endif
 }
 
+/// Hides a value from the compiler's optimizer.
+[[nodiscard]] BEST_INLINE_SYNTHETIC auto&& black_box(auto&& value) {
+  asm volatile("" : "+r"(value));
+  return BEST_FWD(value);
+}
+
 #if BEST_HAS_ATTRIBUTE(enable_if)
 #define BEST_HAS_ENABLE_IF 1
 
@@ -123,6 +131,17 @@ BEST_INLINE_ALWAYS constexpr void assume(bool truth) {
 #define BEST_PUSH_GCC_DIAGNOSTIC() BEST_PRAGMA(GCC diagnostic push)
 #define BEST_POP_GCC_DIAGNOSTIC() BEST_PRAGMA(GCC diagnostic push)
 #define BEST_IGNORE_GCC_DIAGNOSTIC(W_) BEST_PRAGMA(GCC diagnostic ignored W_)
+
+// HACK: Wait for BestFmt.
+template <typename Os, typename A, typename B>
+Os& operator<<(Os& os, const std::pair<A, B>& pair) {
+  return os << "(" << pair.first << ", " << pair.second << ")";
+}
+template <typename Os>
+Os& operator<<(Os& os, std::byte b) {
+  return os << "0x" << std::hex << int(b);
+}
+
 }  // namespace best
 
 #endif  // BEST_BASE_PORT_H_

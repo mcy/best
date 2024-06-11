@@ -115,6 +115,7 @@ cc_library(
   hdrs = [
     "span.h",
     "internal/span.h",
+    "span_sort.h",
   ],
   deps = [
     ":option",

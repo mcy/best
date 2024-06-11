@@ -51,24 +51,52 @@ best::test Chars = [](auto& t) {
 best::test CopyMove = [](auto& t) {
   best::vec ints = {1, 2, 3, 4, 5};
   t.expect_eq(ints.size(), 5);
-  t.expect_eq(ints, best::span{1, 2, 3, 4, 5});
+  t.expect_eq(ints, {1, 2, 3, 4, 5});
 
   auto ints2 = ints;
-  t.expect_eq(ints2, best::span{1, 2, 3, 4, 5});
+  t.expect_eq(ints2, {1, 2, 3, 4, 5});
   auto ints3 = std::move(ints);
-  t.expect_eq(ints3, best::span{1, 2, 3, 4, 5});
+  t.expect_eq(ints3, {1, 2, 3, 4, 5});
   t.expect(ints.is_empty());
 
   ints2.push(6);
-  t.expect_eq(ints2, best::span{1, 2, 3, 4, 5, 6});
+  t.expect_eq(ints2, {1, 2, 3, 4, 5, 6});
   ints = ints2;
-  t.expect_eq(ints, best::span{1, 2, 3, 4, 5, 6});
+  t.expect_eq(ints, {1, 2, 3, 4, 5, 6});
 
   ints.push(7);
   ints.push(8);
-  t.expect_eq(ints, best::span{1, 2, 3, 4, 5, 6, 7, 8});
+  t.expect_eq(ints, {1, 2, 3, 4, 5, 6, 7, 8});
   ints = std::move(ints2);
-  t.expect_eq(ints, best::span{1, 2, 3, 4, 5, 6});
+  t.expect_eq(ints, {1, 2, 3, 4, 5, 6});
+};
+
+best::test Mutations = [](auto& t) {
+  best::vec<int> v;
+  v.push(1);
+  v.append({1, 2, 3});
+  t.expect_eq(v.size(), 4);
+  t.expect_eq(v, {1, 1, 2, 3});
+
+  v.splice(2, {5, 5, 5});
+  t.expect_eq(v.size(), 7);
+  t.expect_eq(v, {1, 1, 5, 5, 5, 2, 3});
+
+  t.expect_eq(v.pop(), 3);
+  t.expect_eq(v.remove(0), 1);
+  t.expect_eq(v.remove(1), 5);
+  t.expect_eq(v.size(), 4);
+  t.expect_eq(v, {1, 5, 5, 2});
+
+  v.erase({.start = 1, .count = 2});
+  t.expect_eq(v.size(), 2);
+  t.expect_eq(v, {1, 2});
+
+  v.erase({.start = 0, .count = 2});
+  t.expect_eq(v.size(), 0);
+  t.expect_eq(v, {});
+
+  t.expect_eq(v.pop(), best::none);
 };
 
 best::test Leaky = [](auto& t) {
