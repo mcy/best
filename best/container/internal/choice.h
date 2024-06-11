@@ -52,13 +52,13 @@ class tagged {
   constexpr size_t tag() const { return tag_; }
 
   template <size_t n>
-  constexpr best::object_ptr<const type<n>> get(best::unsafe_t,
+  constexpr best::object_ptr<const type<n>> get(unsafe u,
                                                 best::index_t<n>) const {
-    return union_.object(best::unsafe, best::index<n>);
+    return union_.object(u, best::index<n>);
   }
   template <size_t n>
-  constexpr best::object_ptr<type<n>> get(best::unsafe_t, best::index_t<n>) {
-    return union_.object(best::unsafe, best::index<n>);
+  constexpr best::object_ptr<type<n>> get(unsafe u, best::index_t<n>) {
+    return union_.object(u, best::index<n>);
   }
 
   best::pun<Ts...> union_;
@@ -95,25 +95,27 @@ class niched {
       : non_empty_(best::index<0>, BEST_FWD(args)...) {}
 
   constexpr size_t tag() const {
-    return non_empty_.object(best::unsafe, index<0>).is_niche() ? Empty
-                                                                : NonEmpty;
+    return unsafe::in([&](auto u) {
+             return non_empty_.object(u, index<0>);
+           }).is_niche()
+               ? Empty
+               : NonEmpty;
   }
 
   constexpr best::object_ptr<const type<Empty>> get(
-      best::unsafe_t, best::index_t<Empty>) const {
+      unsafe, best::index_t<Empty>) const {
     return empty_.as_ptr();
   }
-  constexpr best::object_ptr<type<Empty>> get(best::unsafe_t,
-                                              best::index_t<Empty>) {
+  constexpr best::object_ptr<type<Empty>> get(unsafe, best::index_t<Empty>) {
     return empty_.as_ptr();
   }
   constexpr best::object_ptr<const type<NonEmpty>> get(
-      best::unsafe_t, best::index_t<NonEmpty>) const {
-    return non_empty_.object(best::unsafe, index<0>);
+      unsafe u, best::index_t<NonEmpty>) const {
+    return non_empty_.object(u, index<0>);
   }
-  constexpr best::object_ptr<type<NonEmpty>> get(best::unsafe_t,
+  constexpr best::object_ptr<type<NonEmpty>> get(unsafe u,
                                                  best::index_t<NonEmpty>) {
-    return non_empty_.object(best::unsafe, index<0>);
+    return non_empty_.object(u, index<0>);
   }
 
   best::pun<type<NonEmpty>> non_empty_;
@@ -215,7 +217,9 @@ class impl : public storage<Ts...> {
     if (which == tag()) {
       if constexpr (best::object_type<type<which>> &&
                     best::assignable<type<which>, Args&&...>) {
-        get(best::unsafe, best::index<which>).assign(BEST_FWD(args)...);
+        unsafe::in([&](auto u) {
+          return get(u, best::index<which>);
+        }).assign(BEST_FWD(args)...);
         return;
       }
     }
@@ -224,28 +228,28 @@ class impl : public storage<Ts...> {
   }
 
   template <size_t which>
-  constexpr decltype(auto) deref(best::index_t<which> i = {}) const {
-    return *get(best::unsafe, i);
+  constexpr decltype(auto) deref(unsafe u, best::index_t<which> i = {}) const {
+    return *get(u, i);
   }
   template <size_t which>
-  constexpr decltype(auto) deref(best::index_t<which> i = {}) {
-    return *get(best::unsafe, i);
+  constexpr decltype(auto) deref(unsafe u, best::index_t<which> i = {}) {
+    return *get(u, i);
   }
   template <size_t which>
-  constexpr decltype(auto) move(best::index_t<which> i = {}) const {
-    return static_cast<best::as_rref<const type<which>>>(*get(best::unsafe, i));
+  constexpr decltype(auto) move(unsafe u, best::index_t<which> i = {}) const {
+    return static_cast<best::as_rref<const type<which>>>(*get(u, i));
   }
   template <size_t which>
-  constexpr decltype(auto) move(best::index_t<which> i = {}) {
-    return static_cast<best::as_rref<type<which>>>(*get(best::unsafe, i));
+  constexpr decltype(auto) move(unsafe u, best::index_t<which> i = {}) {
+    return static_cast<best::as_rref<type<which>>>(*get(u, i));
   }
   template <size_t which>
-  constexpr decltype(auto) ptr(best::index_t<which> i = {}) const {
-    return get(best::unsafe, i).operator->();
+  constexpr decltype(auto) ptr(unsafe u, best::index_t<which> i = {}) const {
+    return get(u, i).operator->();
   }
   template <size_t which>
-  constexpr decltype(auto) ptr(best::index_t<which> i = {}) {
-    return get(best::unsafe, i).operator->();
+  constexpr decltype(auto) ptr(unsafe u, best::index_t<which> i = {}) {
+    return get(u, i).operator->();
   }
 
   template <typename F>
@@ -311,13 +315,15 @@ class impl : public storage<Ts...> {
           return best::call(BEST_FWD(callback), static_cast<Empty>(arg));
         }
       } else {
-        if constexpr (best::callable<F, void(I, Type)>) {
-          return best::call(BEST_FWD(callback), tag,
-                            static_cast<Type>(*self.get(best::unsafe, tag)));
-        } else {
-          return best::call(BEST_FWD(callback),
-                            static_cast<Type>(*self.get(best::unsafe, tag)));
-        }
+        return unsafe::in([&](auto u) -> decltype(auto) {
+          if constexpr (best::callable<F, void(I, Type)>) {
+            return best::call(BEST_FWD(callback), tag,
+                              static_cast<Type>(*self.get(u, tag)));
+          } else {
+            return best::call(BEST_FWD(callback),
+                              static_cast<Type>(*self.get(u, tag)));
+          }
+        });
       }
     };
   }

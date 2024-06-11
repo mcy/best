@@ -12,52 +12,66 @@
 #include "best/meta/ops.h"
 #include "best/meta/tags.h"
 
-//! A sum type, like std::variant.
+//! A sum type, like `std::variant`.
 //!
-//! best::choice is a good tool for manipulating a value that could be one of
-//! several unrelated types. It is the foundation that other best containers,
-//! such as best::option and best::result, are based on.
+//! `best::choice` is the `best` tool for manipulating a value that could be one
+//! of several unrelated types. It is the foundation that some of the `best`
+//! containers, such as `best::option` and `best::result`, are based on.
 //!
-//! best::choice tries to approximate the spirit of Rust enums more than
-//! std::variant. For example, best::choice is never default-constructible.
+//! `best::choice` tries to approximate the spirit of Rust enums more than
+//! `std::variant`. For example, `best::choice` is never default-constructible.
 
 namespace best {
+/// # `best::choice`
+///
 /// A runtime choice among a list of types.
+///
+/// ## Construction
 ///
 /// To construct a choice, you may perform an implicit conversion to the unique
 /// alternative convertible from that value.
 ///
-///   best::choice<int, best::str> thing = "my value";
+/// ```
+/// best::choice<int, best::str> thing = "my value";
+/// ```
 ///
 /// If there is no unique choice, the index of the alternative must be specifed
 /// explicitly.
 ///
-///   best::choice<int, int> some_int{best::index<1>, 42};
+/// ```
+/// best::choice<int, int> some_int{best::index<1>, 42};
+/// ```
+///
+/// ## Access
 ///
 /// There are four options for selecting a value out of a choice.
 ///
-///   best::choice<int, int&, best::str> my_choice = ...;
+/// ```
+/// best::choice<int, int&, best::str> my_choice = ...;
 ///
-///   // Crashes on the wrong alternative.
-///   my_choice[best::index<1>] = 42;
+/// // Crashes on the wrong alternative.
+/// my_choice[best::index<1>] = 42;
 ///
-///   // Returns best::optional; none on wrong alternative.
-///   *my_choice.at(best::index<1>) = 42;
+/// // Returns best::optional; none on wrong alternative.
+/// *my_choice.at(best::index<1>) = 42;
 ///
-///   // Unchecked access! UB on wrong alternative.
-///   my_choice.at(best::unsafe, best::index<1>) = 42;
+/// // Unchecked access! UB on wrong alternative.
+/// my_choice.at(best::unsafe, best::index<1>) = 42;
 ///
-///   // Returns a pointer; null on wrong alternative.
-///   *my_choice.as_ptr(best::index<1>) = 42;
+/// // Returns a pointer; null on wrong alternative.
+/// *my_choice.as_ptr(best::index<1>) = 42;
+/// ```
 ///
-/// best::choice::match is like std::visit, and can be used to execute code
-/// depending on which alternative is present. For example:
+/// `best::choice::match()` is like `std::visit()`, and can be used to execute
+/// code depending on which alternative is present. For example:
 ///
-///   best::choice<int, void*> data = ...;
-///   auto result = ints.match(
-///      [&](int x) { ... },
-///      [&](void* p) { ... },
-///   );
+/// ```
+/// best::choice<int, void*> data = ...;
+/// auto result = ints.match(
+///   [&](int x) { ... },
+///   [&](void* p) { ... }
+/// );
+/// ```
 ///
 /// Different choice types are equatable/comparable if they have the same number
 /// of alternatives and each respective alternative is equatable/comparable.
@@ -65,9 +79,14 @@ namespace best {
 template <typename... Alts>
 class choice final {
  public:
+  /// # `choice::types`
+  ///
+  /// A `tlist` of the alternatives in this choice.
   static constexpr auto types = best::types<Alts...>;
 
-  /// Gets the nth type in this union.
+  /// # `choice::type<n>`
+  ///
+  /// Gets the nth type in this choice.
   template <size_t n>
   using type = decltype(types)::template type<n>;
 
@@ -80,9 +99,10 @@ class choice final {
   template <size_t n> using ptr = best::as_ptr<type<n>>;
   // clang-format on
 
-  /// Copy/move constructors.
+  /// # `pun::pun(pun)`.
   ///
-  /// best::optional calls the copy constructors of T when nonempty.
+  /// These forward to the appropriate move/copy constructor of the
+  /// corresponding alternative.
   constexpr choice(const choice&) = default;
   constexpr choice& operator=(const choice&) = default;
   constexpr choice(choice&&) = default;
@@ -94,17 +114,18 @@ class choice final {
       []<typename T> { return best::convertible<T, best::as_rref<Arg>>; });
 
  public:
-  /// Implicit choice constructor.
+  /// # `pun::pun(x)`
   ///
-  /// This constructs the unique alternative that can be converted to from Arg.
+  /// Constructs the unique alternative that can be converted to from `Arg`.
+  /// If there is no such alternative, this constructor is deleted.
   template <typename Arg>
   constexpr choice(Arg&& arg)
     requires(convert_from<Arg>.has_value())
       : choice(best::index<*convert_from<Arg>>, BEST_FWD(arg)) {}
 
-  /// Explicit choice constructor
+  /// # `pun::pun(index<n>, x)`
   ///
-  /// This constructs the nth alternative from the given arguments.
+  /// Constructs the `n`th alternative from the given arguments, in-place.
   template <size_t n, typename... Args>
   constexpr explicit(sizeof...(Args) == 0)
       choice(best::index_t<n> tag, Args&&... args)
@@ -116,96 +137,63 @@ class choice final {
     requires best::constructible<type<n>, decltype(il), Args...>
       : BEST_CHOICE_IMPL_(tag, il, BEST_FWD(args)...) {}
 
-  /// Returns which of the types is the currently engaged one.
+  /// # `pun::which()`.
+  ///
+  /// Returns the index of the current alternative.
   constexpr size_t which() const { return impl().tag(); }
 
-  /// Returns the nth alternative, without checking the tag.
+  /// # `pun[index<n>]`
   ///
-  /// If which() != n, crashes.
-  template <size_t n>
-  constexpr cref<n> operator[](best::index_t<n> idx) const& {
-    check_ok(idx.value);
-    return impl().deref(idx);
-  }
-  template <size_t n>
-  constexpr ref<n> operator[](best::index_t<n> idx) & {
-    check_ok(idx.value);
-    return impl().deref(idx);
-  }
-  template <size_t n>
-  constexpr crref<n> operator[](best::index_t<n> idx) const&& {
-    check_ok(idx.value);
-    return impl().move(idx);
-  }
-  template <size_t n>
-  constexpr rref<n> operator[](best::index_t<n> idx) && {
-    check_ok(idx.value);
-    return impl().move(idx);
-  }
+  /// Returns the `n`th alternative. If `which() != n`, crashes.
+  // clang-format off
+  template <size_t n> constexpr cref<n> operator[](best::index_t<n> idx) const&;
+  template <size_t n> constexpr ref<n> operator[](best::index_t<n> idx) &;
+  template <size_t n> constexpr crref<n> operator[](best::index_t<n> idx) const&&;
+  template <size_t n> constexpr rref<n> operator[](best::index_t<n> idx) &&;
+  // clang-format on
 
-  /// Returns the nth alternative.
+  /// # `choice::at(index<n>)`
   ///
-  /// If which() != n, returns best::none.
-  template <size_t n>
-  constexpr best::option<cref<n>> at(best::index_t<n> i = {}) const& {
-    if (which() != n) return {};
-    return best::invoke([&]() -> decltype(auto) { return impl().deref(i); });
-  }
-  template <size_t n>
-  constexpr best::option<ref<n>> at(best::index_t<n> i = {}) & {
-    if (which() != n) return {};
-    return best::invoke([&]() -> decltype(auto) { return impl().deref(i); });
-  }
-  template <size_t n>
-  constexpr best::option<crref<n>> at(best::index_t<n> i = {}) const&& {
-    if (which() != n) return {};
-    return best::invoke([&]() -> decltype(auto) { return impl().move(i); });
-  }
-  template <size_t n>
-  constexpr best::option<rref<n>> at(best::index_t<n> i = {}) && {
-    if (which() != n) return {};
-    return best::invoke([&]() -> decltype(auto) { return impl().move(i); });
-  }
+  /// Returns the `n`th alternative. If `which() != n`, returns best::none.
+  // clang-format off
+  template <size_t n> constexpr best::option<cref<n>> at(best::index_t<n> = {}) const&;
+  template <size_t n> constexpr best::option<ref<n>> at(best::index_t<n> = {}) &;
+  template <size_t n> constexpr best::option<crref<n>> at(best::index_t<n> = {}) const&&;
+  template <size_t n> constexpr best::option<rref<n>> at(best::index_t<n> = {}) &&;
+  // clang-format on
 
-  /// Returns the nth alternative, without checking the tag.
+  /// # `choice::at(unsafe, index<n>)`
   ///
-  /// If which() != n, Undefined Behavior.
-  template <size_t n>
-  constexpr cref<n> at(best::unsafe_t, best::index_t<n> i = {}) const& {
-    best::assume(which() == n);
-    return impl().deref(i);
-  }
-  template <size_t n>
-  constexpr ref<n> at(best::unsafe_t, best::index_t<n> i = {}) & {
-    best::assume(which() == n);
-    return impl().deref(i);
-  }
-  template <size_t n>
-  constexpr crref<n> at(best::unsafe_t, best::index_t<n> i = {}) const&& {
-    best::assume(which() == n);
-    return impl().move(i);
-  }
-  template <size_t n>
-  constexpr rref<n> at(best::unsafe_t, best::index_t<n> i = {}) && {
-    best::assume(which() == n);
-    return impl().move(i);
-  }
+  /// Returns the `n`th alternative, without checking the tag. If
+  /// `which() != n`, Undefined Behavior.
+  // clang-format off
+  template <size_t n> constexpr cref<n> at(unsafe, best::index_t<n> = {}) const&;
+  template <size_t n> constexpr ref<n> at(unsafe, best::index_t<n> = {}) &;
+  template <size_t n> constexpr crref<n> at(unsafe, best::index_t<n> = {}) const&&;
+  template <size_t n> constexpr rref<n> at(unsafe, best::index_t<n> = {}) &&;
+  // clang-format on
 
-  /// Extracts the nth value of this option as a pointer.
+  /// # `choice::as_ptr()`
   ///
-  /// Returns nullptr if this is not the current alternative.
+  /// Extracts the `n`th alternative as a pointer. Returns `nullptr` if
+  /// `which() != n`.
   template <size_t n>
   constexpr cptr<n> as_ptr(best::index_t<n> i = {}) const {
-    return which() != n ? nullptr : impl().template ptr<1>();
+    return unsafe::in([&](auto u) {
+      return which() != n ? nullptr : impl().template ptr<1>(u);
+    });
   }
   template <size_t n>
   constexpr ptr<n> as_ptr(best::index_t<n> i = {}) {
-    return which() != n ? nullptr : impl().template ptr<1>();
+    return unsafe::in([&](auto u) {
+      return which() != n ? nullptr : impl().template ptr<1>(u);
+    });
   }
 
-  /// Constructs a new value in place.
+  /// # `choice::emplace()`
   ///
-  /// Returns a ref to the newly constructed value.
+  /// Constructs a new value, in place. Returns a reference to the newly
+  /// constructed value.
   template <size_t n, typename... Args>
   constexpr ref<n> emplace(best::index_t<n> t = {}, Args&&... args)
     requires best::constructible<type<n>, Args&&...>
@@ -218,41 +206,35 @@ class choice final {
     return *at(t);
   }
 
+  /// # `choice::match()`
+  ///
   /// Calls one of `cases` (chosen by overload resolution) on the currently
   /// chosen alternative.
   ///
-  /// The chosen callback is, where n is the current alternative, the callback
-  /// that matches the following concept (in order):
+  /// The chosen callback is, where `n` is the current alternative, the callback
+  /// that matches the first concept in this list:
   ///
-  /// - best::callable<void(best::index_t<n>, ref<n>)>
-  /// - best::callable<void(ref<n>)>
+  /// - `best::callable<void(best::index_t<n>, ref<n>)>`
+  /// - `best::callable<void(ref<n>)>`
   ///
-  /// If type<n> is void, the list is instead
+  /// If `choice::type<n>` is void, the list is instead:
   ///
-  /// - best::callable<void(best_index_t<n>)>
-  /// - best::callable<void()>
-  /// - best::callable<void(best_index_t<n>, best::empty)>
-  /// - best::callable<void(best::empty)>
-  constexpr decltype(auto) match(auto... cases) const& {
-    return impl().match(choice_internal::Overloaded(BEST_FWD(cases)...));
-  }
-  constexpr decltype(auto) match(auto... cases) & {
-    return impl().match(choice_internal::Overloaded(BEST_FWD(cases)...));
-  }
-  constexpr decltype(auto) match(auto... cases) const&& {
-    return moved().impl().match(
-        choice_internal::Overloaded(BEST_FWD(cases)...));
-  }
-  constexpr decltype(auto) match(auto... cases) && {
-    return moved().impl().match(
-        choice_internal::Overloaded(BEST_FWD(cases)...));
-  }
+  /// - `best::callable<void(best::index_t<n>)>`
+  /// - `best::callable<void()>`
+  /// - `best::callable<void(best::index_t<n>, best::empty)>`
+  /// - `best::callable<void(best::empty)>`
+  constexpr decltype(auto) match(auto... cases) const&;
+  constexpr decltype(auto) match(auto... cases) &;
+  constexpr decltype(auto) match(auto... cases) const&&;
+  constexpr decltype(auto) match(auto... cases) &&;
 
+  /// # `choice::permute()`
+  ///
   /// Permutes the order of the elements in this choice according to the given
   /// permutation.
   ///
-  /// For example, if we call best::choice<A, B, C>::permute<2, 0, 1>(), we'll
-  /// get a best::choice<C, A, B>().
+  /// For example, if we call `best::choice<A, B, C>::permute<2, 0, 1>()`, we'll
+  /// get a `best::choice<C, A, B>`.
   template <
       auto... p,  //
       auto inverse = choice_internal::InvertedPermutation<types.size(), p...>>
@@ -356,6 +338,124 @@ class choice final {
   // name.
 #define BEST_CHOICE_IMPL_ private_
 };
+
+/// --- IMPLEMENTATION DETAILS BELOW ---
+
+template <typename... A>
+template <size_t n>
+constexpr choice<A...>::cref<n> choice<A...>::operator[](
+    best::index_t<n> idx) const& {
+  return unsafe::in([&](auto u) -> decltype(auto) {
+    return check_ok(idx.value), impl().deref(u, idx);
+  });
+}
+template <typename... A>
+template <size_t n>
+constexpr choice<A...>::ref<n> choice<A...>::operator[](
+    best::index_t<n> idx) & {
+  return unsafe::in([&](auto u) -> decltype(auto) {
+    return check_ok(idx.value), impl().deref(u, idx);
+  });
+}
+template <typename... A>
+template <size_t n>
+constexpr choice<A...>::crref<n> choice<A...>::operator[](
+    best::index_t<n> idx) const&& {
+  return unsafe::in([&](auto u) -> decltype(auto) {
+    return check_ok(idx.value), impl().move(u, idx);
+  });
+}
+template <typename... A>
+template <size_t n>
+constexpr choice<A...>::rref<n> choice<A...>::operator[](
+    best::index_t<n> idx) && {
+  return unsafe::in([&](auto u) -> decltype(auto) {
+    return check_ok(idx.value), impl().move(u, idx);
+  });
+}
+
+template <typename... A>
+template <size_t n>
+constexpr best::option<typename choice<A...>::template cref<n>>
+choice<A...>::at(best::index_t<n> i) const& {
+  if (which() != n) return {};
+
+  return unsafe::in([&](auto u) -> decltype(auto) {
+    return best::invoke([&]() -> decltype(auto) { return impl().deref(u, i); });
+  });
+}
+template <typename... A>
+template <size_t n>
+constexpr best::option<typename choice<A...>::template ref<n>> choice<A...>::at(
+    best::index_t<n> i) & {
+  if (which() != n) return {};
+
+  return unsafe::in([&](auto u) -> decltype(auto) {
+    return best::invoke([&]() -> decltype(auto) { return impl().deref(u, i); });
+  });
+}
+template <typename... A>
+template <size_t n>
+constexpr best::option<typename choice<A...>::template crref<n>>
+choice<A...>::at(best::index_t<n> i) const&& {
+  if (which() != n) return {};
+
+  return unsafe::in([&](auto u) -> decltype(auto) {
+    return best::invoke([&]() -> decltype(auto) { return impl().move(u, i); });
+  });
+}
+template <typename... A>
+template <size_t n>
+constexpr best::option<typename choice<A...>::template rref<n>>
+choice<A...>::at(best::index_t<n> i) && {
+  if (which() != n) return {};
+
+  return unsafe::in([&](auto u) -> decltype(auto) {
+    return best::invoke([&]() -> decltype(auto) { return impl().move(u, i); });
+  });
+}
+
+template <typename... A>
+template <size_t n>
+constexpr choice<A...>::cref<n> choice<A...>::at(best::unsafe u,
+                                                 best::index_t<n> i) const& {
+  return best::assume(which() == n), impl().deref(u, i);
+}
+template <typename... A>
+template <size_t n>
+constexpr choice<A...>::ref<n> choice<A...>::at(best::unsafe u,
+                                                best::index_t<n> i) & {
+  return best::assume(which() == n), impl().deref(u, i);
+}
+template <typename... A>
+template <size_t n>
+constexpr choice<A...>::crref<n> choice<A...>::at(best::unsafe u,
+                                                  best::index_t<n> i) const&& {
+  return best::assume(which() == n), impl().move(u, i);
+}
+template <typename... A>
+template <size_t n>
+constexpr choice<A...>::rref<n> choice<A...>::at(best::unsafe u,
+                                                 best::index_t<n> i) && {
+  return best::assume(which() == n), impl().move(u, i);
+}
+
+template <typename... A>
+constexpr decltype(auto) choice<A...>::match(auto... cases) const& {
+  return impl().match(choice_internal::Overloaded(BEST_FWD(cases)...));
+}
+template <typename... A>
+constexpr decltype(auto) choice<A...>::match(auto... cases) & {
+  return impl().match(choice_internal::Overloaded(BEST_FWD(cases)...));
+}
+template <typename... A>
+constexpr decltype(auto) choice<A...>::match(auto... cases) const&& {
+  return moved().impl().match(choice_internal::Overloaded(BEST_FWD(cases)...));
+}
+template <typename... A>
+constexpr decltype(auto) choice<A...>::match(auto... cases) && {
+  return moved().impl().match(choice_internal::Overloaded(BEST_FWD(cases)...));
+}
 }  // namespace best
 
 #endif  // BEST_CONTAINER_CHOICE_H_

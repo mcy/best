@@ -102,11 +102,9 @@ class option final {
 
   template <typename U>
   static constexpr bool not_forbidden_conversion =
-      (!std::is_same_v<best::in_place_t, std::remove_cvref_t<U>>)&&(
-          !std::is_same_v<
-              option,
-              std::remove_cvref_t<U>>)&&(!std::is_same_v<bool,
-                                                         std::remove_cv_t<T>>);
+      (!std::is_same_v<best::in_place_t, std::remove_cvref_t<U>>)&&  //
+      (!std::is_same_v<option, std::remove_cvref_t<U>>)&&            //
+      (!std::is_same_v<bool, std::remove_cv_t<T>>);
 
  public:
   /// Helper type aliases.
@@ -301,18 +299,10 @@ class option final {
   /// # `option::value()`.
   ///
   /// Extracts the value of this option. Crashes if `this->is_empty()`.
-  constexpr cref value(best::location loc = best::here) const& {
-    return check_ok(loc), value(best::unsafe);
-  }
-  constexpr ref value(best::location loc = best::here) & {
-    return check_ok(loc), value(best::unsafe);
-  }
-  constexpr crref value(best::location loc = best::here) const&& {
-    return check_ok(loc), moved().value(best::unsafe);
-  }
-  constexpr rref value(best::location loc = best::here) && {
-    return check_ok(loc), moved().value(best::unsafe);
-  }
+  constexpr cref value(best::location loc = best::here) const&;
+  constexpr ref value(best::location loc = best::here) &;
+  constexpr crref value(best::location loc = best::here) const&&;
+  constexpr rref value(best::location loc = best::here) &&;
 
   /// # `option::value_or(...)`
   ///
@@ -344,18 +334,12 @@ class option final {
   ///
   /// Extracts the value of this option without checking. Undefined behavior if
   /// `this->is_empty()`.
-  constexpr cref value(best::unsafe_t) const& {
-    return impl().at(best::unsafe, index<1>);
+  constexpr cref value(unsafe u) const& { return impl().at(u, index<1>); }
+  constexpr ref value(unsafe u) & { return impl().at(u, index<1>); }
+  constexpr crref value(unsafe u) const&& {
+    return moved().impl().at(u, index<1>);
   }
-  constexpr ref value(best::unsafe_t) & {
-    return impl().at(best::unsafe, index<1>);
-  }
-  constexpr crref value(best::unsafe_t) const&& {
-    return moved().impl().at(best::unsafe, index<1>);
-  }
-  constexpr rref value(best::unsafe_t) && {
-    return moved().impl().at(best::unsafe, index<1>);
-  }
+  constexpr rref value(unsafe u) && { return moved().impl().at(u, index<1>); }
 
   /// # `option::operator*, option::operator->`
   ///
@@ -620,6 +604,29 @@ template <best::object_type, best::option<size_t>>
 class span;
 
 /// --- IMPLEMENTATION DETAILS BELOW ---
+
+template <typename T>
+constexpr option<T>::cref option<T>::value(best::location loc) const& {
+  return unsafe::in(
+      [&](auto u) -> decltype(auto) { return check_ok(loc), value(u); });
+}
+template <typename T>
+constexpr option<T>::ref option<T>::value(best::location loc) & {
+  return unsafe::in(
+      [&](auto u) -> decltype(auto) { return check_ok(loc), value(u); });
+}
+template <typename T>
+constexpr option<T>::crref option<T>::value(best::location loc) const&& {
+  return unsafe::in([&](auto u) -> decltype(auto) {
+    return check_ok(loc), moved().value(u);
+  });
+}
+template <typename T>
+constexpr option<T>::rref option<T>::value(best::location loc) && {
+  return unsafe::in([&](auto u) -> decltype(auto) {
+    return check_ok(loc), moved().value(u);
+  });
+}
 
 template <typename T>
 constexpr auto option<T>::map(auto&& f) const& {

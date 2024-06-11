@@ -52,13 +52,6 @@ inline constexpr index_t<n> index;
 /// "uninitialized" value.
 struct uninit_t {};
 inline constexpr uninit_t uninit;
-
-/// A tag for unchecked/unsafe operations.
-///
-/// Functions and constructors that perform a potentially-UB causing operation
-/// that is possible to assert against should take this as their first argument.
-struct unsafe_t {};
-inline constexpr unsafe_t unsafe;
 }  // namespace best
 
 #endif  // BEST_META_TAGS_H_

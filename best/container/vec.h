@@ -260,10 +260,8 @@ class vec final {
   ///
   /// Extracts a single element. If the requested index is out-of-bounds,
   /// Undefined Behavior.
-  const T& at(best::unsafe_t u, size_t idx) const {
-    return as_span().at(u, idx);
-  }
-  T& at(best::unsafe_t u, size_t idx) { return as_span().at(u, idx); }
+  const T& at(unsafe u, size_t idx) const { return as_span().at(u, idx); }
+  T& at(unsafe u, size_t idx) { return as_span().at(u, idx); }
 
   /// # `vec::at({.start = ...})`
   ///
@@ -280,10 +278,10 @@ class vec final {
   ///
   /// Extracts a subspan. If the requested range is out-of-bounds, returns
   /// best::none.
-  best::span<const T> at(best::unsafe_t u, best::bounds range) const {
+  best::span<const T> at(unsafe u, best::bounds range) const {
     return as_span().at(u, range);
   }
-  best::span<T> at(best::unsafe_t u, best::bounds range) {
+  best::span<T> at(unsafe u, best::bounds range) {
     return as_span().at(u, range);
   }
 
@@ -407,7 +405,9 @@ class vec final {
   ///
   /// Ensures that pushing an additional `count` elements would not cause this
   /// vector to resize, by resizing the internal array eagerly.
-  void reserve(size_t count) { resize_uninit(best::unsafe, size() + count); }
+  void reserve(size_t count) {
+    unsafe::in([&](auto u) { resize_uninit(u, size() + count); });
+  }
 
   /// # `vec::truncate()`.
   ///
@@ -415,13 +415,13 @@ class vec final {
   /// If `count > size()`, this function does nothing.
   void truncate(size_t count) {
     if (count > size()) return;
-    resize_uninit(best::unsafe, count);
+    unsafe::in([&](auto u) { resize_uninit(u, count); });
   }
 
   /// # `vec::set_size()`.
   ///
   /// Sets the size of this vector. `new_size` must be less than `capacity()`.
-  void set_size(unsafe_t, size_t new_size);
+  void set_size(unsafe, size_t new_size);
 
   /// # `vec::push()`.
   ///
@@ -442,7 +442,7 @@ class vec final {
   ref insert(size_t idx, Args&&... args)
     requires best::constructible<T, Args&&...>
   {
-    auto ptr = insert_uninit(best::unsafe, idx, 1);
+    auto ptr = unsafe::in([&](auto u) { return insert_uninit(u, idx, 1); });
     ptr.construct_in_place(BEST_FWD(args)...);
     return *ptr;
   }
@@ -464,7 +464,8 @@ class vec final {
   void splice(size_t idx, const Range& range)
     requires best::constructible<T, decltype(*std::data(range))>
   {
-    auto ptr = insert_uninit(best::unsafe, idx, std::size(range));
+    auto ptr = unsafe::in(
+        [&](auto u) { return insert_uninit(u, idx, std::size(range)); });
     best::span(ptr, std::size(range)).emplace_from(best::span(range));
   }
 
@@ -477,7 +478,7 @@ class vec final {
         (data() + i).destroy_in_place();
       }
     }
-    set_size(best::unsafe, 0);
+    unsafe::in([&](auto u) { set_size(u, 0); });
   }
 
   /// # `best::pop()`
@@ -503,9 +504,11 @@ class vec final {
   void erase(best::bounds bounds) {
     auto range = operator[](bounds);
     range.destroy_in_place();
-    shift_within(best::unsafe, bounds.start, bounds.start + range.size(),
-                 size() - bounds.start + range.size());
-    set_size(best::unsafe, size() - range.size());
+    best::unsafe::in([&](auto u) {
+      shift_within(u, bounds.start, bounds.start + range.size(),
+                   size() - bounds.start + range.size());
+      set_size(u, size() - range.size());
+    });
   }
 
   /// # `vec::assign()`.
@@ -524,7 +527,7 @@ class vec final {
   /// The caller is responsible for ensuring that the slots are actually
   /// initialized before performing further vector operations, such as
   /// pushing or calling the destructor.
-  best::object_ptr<T> insert_uninit(best::unsafe_t, size_t start, size_t count);
+  best::object_ptr<T> insert_uninit(unsafe, size_t start, size_t count);
 
   /// # `vec::resize_uninit()`
   ///
@@ -532,7 +535,7 @@ class vec final {
   /// the requested size is smaller than the current size, this destroys
   /// elements as-needed. If the requested size is greater than the capacity,
   /// this resizes the underlying buffer. Otherwise, does nothing.
-  void resize_uninit(best::unsafe_t, size_t new_size);
+  void resize_uninit(unsafe, size_t new_size);
 
   /// # `vec::shift_within()`
   ///
@@ -542,8 +545,8 @@ class vec final {
   /// NOTE! This function assumes that the destination range is uninitialized,
   /// *and* that the source range is initialized. It will not update the
   /// size of the vector; the caller is responsible for doing that themselves.
-  void shift_within(best::unsafe_t, size_t dst, size_t src, size_t count) {
-    as_span().shift_within(best::unsafe, dst, src, count);
+  void shift_within(unsafe u, size_t dst, size_t src, size_t count) {
+    as_span().shift_within(u, dst, src, count);
   }
 
   /// # `vec::spill_to_heap()`
@@ -690,7 +693,7 @@ void vec<T, max_inline, A>::move_construct(vec&& that, bool assign) {
   } else if (!assign || alloc_ == that.alloc_) {
     auto old_size = size();
     auto new_size = that.size();
-    resize_uninit(best::unsafe, new_size);
+    best::unsafe::in([&](auto u) { resize_uninit(u, new_size); });
     for (size_t i = 0; i < new_size; ++i) {
       (data() + i).relocate_from(that.data() + i, /*is_init=*/i < old_size);
     }
@@ -741,7 +744,7 @@ size_t vec<T, max_inline, A>::size() const {
   return on_heap() ? ~size_ : size_ >> (bits_of<size_t> - SizeBytes * 8);
 }
 template <best::relocatable T, size_t max_inline, best::allocator A>
-void vec<T, max_inline, A>::set_size(unsafe_t, size_t new_size) {
+void vec<T, max_inline, A>::set_size(unsafe, size_t new_size) {
   if (new_size > capacity()) {
     best::crash_internal::crash("set_len(): %zu (new_size) > %zu (capacity)",
                                 new_size, capacity());
@@ -762,30 +765,31 @@ void vec<T, max_inline, A>::set_size(unsafe_t, size_t new_size) {
 template <best::relocatable T, size_t max_inline, best::allocator A>
 void vec<T, max_inline, A>::assign(const contiguous auto& that) {
   if (best::addr_eq(this, &that)) return;
-
-  using Range = best::as_deref<decltype(that)>;
-  if constexpr (best::is_vec<Range>) {
-    if (!that.on_heap() && best::copyable<T, trivially> &&
-        best::same<T, typename Range::type> && MaxInline == Range::MaxInline) {
-      std::memcpy(this, &that, that.size() * size_of<T>);
-      set_size(best::unsafe, that.size());
-      return;
+  best::unsafe::in([&](auto u) {
+    using Range = best::as_deref<decltype(that)>;
+    if constexpr (best::is_vec<Range>) {
+      if (!that.on_heap() && best::copyable<T, trivially> &&
+          best::same<T, typename Range::type> &&
+          MaxInline == Range::MaxInline) {
+        std::memcpy(this, &that, that.size() * size_of<T>);
+        set_size(u, that.size());
+        return;
+      }
     }
-  }
 
-  auto old_size = size();
-  auto new_size = std::size(that);
-  resize_uninit(best::unsafe, new_size);
+    auto old_size = size();
+    auto new_size = std::size(that);
+    resize_uninit(u, new_size);
 
-  for (size_t i = 0; i < new_size; ++i) {
-    (data() + i).copy_from(std::data(that) + i, /*is_init=*/i < old_size);
-  }
-  set_size(best::unsafe, new_size);
+    for (size_t i = 0; i < new_size; ++i) {
+      (data() + i).copy_from(std::data(that) + i, /*is_init=*/i < old_size);
+    }
+    set_size(u, new_size);
+  });
 }
 
 template <best::relocatable T, size_t max_inline, best::allocator A>
-best::object_ptr<T> vec<T, max_inline, A>::insert_uninit(best::unsafe_t,
-                                                         size_t start,
+best::object_ptr<T> vec<T, max_inline, A>::insert_uninit(unsafe u, size_t start,
                                                          size_t count) {
   (void)as_span()[{.start = start}];  // Trigger a bounds check.
   if (count == 0) return data() + start;
@@ -798,18 +802,18 @@ best::object_ptr<T> vec<T, max_inline, A>::insert_uninit(best::unsafe_t,
   /// Relocate elements to create an empty space.
   auto end = start + count;
   if (start < size()) {
-    shift_within(best::unsafe, end, start, count);
+    shift_within(u, end, start, count);
   }
-  set_size(best::unsafe, size() + count);
+  set_size(u, size() + count);
   return data() + start;
 }
 
 template <best::relocatable T, size_t max_inline, best::allocator A>
-void vec<T, max_inline, A>::resize_uninit(best::unsafe_t, size_t new_size) {
+void vec<T, max_inline, A>::resize_uninit(unsafe u, size_t new_size) {
   auto old_size = this->size();
   if (new_size <= capacity()) {
     if (new_size < old_size) {
-      at(best::unsafe, {.start = new_size}).destroy_in_place();
+      at(u, {.start = new_size}).destroy_in_place();
     }
     return;
   }

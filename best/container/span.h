@@ -410,7 +410,7 @@ class span final {
   ///
   /// Extracts a single element. If the requested index is out-of-bounds,
   /// Undefined Behavior.
-  constexpr best::option<T&> at(best::unsafe_t, size_t idx) const {
+  constexpr best::option<T&> at(unsafe, size_t idx) const {
     return data()[idx];
   }
 
@@ -418,7 +418,7 @@ class span final {
   ///
   /// Extracts a subspan. If the requested range is out-of-bounds,
   /// Undefined Behavior.
-  constexpr best::span<T> at(best::unsafe_t, best::bounds range) const {
+  constexpr best::span<T> at(unsafe, best::bounds range) const {
     size_t count = size() - range.start;
     if (range.end) {
       count = *range.end - range.start;
@@ -588,9 +588,11 @@ class span final {
       return;
     }
 
-    for (size_t i = 0; i < to_copy; ++i) {
-      at(best::unsafe, i) = src.at(best::unsafe, i);
-    }
+    unsafe::in([&](auto u) {
+      for (size_t i = 0; i < to_copy; ++i) {
+        at(u, i) = src.at(u, i);
+      }
+    });
   }
 
   /// # `span::emplace_from()`
@@ -642,13 +644,13 @@ class span final {
   ///
   /// NOTE! This function assumes that the destination range is uninitialized,
   /// *and* that the source range is initialized.
-  constexpr void shift_within(best::unsafe_t, size_t dst, size_t src,
+  constexpr void shift_within(unsafe u, size_t dst, size_t src,
                               size_t count) const
     requires(!is_const) && is_static
   {
-    as_dynamic(*this).shift_within(best::unsafe, dst, src, count);
+    as_dynamic(*this).shift_within(u, dst, src, count);
   }
-  constexpr void shift_within(best::unsafe_t, size_t dst, size_t src,
+  constexpr void shift_within(unsafe, size_t dst, size_t src,
                               size_t count) const
     requires(!is_const) && is_dynamic;
 
@@ -807,7 +809,7 @@ span(R&& r) -> span<std::remove_reference_t<decltype(*std::data(r))>,
                     best::static_size<R>>;
 
 template <object_type T, option<size_t> n>
-constexpr void span<T, n>::shift_within(best::unsafe_t, size_t dst, size_t src,
+constexpr void span<T, n>::shift_within(unsafe u, size_t dst, size_t src,
                                         size_t count) const
   requires(!is_const) && is_dynamic
 {
@@ -846,7 +848,7 @@ constexpr void span<T, n>::shift_within(best::unsafe_t, size_t dst, size_t src,
     // Non-overlapping case.
     if constexpr (best::relocatable<T, trivially>) {
       std::memcpy(data() + dst, data() + src, count * size_of<T>);
-      at(best::unsafe, {.start = src, .count = count}).destroy_in_place();
+      at(u, {.start = src, .count = count}).destroy_in_place();
       return;
     }
 
@@ -857,7 +859,7 @@ constexpr void span<T, n>::shift_within(best::unsafe_t, size_t dst, size_t src,
     // Forward case.
     if constexpr (best::relocatable<T, trivially>) {
       std::memmove(data() + dst, data() + src, count * size_of<T>);
-      at(best::unsafe, {.start = src, .end = dst}).destroy_in_place();
+      at(u, {.start = src, .end = dst}).destroy_in_place();
       return;
     }
 
@@ -877,8 +879,7 @@ constexpr void span<T, n>::shift_within(best::unsafe_t, size_t dst, size_t src,
     // Backward case.
     if constexpr (best::relocatable<T, trivially>) {
       std::memmove(data() + dst, data() + src, count * size_of<T>);
-      at(best::unsafe, {.start = dst + count, .end = src + count})
-          .destroy_in_place();
+      at(u, {.start = dst + count, .end = src + count}).destroy_in_place();
       return;
     }
 

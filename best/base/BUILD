@@ -9,3 +9,9 @@ cc_library(
   name = "port",
   hdrs = ["port.h"],
 )
+
+cc_library(
+  name = "unsafe",
+  hdrs = ["unsafe.h"],
+  deps = [":port"],
+)
