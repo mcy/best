@@ -11,6 +11,12 @@ cc_library(
 )
 
 cc_library(
+  name = "hint",
+  hdrs = ["hint.h"],
+  deps = [":port"],
+)
+
+cc_library(
   name = "unsafe",
   hdrs = ["unsafe.h"],
   deps = [":port"],

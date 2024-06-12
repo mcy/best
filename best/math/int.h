@@ -8,18 +8,17 @@
 #include <type_traits>
 
 #include "best/base/fwd.h"
-#include "best/base/port.h"
-#include "best/math/internal/int.h"
+#include "best/base/hint.h"
 #include "best/meta/concepts.h"
 
 //! Utilities for working with primitive integer types.
-
-// Bibliography:
-//  [HD13] Warren, H. S. Jr. Hacker's Delight. 2013 Addison Wesley, 2nd ed.
+//!
+//! See also `overflow.h` and `bit.h` for more utilities.
 
 namespace best {
-/// Any primitive integer type.
+/// # `best::integer`
 ///
+/// Any primitive integer type.
 /// This explicitly excludes `bool` and non-`char` character types.
 template <typename T>
 concept integer =
@@ -28,54 +27,69 @@ concept integer =
     !best::same<best::as_dequal<T>, char16_t> &&
     !best::same<best::as_dequal<T>, char32_t>;
 
-/// Any primitive signed int.
-template <typename T>
-concept signed_int = best::integer<T> && std::is_signed_v<T>;
+/// # `best::bits_of<T>`
+///
+/// The number of bits in `Int`.
+template <integer Int>
+inline constexpr size_t bits_of = sizeof(Int) * 8;
 
-/// Any primitive unsigned int.
-template <typename T>
-concept unsigned_int = best::integer<T> && std::is_unsigned_v<T>;
-
-/// Casts an integer to its signed counterpart, if it is not already signed.
-BEST_INLINE_ALWAYS constexpr auto to_signed(integer auto x) {
-  return (std::make_signed_t<decltype(x)>)x;
-}
-
-/// Casts an integer to its unsigned counterpart, if it is not already unsigned.
-BEST_INLINE_ALWAYS constexpr auto to_unsigned(integer auto x) {
-  return (std::make_unsigned_t<decltype(x)>)x;
-}
-
+/// # `best::min_of<T>`
+///
 /// The minimum value for a particular integer type.
 template <integer Int>
 inline constexpr Int min_of = std::numeric_limits<Int>::min();
 
+/// # `best::max_of<T>`
+///
 /// The maximum value for a particular integer type.
 template <integer Int>
 inline constexpr Int max_of = std::numeric_limits<Int>::max();
-
-template <integer Int>
-inline constexpr size_t bits_of = sizeof(Int) * 8;
-
-/// Computes a "common int" type among the given integers.
+/// # `best::signed_int`
 ///
-/// This is defined to be the larges integer type among them. If any of them
-/// are unsigned, the type is also unsigned.
-template <integer... Ints>
-using common_int = decltype(best::int_internal::common<best::types<Ints...>>());
+/// Any primitive signed integer.
+template <typename T>
+concept signed_int = best::integer<T> && std::is_signed_v<T>;
 
-/// Compares two integers as if they were unsigned.
-BEST_INLINE_ALWAYS constexpr std::strong_ordering uint_cmp(integer auto x,
-                                                           integer auto y) {
-  return best::to_unsigned(x) <=> best::to_unsigned(y);
+/// # `best::to_signed()`
+///
+/// Casts an integer to its signed counterpart, if it is not already signed.
+/// This operation never loses precision.
+BEST_INLINE_ALWAYS constexpr auto to_signed(integer auto x) {
+  return (std::make_signed_t<decltype(x)>)x;
 }
 
+/// # `best::signed_cmp()`
+///
 /// Compares two integers as if they were signed.
-BEST_INLINE_ALWAYS constexpr std::strong_ordering sint_cmp(integer auto x,
-                                                           integer auto y) {
+BEST_INLINE_ALWAYS constexpr std::strong_ordering signed_cmp(integer auto x,
+                                                             integer auto y) {
   return best::to_signed(x) <=> best::to_signed(y);
 }
 
+/// # `best::unsigned_int`
+///
+/// Any primitive unsigned integer.
+template <typename T>
+concept unsigned_int = best::integer<T> && std::is_unsigned_v<T>;
+
+/// # `best::to_unsigned()`
+///
+/// Casts an integer to its unsigned counterpart, if it is not already unsigned.
+/// This operation never loses precision.
+BEST_INLINE_ALWAYS constexpr auto to_unsigned(integer auto x) {
+  return (std::make_unsigned_t<decltype(x)>)x;
+}
+
+/// # `best::unsigned_cmp()`
+///
+/// Compares two integers as if they were unsigned.
+BEST_INLINE_ALWAYS constexpr std::strong_ordering unsigned_cmp(integer auto x,
+                                                               integer auto y) {
+  return best::to_unsigned(x) <=> best::to_unsigned(y);
+}
+
+/// # `best::int_cmp()`
+///
 /// Compares two integers as if they had infinite-precision.
 BEST_INLINE_ALWAYS constexpr std::strong_ordering int_cmp(integer auto x,
                                                           integer auto y) {
@@ -86,19 +100,40 @@ BEST_INLINE_ALWAYS constexpr std::strong_ordering int_cmp(integer auto x,
   } else if (y < 0) {
     return std::strong_ordering::greater;
   } else {
-    return best::uint_cmp(x, y);
+    return best::unsigned_cmp(x, y);
   }
 }
 
-/// Casts an integer to another type, returning best::none if the cast would
+/// # `best::int_fits()`
+///
+/// Checks whether an integer is representable by another integer type.
+template <integer Int>
+BEST_INLINE_ALWAYS constexpr bool int_fits(integer auto x) {
+  return best::int_cmp(x, min_of<Int>) >= 0 &&
+         best::int_cmp(max_of<Int>, x) >= 0;
+}
+
+/// # `best::checked_cast()`
+///
+/// Casts an integer to another type, returning `best::none` if the cast would
 /// not be exact.
 template <integer Int>
 BEST_INLINE_ALWAYS constexpr best::option<Int> checked_cast(integer auto x) {
-  if (best::int_cmp(x, min_of<Int>) < 0 || best::int_cmp(max_of<Int>, x) < 0) {
-    return {};
-  }
+  if (!best::int_fits<Int>(x)) return {};
   return x;
 }
+
+/// # `best::smallest_unsigned`
+///
+/// Computes the smallest unsigned integer type that can represent `n`.
+template <uint64_t n>
+using smallest_uint_t = std::conditional_t<  //
+    best::int_fits<uint8_t>(n), uint8_t,
+    std::conditional_t<  //
+        best::int_fits<uint16_t>(n), uint16_t,
+        std::conditional_t<                         //
+            best::int_fits<uint32_t>(n), uint32_t,  //
+            uint64_t>>>;
 }  // namespace best
 
 #endif  // BEST_MATH_INT_H_

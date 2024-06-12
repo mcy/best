@@ -42,8 +42,8 @@ static_assert(best::same<best::common_int<short, signed, long>, long>);
 static_assert(
     best::same<best::common_int<short, unsigned, long>, unsigned long>);
 
-static_assert(best::uint_cmp(-1, 1) > 0);
-static_assert(best::sint_cmp(~0u, 1) < 0);
+static_assert(best::unsigned_cmp(-1, 1) > 0);
+static_assert(best::signed_cmp(~0u, 1) < 0);
 static_assert(best::int_cmp(-1, 1u) < 0);
 static_assert(best::int_cmp(-1u, 1) > 0);
 

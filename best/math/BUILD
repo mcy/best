@@ -2,10 +2,7 @@ package(default_visibility = ["//visibility:public"])
 
 cc_library(
   name = "int",
-  hdrs = [
-    "int.h",
-    "internal/int.h",
-  ],
+  hdrs = ["int.h"],
   deps = [
     "//best/base:fwd",
     "//best/meta:concepts",
@@ -24,7 +21,10 @@ cc_test(
 
 cc_library(
   name = "overflow",
-  hdrs = ["overflow.h"],
+  hdrs = [
+    "overflow.h",
+    "internal/common_int.h",
+  ],
   deps = [
     ":int",
     "//best/base:fwd",

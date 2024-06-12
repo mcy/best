@@ -16,6 +16,9 @@ cc_library(
     "ops.h",
     "internal/ops.h",
   ],
+  deps = [
+    "//best/base:hint",
+  ]
 )
 
 cc_library(

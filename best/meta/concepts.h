@@ -107,19 +107,6 @@ concept qualifies_to = same<T, U> || same<const T, U> || same<volatile T, U> ||
 template <typename T>
 concept can_memcmp =
     std::is_integral_v<T> || std::is_enum_v<T> || std::is_pointer_v<T>;
-
-/// Computes the smallest unsigned integer type that can represent `n`.
-// TODO: move to the integers header.
-template <uint64_t n>
-struct smallest_uint
-    : std::conditional<
-          n <= UINT8_MAX, uint8_t,
-          std::conditional_t<
-              n <= UINT16_MAX, uint16_t,
-              std::conditional_t<n <= UINT32_MAX, uint32_t, uint64_t>>> {};
-template <uint64_t n>
-using smallest_uint_t = smallest_uint<n>::type;
-
 }  // namespace best
 
 #endif  // BEST_META_CONCEPTS_H_

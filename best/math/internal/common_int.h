@@ -1,5 +1,5 @@
-#ifndef BEST_MATH_INTERNAL_INT_H_
-#define BEST_MATH_INTERNAL_INT_H_
+#ifndef BEST_MATH_INTERNAL_COMMON_INT_H_
+#define BEST_MATH_INTERNAL_COMMON_INT_H_
 
 #include <stddef.h>
 
@@ -29,4 +29,4 @@ template <auto ints, bool u = any_unsigned(ints),
 std::conditional_t<u, std::make_unsigned_t<W>, W> common();
 }  // namespace best::int_internal
 
-#endif  // BEST_MATH_INTERNAL_INT_H_
+#endif  // BEST_MATH_INTERNAL_COMMON_INT_H_

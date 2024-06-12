@@ -16,70 +16,71 @@
 
 //! Objectification: turn any C++ type into a something you can use as a class
 //! member.
+//!
+//! Not all C++ types are created equal. Most are "object types", which is
+//! anything that is not a reference type, a function type (like `int(int)`)
+//! or `void`.
+//!
+//! `best::object` is a workaround for this. For example, `best::object<T&>` is
+//! just a weird pointer.
 
 namespace best {
-template <typename>
-class object;
-
-/// Completely identical to std::invoke, except that if F returns void, it
-/// returns best::empty instead.
-template <typename F, typename... Args>
-BEST_INLINE_SYNTHETIC constexpr decltype(auto) invoke(F&& f, Args&&... args)
-  requires std::invocable<F, Args...>
-{
-  if constexpr (best::void_type<std::invoke_result_t<F, Args...>>) {
-    std::invoke(BEST_FWD(f), BEST_FWD(args)...);
-    return best::empty{};
-  } else {
-    return std::invoke(BEST_FWD(f), BEST_FWD(args)...);
-  }
-}
-
+/// # `best::niche`
+///
 /// A tag for constructing niche representations.
 ///
-/// A niche representation of a type T is a best::object<T> that contains an
-/// otherwise invalid value of T. No operations need to be valid for a niche
+/// A niche representation of a type `T` is a `best::object<T>` that contains an
+/// otherwise invalid value of `T`. No operations need to be valid for a niche
 /// representation, not even the destructor.
 ///
-/// If T has a niche representation, it must satisfy best::constructible<T,
-/// niche> and best::equatable<T, niche>. Only the niche representation
-/// (obtained only by constructing from a best::niche) must compare as equal
-/// to best::niche.
+/// If `T` has a niche representation, it must satisfy `best::constructible<T,
+/// niche>` and `best::equatable<T, niche>`. Only the niche representation
+/// (obtained only by constructing from a `best::niche`) must compare as equal
+/// to `best::niche`.
 ///
 /// Niche representations are used for compressing the layout of some types,
-/// such as best::choice.
+/// such as `best::choice`.
 struct niche final {};
 
+/// # `best::has_niche`
+///
 /// Whether T is a type with a niche.
 template <typename T>
 concept has_niche = best::ref_type<T> || (best::object_type<T> &&
                                           best::constructible<T, best::niche> &&
                                           best::equatable<T, best::niche>);
 
-/// A pointer to a possibly non-object T.
+/// # `best::object_ptr<T>`
+///
+/// A pointer to a possibly non-object `T`.
 ///
 /// This allows creating a handle to a possibly non-object type that can be
 /// manipulated in a consistent manner.
 ///
 /// The mapping is as follows:
 ///
-///   best::object_type T          -> T*
-///   best::ref_type T             -> const base::as_ptr<T>*
-///   best::abominable_func_type T -> const base::as_ptr<T>*
-///   best::void_type T            -> void*
-///
+/// ```text
+/// best::object_type T          -> T*
+/// best::ref_type T             -> const base::as_ptr<T>*
+/// best::abominable_func_type T -> const base::as_ptr<T>*
+/// best::void_type T            -> void*
+/// ```
 /// Note the `const` for reference types: this reflects the fact that e.g.
 /// `T& const` is just `T&`.
 ///
-/// Note that a best::object_ptr<void> is *not* a void* in so far that it does
-/// not represent a type-erased pointer.
+/// Note that a `best::object_ptr<void>` is *not* a `void*` in so far that it
+/// does not represent a type-erased pointer.
 template <typename T>
 class object_ptr final {
  public:
-  /// The wrapped type; object_ptr<T> is nominally a T*.
+  /// # `object_ptr::type`.
+  ///
+  /// The wrapped type; `object_ptr<T>` is nominally a `T*`.
   using type = T;
 
-  /// The underlying pointee type.
+  /// # `object_ptr::pointee`.
+  ///
+  /// The "true" pointee type. Internally, an `object_ptr` stores a `pointee*`.
   using pointee = std::conditional_t<best::object_type<T> || best::void_type<T>,
                                      T, const best::as_ptr<T>>;
 
@@ -90,21 +91,32 @@ class object_ptr final {
   using cptr = best::as_ptr<const T>;
   using ptr = best::as_ptr<T>;
 
+  /// # `object_ptr::object_ptr()`
+  ///
   /// Constructs a null pointer.
   constexpr object_ptr() = default;
   constexpr object_ptr(std::nullptr_t){};
 
+  /// # `object_ptr::object_ptr(object_ptr)`
+  ///
+  /// Trivially copyable.
   constexpr object_ptr(const object_ptr&) = default;
   constexpr object_ptr& operator=(const object_ptr&) = default;
   constexpr object_ptr(object_ptr&&) = default;
   constexpr object_ptr& operator=(object_ptr&&) = default;
 
-  /// Wraps an underlying pointer type.
+  /// # `object_ptr::object_ptr(ptr)`
+  ///
+  /// Wraps a C++ pointer, potentially casting it if necessary.
   template <typename U>
   constexpr explicit(!best::qualifies_to<U, pointee> && !best::void_type<T>)
       object_ptr(U* ptr)
       : BEST_OBJECT_PTR_(ptr) {}
 
+  /// # `object_ptr::object_ptr(object_ptr<U>)`
+  ///
+  /// Wraps an `object_ptr` of a different type, potentially casting it if
+  /// necessary.
   template <typename U>
   constexpr explicit(!best::qualifies_to<U, pointee> && !best::void_type<T>)
       object_ptr(object_ptr<U> ptr)
@@ -112,9 +124,16 @@ class object_ptr final {
             const_cast<std::remove_const_t<typename object_ptr<U>::pointee>*>(
                 ptr.raw())) {}
 
+  /// # `object_ptr::dangling()`
+  ///
   /// Returns a non-null but dangling pointer, which is unique for the choice of
   /// `T`.
   static constexpr object_ptr dangling() { return std::addressof(dangling_); }
+
+  /// # `object_ptr::raw()`.
+  ///
+  /// Returns the raw underlying pointer.
+  constexpr pointee* raw() const { return BEST_OBJECT_PTR_; }
 
   /// Pointers may be compared by address.
   template <typename U>
@@ -135,10 +154,12 @@ class object_ptr final {
   };
   constexpr operator pointee*() const { return raw(); }
 
+  /// # `object_ptr::operator*`, `object_ptr::operator->`
+  ///
   /// Dereferences this pointer.
   ///
-  /// For example, this will dereference the wrapping pointer of a T&, so
-  /// if T = U&, then raw = U** and this dereferences that twice.
+  /// For example, this will dereference the wrapping pointer of a `T&`, so
+  /// if `T = U&`, then `raw = U**` and this dereferences that twice.
   constexpr ref operator*() const {
     if constexpr (best::object_type<T>) {
       return *raw();
@@ -148,8 +169,17 @@ class object_ptr final {
       return **raw();
     }
   }
+  BEST_INLINE_SYNTHETIC constexpr ptr operator->() const {
+    if constexpr (best::object_type<T> || best::void_type<T>) {
+      return raw();
+    } else {
+      return *raw();
+    }
+  }
 
-  /// Performs raw pointer arithmetic.
+  /// # `object_ptr[idx]`, `object_ptr::operator+`, `object_ptr::operator-`
+  ///
+  /// Performs unchecked pointer arithmetic in the way you'd expect.
   constexpr ref operator[](size_t idx) const { return *(*this + idx); }
 
   constexpr object_ptr operator+(ptrdiff_t idx) const {
@@ -188,23 +218,13 @@ class object_ptr final {
     return *this;
   }
 
-  /// Converts a reference to as_object<T> to as_ptr<T>.
+  /// # `object_ptr::construct_in_place()`
   ///
-  /// For example, this will return the wrapping pointer of a T&, or take
-  /// the address of an object.
-  BEST_INLINE_SYNTHETIC constexpr ptr operator->() const {
-    if constexpr (best::object_type<T> || best::void_type<T>) {
-      return raw();
-    } else {
-      return *raw();
-    }
-  }
-
   /// Constructs in place according to the constructors valid per
-  /// best::constructible.
+  /// `best::constructible`.
   ///
   /// Note that this function implicitly casts away an untracked const if called
-  /// on an object_ptr<T&> or object_ptr<T()>.
+  /// on an `object_ptr<T&>` or `object_ptr<T()>`.
   template <typename... Args>
   BEST_INLINE_SYNTHETIC constexpr void construct_in_place(Args&&... args) const
     requires best::constructible<T, Args&&...>
@@ -219,7 +239,10 @@ class object_ptr final {
     }
   }
 
-  /// Constructs a niche representation in-place.
+  /// # `object_ptr::construct_in_place(niche)`
+  ///
+  /// Constructs a niche representation in-place. Note that references have a
+  /// niche: the null pointer.
   BEST_INLINE_SYNTHETIC constexpr void construct_in_place(niche) const
     requires best::has_niche<T>
   {
@@ -230,75 +253,8 @@ class object_ptr final {
     }
   }
 
-  /// Destroys the pointed to object in place.
-  BEST_INLINE_SYNTHETIC constexpr void destroy_in_place() const
-    requires best::destructible<T>
-  {
-    if constexpr (best::object_type<T>) {
-      std::destroy_at(raw());
-      if (!std::is_constant_evaluated() && best::is_debug()) {
-        std::memset(raw(), 0xcd, sizeof(pointee));
-      }
-    }
-  }
-
-  /// Constructs in place according to the constructors valid per
-  /// best::constructible.
-  template <typename... Args>
-  BEST_INLINE_SYNTHETIC constexpr void assign(Args&&... args) const
-    requires best::assignable<T, Args&&...>
-  {
-    if constexpr (best::object_type<T>) {
-      **this = (BEST_FWD(args), ...);
-    } else {
-      construct_in_place(BEST_FWD(args)...);
-    }
-  }
-
-  /// Constructs a copy of `that`'s pointee.
+  /// # `object_ptr::is_niche()`
   ///
-  /// `is_init` specifies whether to construct or assign in-place.
-  BEST_INLINE_SYNTHETIC constexpr void copy_from(object_ptr<const T> that,
-                                                 bool is_init) const
-    requires best::copyable<T>
-  {
-    if constexpr (!best::void_type<T>) {
-      if (is_init) {
-        assign(*that);
-      } else {
-        construct_in_place(*that);
-      }
-    }
-  }
-
-  /// Constructs a move of `that`'s pointee.
-  ///
-  /// `is_init` specifies whether to construct or assign in-place.
-  BEST_INLINE_SYNTHETIC constexpr void move_from(object_ptr that,
-                                                 bool is_init) const
-    requires best::moveable<T>
-  {
-    if constexpr (!best::void_type<T>) {
-      if (is_init) {
-        assign(static_cast<rref>(*that));
-      } else {
-        construct_in_place(static_cast<rref>(*that));
-      }
-    }
-  }
-
-  /// Relocates `that`'s pointee. In other words, this moves from and then
-  /// destroys *that.
-  ///
-  /// `is_init` specifies whether to construct or assign in-place.
-  BEST_INLINE_SYNTHETIC constexpr void relocate_from(object_ptr that,
-                                                     bool is_init) const
-    requires best::relocatable<T>
-  {
-    move_from(that, is_init);
-    that.destroy_in_place();
-  }
-
   /// Whether this value is a niche representation.
   constexpr bool is_niche() const {
     if constexpr (best::has_niche<T>) {
@@ -311,8 +267,79 @@ class object_ptr final {
     return false;
   }
 
-  /// Returns the raw underlying pointer.
-  constexpr pointee* raw() const { return BEST_OBJECT_PTR_; }
+  /// # `object_ptr::destroy_in_place()`
+  ///
+  /// Destroys the pointed to object in place.
+  BEST_INLINE_SYNTHETIC constexpr void destroy_in_place() const
+    requires best::destructible<T>
+  {
+    if constexpr (best::object_type<T>) {
+      std::destroy_at(raw());
+      if (!std::is_constant_evaluated() && best::is_debug()) {
+        std::memset(raw(), 0xcd, sizeof(pointee));
+      }
+    }
+  }
+
+  /// # `object_ptr::assign()`
+  ///
+  /// Assigns in place according to the assignments valid per
+  /// `best::assignable`.
+  template <typename... Args>
+  BEST_INLINE_SYNTHETIC constexpr void assign(Args&&... args) const
+    requires best::assignable<T, Args&&...>
+  {
+    if constexpr (best::object_type<T>) {
+      **this = (BEST_FWD(args), ...);
+    } else {
+      construct_in_place(BEST_FWD(args)...);
+    }
+  }
+
+  /// # `object_ptr::copy_from()`
+  ///
+  /// Constructs a copy of `that`'s pointee. `is_init` specifies whether to
+  /// construct or assign in-place.
+  BEST_INLINE_SYNTHETIC constexpr void copy_from(object_ptr<const T> that,
+                                                 bool is_init) const
+    requires best::copyable<T>
+  {
+    if constexpr (!best::void_type<T>) {
+      if (is_init) {
+        assign(*that);
+      } else {
+        construct_in_place(*that);
+      }
+    }
+  }
+  /// # `object_ptr::move_from()`
+  ///
+  /// Constructs a move of `that`'s pointee. `is_init` specifies whether to
+  /// construct or assign in-place.
+  BEST_INLINE_SYNTHETIC constexpr void move_from(object_ptr that,
+                                                 bool is_init) const
+    requires best::moveable<T>
+  {
+    if constexpr (!best::void_type<T>) {
+      if (is_init) {
+        assign(static_cast<rref>(*that));
+      } else {
+        construct_in_place(static_cast<rref>(*that));
+      }
+    }
+  }
+  /// # `object_ptr::relocate_from()`
+  ///
+  /// Relocates `that`'s pointee. In other words, this moves from and then
+  /// destroys `*that`. `is_init` specifies whether to construct or assign
+  /// in-place.
+  BEST_INLINE_SYNTHETIC constexpr void relocate_from(object_ptr that,
+                                                     bool is_init) const
+    requires best::relocatable<T>
+  {
+    move_from(that, is_init);
+    that.destroy_in_place();
+  }
 
  private:
   inline static std::conditional_t<best::void_type<T>, best::empty, pointee>
@@ -324,16 +351,19 @@ class object_ptr final {
 #define BEST_OBJECT_PTR_ _private
 };
 
+/// # `best::object<T>`
+///
 /// An "equivalent" object type for any type, intended primarily for generic
 /// code.
 ///
-/// This type wraps any T and reproduces its properties.
-///
-/// The wrapped T can be accessed via operator* and operator->.
+/// This type wraps any `T` and reproduces its properties. The wrapped `T` can
+/// be accessed via `operator*` and `operator->`.
 template <typename T>
 class object {
  public:
-  /// The type we're wrapping internally.
+  /// # `object::wrapped_type`
+  ///
+  /// The representation for the value we're wrapping.
   using wrapped_type = std::conditional_t<
       best::void_type<T>, best::empty,
       std::conditional_t<best::object_type<T>, std::remove_cv_t<T>,
@@ -349,12 +379,22 @@ class object {
   using cptr = best::as_ptr<const type>;
   using ptr = best::as_ptr<type>;
 
+  /// # `object::object()`
+  ///
+  /// Constructs a default value. For some types, such as integers, pointers,
+  /// and references, the resulting value will be uninitialized.
   constexpr object() = default;
+
+  /// # `object::object(object)`
+  ///
+  /// Inherits the copy operations of the wrapped
   constexpr object(const object&) = default;
   constexpr object& operator=(const object&) = default;
   constexpr object(object&&) = default;
   constexpr object& operator=(object&&) = default;
 
+  /// # `object::object(in_place, ...)`
+  ///
   /// Constructs an object by deferring to the appropriate downstream
   /// constructor.
   template <typename... Args>
@@ -367,11 +407,13 @@ class object {
   constexpr explicit object(best::in_place_t, Args&&... args)
     requires best::constructible<T, Args&&...> && best::object_type<T>
       : BEST_OBJECT_INNER_(BEST_FWD(args)...) {}
-
   constexpr explicit object(best::in_place_t, best::niche)
     requires best::ref_type<T>
       : BEST_OBJECT_INNER_(nullptr) {}
 
+  /// # `object::operator=()`
+  ///
+  /// Assigns to the wrapped value via `object_ptr::assign()`'s semantics.
   template <typename Arg>
   constexpr object& operator=(Arg&& arg)
     requires best::assignable<T, Arg>
@@ -380,7 +422,9 @@ class object {
     return *this;
   }
 
-  /// Extracts an object_ptr pointing to this object.
+  /// # `object::as_ptr()`.
+  ///
+  /// Extracts an `object_ptr<T>` pointing to this object.
   constexpr best::object_ptr<const T> as_ptr() const {
     return best::object_ptr<const T>(std::addressof(BEST_OBJECT_INNER_));
   }
@@ -388,7 +432,9 @@ class object {
     return best::object_ptr<T>(std::addressof(BEST_OBJECT_INNER_));
   }
 
-  // best::object is a smart pointer.
+  /// # `object_ptr::operator*`, `object_ptr::operator->`
+  ///
+  /// Retrieves the wrapped value.
   constexpr cref operator*() const& { return *as_ptr(); }
   constexpr ref operator*() & { return *as_ptr(); }
   constexpr crref operator*() const&& { return static_cast<crref>(**this); }
@@ -396,6 +442,7 @@ class object {
   constexpr cptr operator->() const { return as_ptr().operator->(); }
   constexpr ptr operator->() { return as_ptr().operator->(); }
 
+  // Comparisons are the obvious thing.
   constexpr bool operator==(const object& that) const
     requires best::equatable<T, T>
   {
@@ -405,12 +452,34 @@ class object {
       return **this == *that;
     }
   }
+  constexpr auto operator<=>(const object& that) const
+    requires best::comparable<T, T>
+  {
+    if constexpr (best::void_type<T>) {
+      return std::strong_ordering::equal;
+    } else {
+      return **this <=> *that;
+    }
+  }
 
  public:
   // Public for structural-ness.
   [[no_unique_address]] wrapped_type BEST_OBJECT_INNER_;
 #define BEST_OBJECT_INNER_ _private
 };
+
+// TODO: eliminate.
+template <typename F, typename... Args>
+BEST_INLINE_SYNTHETIC constexpr decltype(auto) invoke(F&& f, Args&&... args)
+  requires std::invocable<F, Args...>
+{
+  if constexpr (best::void_type<std::invoke_result_t<F, Args...>>) {
+    std::invoke(BEST_FWD(f), BEST_FWD(args)...);
+    return best::empty{};
+  } else {
+    return std::invoke(BEST_FWD(f), BEST_FWD(args)...);
+  }
+}
 }  // namespace best
 
 #endif  // BEST_CONTAINER_OBJECT_H_

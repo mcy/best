@@ -19,6 +19,8 @@
 //! See utf.h for examples of encodings.
 
 namespace best {
+/// # `best::encoding`
+///
 /// A text encoding.
 ///
 /// A text encoding is any type that fulfills the "Lucky 7" encoding API
@@ -54,6 +56,8 @@ concept encoding = requires(const E& e) {
   };
 };
 
+/// # `best::self_syncing_encoding`
+///
 /// A self-synchronizing encoding, i.e., an encoding which can continue
 /// encoding/decoding despite errors.
 ///
@@ -63,6 +67,8 @@ template <typename E>
 concept self_syncing_encoding =
     encoding<E> && requires { typename E::self_syncing; };
 
+/// # `best::stateless_encoding`
+///
 /// A stateless encoding, which allows performing decoding operations are
 /// arbitrary positions within a stream.
 ///
@@ -71,6 +77,28 @@ template <typename E>
 concept stateless_encoding = self_syncing_encoding<E> && std::is_empty_v<E> &&
                              std::is_empty_v<typename E::state>;
 
+/// # `best::string_type`
+///
+/// A string type: a contiguous range that defines the `BestEncoding()` FTADLE
+/// and whose data pointer matches that encoding.
+template <typename T>
+concept string_type = best::contiguous<T> && requires(const T& value) {
+  { BestEncoding(best::types<const T&>, value) } -> best::encoding;
+  {
+    std::data(value)
+  } -> best::same<const typename std::remove_cvref_t<decltype(BestEncoding(
+      best::types<const T&>, value))>::code*>;
+};
+
+/// # `best::get_encoding()`
+///
+/// Extracts the encoding out of a string type.
+constexpr const auto& get_encoding(const string_type auto& string) {
+  return BestEncoding(best::types<decltype(string)>, string);
+}
+
+/// # `best::encoder<E>`
+///
 /// A stateful wrapper over some best::encoding for encoding/decoding from one
 /// stream to another.
 template <encoding E>
@@ -82,32 +110,48 @@ class encoder {
   using rune = std::conditional_t<sizeof(E) == 0, void, best::rune>;
 
  public:
+  /// # `encoder::code`
+  ///
   /// The code unit for this encoding. This is the element type of an encoded
   /// stream.
   using code = E::code;
+
+  /// # `encoder::state`
+  ///
   /// Any state necessary to save between indivisible decoding steps.
   using state = E::state;
 
-  /// The maximum number of code units E::write_rune() will write.
+  /// # `encoder::MaxCodesPerRune`
+  ///
+  /// The maximum number of code units `write_rune()` will write.
   static constexpr size_t MaxCodesPerRune = E::MaxCodesPerRune;
 
+  /// # `encoder::is_self_syncing()`
+  ///
   /// Whether this encoding is self-synchronizing.
   static constexpr bool is_self_syncing() { return self_syncing_encoding<E>; }
 
-  /// Whether this encoding is stateless, i.e., whether its state type
-  /// is empty.
+  /// # `encoder::is_stateless()`
+  ///
+  /// Whether this encoding is stateless, i.e., whether its state type is empty.
   static constexpr bool is_stateless() { return stateless_encoding<E>; }
 
-  /// Constructs the singleton encoder if this encoding is totally
-  /// stateless.
+  /// # `encoder::encoder()`
+  ///
+  /// Constructs the singleton encoder if this encoding is totally stateless.
   constexpr encoder()
     requires(is_stateless());
 
+  /// # `encoder::encoder(encoder)`
+  ///
+  /// Delegates copy/move to `E`.
   constexpr encoder(const encoder&) = default;
   constexpr encoder& operator=(const encoder&) = default;
   constexpr encoder(encoder&&) = default;
   constexpr encoder& operator=(encoder&&) = default;
 
+  /// # `encoder::encoder(encoding)`
+  ///
   /// Constructs a new encoder for the given encoding.
   constexpr explicit encoder(const E& encoding)
     requires best::constructible<state> &&
@@ -118,6 +162,8 @@ class encoder {
     requires best::constructible<state, const E&>
       : encoding_(std::addressof(encoding)), state_(encoding) {}
 
+  /// # `encoder::validate()`
+  ///
   /// Validates whether a span of code units is correctly encoded.
   static constexpr bool validate(const E& e, best::span<const code> input) {
     encoder enc(e);
@@ -131,6 +177,8 @@ class encoder {
     return true;
   }
 
+  /// # `encoder::size()`
+  ///
   /// Computes the would-be-encoded size from calling write_rune().
   constexpr best::option<size_t> size(rune<> rune) const {
     code buf[MaxCodesPerRune];
@@ -142,12 +190,14 @@ class encoder {
     return best::none;
   }
 
+  /// # `encoder::write_rune()`
+  ///
   /// Performs a single indivisible encoding operation.
   ///
-  /// Advances both input and output past the read/written-to portions, and
-  /// returns the part of output written to.
+  /// Returns the part of `output` written to. If `output` is passed by pointer
+  /// rather than by value, it is automatically advanced.
   ///
-  /// Returns best::none on failure; in this case, output is not changed.
+  /// Returns `best::none` on failure; in this case, `output` is not advanced.
   constexpr best::option<best::span<code>> write_rune(best::span<code>* output,
                                                       rune<> rune) {
     auto out0 = *output;
@@ -160,19 +210,19 @@ class encoder {
     *output = out0;
     return best::none;
   }
-
-  /// Identical write_rune(), but does not advance `output`.
   constexpr best::option<best::span<code>> write_rune(best::span<code> output,
                                                       rune<> rune) {
     return write_rune(&output, rune);
   }
 
+  /// # `encoder::read_rune()`
+  ///
   /// Performs a single indivisible decoding operation.
   ///
-  /// Advances both input and output past the read/written-to portions, and
-  /// returns the part of output written to.
+  /// Returns the decoded rune. If `input` is passed by pointer rather than by
+  /// value, it is automatically advanced.
   ///
-  /// Returns best::none on failure; in this case, input is not changed.
+  /// Returns `best::none` on failure; in this case, `input` is not advanced.
   constexpr best::option<rune<>> read_rune(best::span<const code>* input) {
     auto in0 = *input;
 
@@ -183,8 +233,6 @@ class encoder {
     *input = in0;
     return best::none;
   }
-
-  /// Identical encode(), but does not advance `output`.
   constexpr best::option<rune<>> read_rune(best::span<const code> input) {
     return read_rune(&input);
   }
@@ -195,22 +243,6 @@ class encoder {
   const E* encoding_;
   [[no_unique_address]] state state_;
 };
-
-/// A string type: a contiguous range that defines the BestEncoding FTADLE
-/// and whose data pointer matches that encoding.
-template <typename T>
-concept string_type = best::contiguous<T> && requires(const T& value) {
-  { BestEncoding(best::types<const T&>, value) } -> best::encoding;
-  {
-    std::data(value)
-  } -> best::same<const typename std::remove_cvref_t<decltype(BestEncoding(
-      best::types<const T&>, value))>::code*>;
-};
-
-/// Extracts the encoding out of a string type.
-constexpr const auto& get_encoding(const string_type auto& string) {
-  return BestEncoding(best::types<decltype(string)>, string);
-}
 
 template <encoding E>
 encoder(const E&) -> encoder<E>;

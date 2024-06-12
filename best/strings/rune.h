@@ -17,6 +17,8 @@
 //! [1]: https://www.unicode.org/glossary/#unicode_scalar_value
 
 namespace best {
+/// # `best::rune`
+///
 /// A Unicode scalar value, called a "rune" in the p9 tradition.
 ///
 /// This value corresponds to a valid Unicode scalar value, which may
@@ -30,20 +32,26 @@ class rune final {
   }
 
  public:
+  /// # `rune::replacement()`
+  ///
   /// Returns the Unicode replacement character.
   static constexpr rune replacement() { return 0xfffd; }
 
+  /// # `rune::rune()`
+  ///
   /// Creates a new rune corresponding to NUL.
   constexpr rune() = default;
 
+  /// # `rune::rune(rune)`
+  ///
+  /// Trivially copyable.
   constexpr rune(const rune&) = default;
   constexpr rune& operator=(const rune&) = default;
   constexpr rune(rune&&) = default;
   constexpr rune& operator=(rune&&) = default;
 
-  // best::rune has a niche representation.
-  constexpr rune(niche) : value_(0x11'0000) {}
-
+  /// # `rune::rune(int)`
+  ///
   /// Creates a new rune from an integer.
   ///
   /// The integer must be a constant, and it must be a valid Unicode scalar
@@ -53,82 +61,65 @@ class rune final {
                      "rune value not within the valid Unicode range")
       : value_(value) {}
 
-  /// Parses a rune from an integer.
+  /// # `rune::from_int()`
   ///
-  /// Returns none if this integer is not in the Unicode scalar value range.
+  /// Parses a rune from an integer.
+  /// Returns `best::none` if this integer is not in the Unicode scalar value
+  /// range.
   constexpr static best::option<rune> from_int(uint32_t value) {
-    if (!in_range(value) || is_surrogate(value)) {
-      return best::none;
-    }
+    if (!in_range(value) || is_surrogate(value)) return best::none;
     return rune(best::in_place, value);
   }
   constexpr static best::option<rune> from_int(int32_t value) {
     return from_int(static_cast<uint32_t>(value));
   }
 
-  /// Like from_int(), but allows unpaired surrogates.
+  /// # `rune::from_int_allow_surrogates()`
+  ///
+  /// Like `rune::from_int()`, but allows unpaired surrogates.
   constexpr static best::option<rune> from_int_allow_surrogates(
       uint32_t value) {
-    if (!in_range(value)) {
-      return best::none;
-    }
+    if (!in_range(value)) return best::none;
     return rune(best::in_place, value);
   }
   constexpr static best::option<rune> from_int_allow_surrogates(int32_t value) {
     return from_int_allow_surrogates(static_cast<uint32_t>(value));
   }
 
-  /// Converts this rune into the underlying integer.
+  /// # `rune::to_int()`
+  ///
+  /// Converts this rune into the underlying 32-bit integer.
   constexpr uint32_t to_int() const { return value_; }
   constexpr operator uint32_t() const { return value_; }
 
+  /// # `rune::is_unpaired_surrogate()`
+  ///
   /// Returns whether this rune is an unpaired surrogate.
   constexpr bool is_unpaired_surrogate() const { return is_surrogate(value_); }
 
+  /// # `rune::is_low_surrogate()`
+  ///
   /// Returns whether this rune is a "low" unpaired surrogate.
   constexpr bool is_low_surrogate() const {
-    return is_unpaired_surrogate() && value_ < 0xdc00;
-  }
-
-  /// Returns whether this rune is an "high" unpaired surrogate.
-  constexpr bool is_high_surrogate() const {
     return is_unpaired_surrogate() && value_ >= 0xdc00;
   }
 
+  /// # `rune::is_high_surrogate()`
+  ///
+  /// Returns whether this rune is an "high" unpaired surrogate.
+  constexpr bool is_high_surrogate() const {
+    return is_unpaired_surrogate() && value_ < 0xdc00;
+  }
+
+  /// # `rune::size()`.
+  ///
   /// Returns the size of this rune in the given encoding.
   template <stateless_encoding E>
   constexpr size_t size() const {
     return E::size(*this);
   }
 
-  /// Attempts to decode a single rune from a span of bytes, using the given
-  /// encoding.
-  ///
-  /// Returns best::none if decoding fails; advances `span` past the read
-  /// bytes.
-  template <stateless_encoding E>
-  constexpr static best::option<best::rune> decode(
-      best::span<const typename E::code>& span)
-    requires best::constructible<encoder<E>>
-  {
-    return encoder<E>().decode_one(span);
-  }
-
-  /// Attempts to encode a single rune to a span of bytes, using the given
-  /// encoding.
-  ///
-  /// Returns best::none if encoding fails; advances `span` past the written
-  /// bytes.
-  template <stateless_encoding E>
-  constexpr best::option<best::span<typename E::code_unit>> encode(
-      best::span<typename E::code_unit>& span)
-    requires best::constructible<encoder<E>>
-  {
-    return encoder<E>().encode_one(*this);
-  }
-
-  constexpr bool operator==(niche) const { return value_ == 0x11'0000; }
-
+  /// Tempoaray hack until BestFmt.
   template <typename Os>
   friend Os& operator<<(Os& os, rune r) {
     char encoded[5] = {};
@@ -136,6 +127,10 @@ class rune final {
 
     return os << encoded << "/" << std::hex << r.to_int();
   }
+
+  // best::rune has a niche representation.
+  constexpr rune(niche) : value_(0x11'0000) {}
+  constexpr bool operator==(niche) const { return value_ == 0x11'0000; }
 
  private:
   constexpr explicit rune(best::in_place_t, uint32_t value) : value_(value) {}

@@ -15,6 +15,8 @@
 //! because it is intended to purely handle memory allocation.
 
 namespace best {
+/// # `best::allocator`
+///
 /// An allocator: a source of raw memory.
 ///
 /// Allocator functions need not tolerate a size of zero, and must always
@@ -27,40 +29,46 @@ template <typename A>
 concept allocator =  //
     best::moveable<A> && best::equatable<A, A> &&
     requires(A& alloc, best::layout layout, void* ptr) {
-      /// Allocates fresh memory. Returns a non-null pointer to it.
+      /// # `allocator::alloc(layout)`
       ///
+      /// Allocates fresh memory. Returns a non-null pointer to it.
       /// Crashes on allocation failure.
       { alloc.alloc(layout) } -> std::same_as<void*>;
 
-      /// Allocates fresh zeroed memory. Returns a non-null pointer to it.
+      /// # `allocator::zalloc(layout)`
       ///
+      /// Allocates fresh zeroed memory. Returns a non-null pointer to it.
       /// Crashes on allocation failure.
       { alloc.zalloc(layout) } -> std::same_as<void*>;
 
+      /// # `allocator::realloc(ptr, old, new)`
+      ///
       /// Resizes memory previously allocated with this allocator.
       /// Returns a non-null pointer to it.
       ///
       /// The second argument is the original layout it was allocated with, the
       /// third is the desired layout.
-      ///
       /// Crashes on allocation failure.
       { alloc.realloc(ptr, layout, layout) } -> std::same_as<void*>;
 
-      /// Deallocated memory previously allocated with this allocator.
+      /// # `allocator::dealloc(ptr, layout)`
+      ///
+      /// Deallocates memory previously allocated with this allocator.
       /// Returns a non-null pointer to it.
       ///
       /// The second argument is the original layout it was allocated with.
-      ///
       /// Crashes on allocation failure.
       { alloc.dealloc(ptr, layout) };
     };
 
+/// # `best::malloc`
+///
 /// The global allocator.
 ///
-/// Note that this calls into malloc(), not ::operator new, in order to permit
-/// resizing-in-place.
+/// Note that this calls into `malloc()`, not `::operator new`, in order to
+/// permit resizing-in-place (which C++, in TYOL 2024, does not allow?!).
 ///
-/// See best::allocator for information on what the functions on this type do.
+/// See `best::allocator` for information on what the functions on this type do.
 struct malloc final {
   static void* alloc(layout layout);
   static void* zalloc(layout layout);

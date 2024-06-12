@@ -6,6 +6,7 @@
 #include <concepts>
 #include <type_traits>
 
+#include "best/base/hint.h"
 #include "best/base/port.h"
 
 namespace best::ops_internal {
