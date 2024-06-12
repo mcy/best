@@ -16,6 +16,9 @@ cc_library(
     "ops.h",
     "internal/ops.h",
   ],
+  deps = [
+    "//best/base:hint",
+  ]
 )
 
 cc_library(
@@ -36,6 +39,7 @@ cc_test(
   srcs = ["init_test.cc"],
   deps = [
     ":init",
+    "//best/container:vec",
     "//best/test:fodder",
   ]
 )

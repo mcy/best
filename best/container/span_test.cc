@@ -1,5 +1,7 @@
 #include "best/container/span.h"
 
+#include "best/container/span_sort.h"
+#include "best/container/vec.h"
 #include "best/test/test.h"
 
 namespace best::span_test {
@@ -105,12 +107,6 @@ best::test Ordering = [](auto& t) {
   t.expect_gt(f, prefix);
   t.expect_lt(f, one_more);
   t.expect_lt(f, greater);
-
-  char dummy;
-  void* ptr = &dummy;
-  t.expect_eq(best::span<void>(nullptr, 1), best::span<void>(ptr, 1));
-  t.expect_lt(best::span<void>(nullptr, 0), best::span<void>(ptr, 1));
-  t.expect_gt(best::span<void>(nullptr, 2), best::span<void>(ptr, 1));
 };
 
 best::test Indexing = [](auto& t) {
@@ -163,5 +159,160 @@ best::test Indexing = [](auto& t) {
   auto sp2 = sp[best::vals<bounds{.start = 8}>];
   static_assert(best::same<decltype(sp2), best::span<int, 2>>);
   t.expect_eq(sp2, best::span{9, 10});
+};
+
+best::test FrontAndBack = [](auto& t) {
+  best::span<int> empty;
+
+  t.expect_eq(empty.first(), best::none);
+  t.expect_eq(empty.last(), best::none);
+  t.expect_eq(empty.first<0>(), empty);
+  t.expect_eq(empty.last<0>(), empty);
+  t.expect_eq(empty.split_first(), best::none);
+  t.expect_eq(empty.split_last(), best::none);
+  t.expect_eq(empty.split_first<0>(), std::pair{empty, empty});
+  t.expect_eq(empty.split_last<0>(), std::pair{empty, empty});
+
+  best::vec<int> ints = {1, 2, 3, 4, 5};
+  best::span sp = ints;
+
+  t.expect_eq(sp.first(), 1);
+  t.expect_eq(sp.last(), 5);
+  t.expect_eq(sp.first<2>(), best::span{1, 2});
+  t.expect_eq(sp.last<2>(), best::span{4, 5});
+  t.expect_eq(sp.split_first(), std::pair{1, sp[{.start = 1}]});
+  t.expect_eq(sp.split_last(), std::pair{5, sp[{.end = 4}]});
+  t.expect_eq(sp.split_first<2>(),
+              std::pair{best::span{1, 2}, sp[{.start = 2}]});
+  t.expect_eq(sp.split_last<2>(), std::pair{best::span{4, 5}, sp[{.end = 3}]});
+
+  int ints2[] = {1, 2, 3, 4, 5};
+  best::span sp2 = ints2;
+
+  t.expect_eq(sp2.first(), 1);
+  t.expect_eq(sp2.last(), 5);
+  t.expect_eq(sp2.first<2>(), best::span{1, 2});
+  t.expect_eq(sp2.last<2>(), best::span{4, 5});
+  t.expect_eq(sp2.split_first(), std::pair{1, sp[{.start = 1}]});
+  t.expect_eq(sp2.split_last(), std::pair{5, sp[{.end = 4}]});
+  t.expect_eq(sp2.split_first<2>(),
+              std::pair{best::span{1, 2}, sp[{.start = 2}]});
+  t.expect_eq(sp2.split_last<2>(), std::pair{best::span{4, 5}, sp[{.end = 3}]});
+};
+
+best::test Swap = [](auto& t) {
+  best::vec<int> ints = {1, 2, 3, 4, 5};
+  ints.as_span().swap(1, 2);
+  t.expect_eq(ints, best::span{1, 3, 2, 4, 5});
+
+  ints.as_span().reverse();
+  t.expect_eq(ints, best::span{5, 4, 2, 3, 1});
+};
+
+best::test Affixes = [](auto& t) {
+  best::vec<int> ints = {1, 2, 3, 4, 5};
+  best::span sp = ints;
+
+  t.expect(sp.contains(4));
+  t.expect(!sp.contains(-1));
+
+  t.expect(sp.starts_with({}));
+  t.expect(sp.starts_with({1, 2, 3}));
+  t.expect(!sp.starts_with({4, 5}));
+
+  t.expect(sp.ends_with({}));
+  t.expect(sp.ends_with({4, 5}));
+  t.expect(!sp.ends_with({1, 2}));
+
+  t.expect_eq(sp.strip_prefix({}), sp);
+  t.expect_eq(sp.strip_prefix({1, 2, 3}), best::span{4, 5});
+  t.expect_eq(sp.strip_prefix({2, 3}), best::none);
+
+  t.expect_eq(sp.strip_suffix({}), sp);
+  t.expect_eq(sp.strip_suffix({4, 5}), best::span{1, 2, 3});
+  t.expect_eq(sp.strip_suffix({2, 3}), best::none);
+
+  t.expect(sp.consume_prefix({1}));
+  t.expect(!sp.consume_prefix({1}));
+  t.expect_eq(sp, best::span{2, 3, 4, 5});
+
+  t.expect(sp.consume_suffix({5}));
+  t.expect(!sp.consume_suffix({5}));
+  t.expect_eq(sp, best::span{2, 3, 4});
+};
+
+best::test Sort = [](auto& t) {
+  best::mark_sort_header_used();
+
+  best::vec<int> ints = {5, 4, 3, 2, 1};
+  ints.as_span().sort();
+  t.expect_eq(ints, best::span{1, 2, 3, 4, 5});
+
+  ints.as_span().stable_sort([](int x) { return best::count_ones(x); });
+  t.expect_eq(ints, best::span{1, 2, 4, 3, 5});
+
+  ints.as_span().sort([](int x, int y) { return y <=> x; });
+  t.expect_eq(ints, best::span{5, 4, 3, 2, 1});
+};
+
+struct NonPod {
+  int x;
+  NonPod(int x) : x(x) {}
+  NonPod(const NonPod&) = default;
+  NonPod& operator=(const NonPod&) = default;
+  NonPod(NonPod&&) = default;
+  NonPod& operator=(NonPod&&) = default;
+  ~NonPod() {}
+
+  bool operator==(int y) const { return x == y; }
+  friend auto& operator<<(auto& os, NonPod np) { return os << np.x; }
+};
+
+best::test Shift = [](auto& t) {
+  unsafe::in([&](auto u) {
+    int a[] = {1, 2, 3, 4, 5, 6, 7, 8};
+    best::span ints = a;
+
+    int d = 0xcdcdcdcd;
+
+    ints.shift_within(u, 5, 1, 2);
+    t.expect_eq(best::black_box(ints), best::span{1, d, d, 4, 5, 2, 3, 8});
+    ints[1] = 2;
+    ints[2] = 3;
+
+    ints.shift_within(u, 1, 6, 2);
+    t.expect_eq(best::black_box(ints), best::span{1, 3, 8, 4, 5, 2, d, d});
+    ints[6] = 3;
+    ints[7] = 8;
+
+    ints.shift_within(u, 1, 3, 4);
+    t.expect_eq(best::black_box(ints), best::span{1, 4, 5, 2, 3, d, d, 8});
+    ints[5] = 2;
+    ints[6] = 3;
+
+    ints.shift_within(u, 3, 1, 4);
+    t.expect_eq(best::black_box(ints), best::span{1, d, d, 4, 5, 2, 3, 8});
+
+    NonPod a2[] = {1, 2, 3, 4, 5, 6, 7, 8};
+    best::span nps = a2;
+
+    nps.shift_within(u, 5, 1, 2);
+    t.expect_eq(best::black_box(nps), best::span{1, d, d, 4, 5, 2, 3, 8});
+    nps[1] = 2;
+    nps[2] = 3;
+
+    nps.shift_within(u, 1, 6, 2);
+    t.expect_eq(best::black_box(nps), best::span{1, 3, 8, 4, 5, 2, d, d});
+    nps[6] = 3;
+    nps[7] = 8;
+
+    nps.shift_within(u, 1, 3, 4);
+    t.expect_eq(best::black_box(nps), best::span{1, 4, 5, 2, 3, d, d, 8});
+    nps[5] = 2;
+    nps[6] = 3;
+
+    nps.shift_within(u, 3, 1, 4);
+    t.expect_eq(best::black_box(nps), best::span{1, d, d, 4, 5, 2, 3, 8});
+  });
 };
 }  // namespace best::span_test

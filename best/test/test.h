@@ -2,30 +2,39 @@
 #define BEST_TEST_TEST_H_
 
 #include <functional>
+#include <iomanip>
+#include <ios>
 #include <iostream>
 
 #include "best/log/location.h"
+#include "best/meta/ops.h"
 #include "best/strings/str.h"
 
 //! The best unit testing library.
 
 namespace best {
+/// # `best::test`
+///
 /// A unit test.
 ///
 /// To create a unit test, create a namespace with an appropriate name, and
 /// define a variable thusly:
 ///
-///   best::test MyTest = [](auto& t) {
-///     // Test code.
-///   };
+/// ```
+/// best::test MyTest = [](auto& t) {
+///   // Test code.
+/// };
+/// ```
 ///
-/// Within the body of the lambda, `t` (which is a reference to the best::test
+/// Within the body of the lambda, `t` (which is a reference to the `best::test`
 /// itself) can be used to manipulate test state (such as to make assertions).
 ///
 /// Currently, tests cannot be in anonymous namespaces, and the test binary must
-/// be built with -rdynamic. This is a temporary limitation.
+/// be built with `-rdynamic`. This is a temporary limitation.
 class test final {
  public:
+  /// # `test::test(body)`
+  ///
   /// Creates and registers a new unit test.
   ///
   /// This should ONLY be used to create global variables!
@@ -36,12 +45,18 @@ class test final {
     init();
   }
 
+  /// # `test::name()`
+  ///
   /// Returns the name of this test.
   best::str name() { return name_; }
 
+  /// # `test::where()`
+  ///
   /// Returns the location where this test was defined.
   best::location where() { return loc_; }
 
+  /// # `test::run()`
+  ///
   /// Executes this test. Returns whether this test passed.
   bool run() {
     failed_ = false;
@@ -49,6 +64,8 @@ class test final {
     return !failed_;
   }
 
+  /// # `test::fail()`
+  ///
   /// Marks this test as failed.
   void fail(best::str message = "", best::location loc = best::here) {
     std::cerr << "failed at " << loc << "\n";
@@ -58,6 +75,8 @@ class test final {
     failed_ = true;
   }
 
+  /// # `test::expect()`
+  ///
   /// Performs an assertion on `cond`.
   ///
   /// If false, marks this test as failed and prints the given message.
@@ -78,6 +97,8 @@ class test final {
     return cond;
   }
 
+  /// # `test::expect_eq()` et. al.
+  ///
   /// Performs a comparison assertion.
   ///
   /// If false, marks this test as failed and prints the given message.
@@ -117,6 +138,8 @@ class test final {
     return expect_cmp(a >= b, a, b, "expect_ge", message, loc);
   }
 
+  /// # `test::run_all()`.
+  ///
   /// Runs all registered unit tests.
   ///
   /// Linking in the test library will automatically cause this to be called
@@ -133,14 +156,34 @@ class test final {
     if (!cond) {
       std::cerr << "failed " << func << "() at " << loc << "\n"
                 << "expected these values to be equal:\n"
-                << "  " << a << "\n"
-                << "  " << b << "\n";
+                << "  " << print_any{a} << "\n"
+                << "  " << print_any{b} << "\n";
       if (!message.is_empty()) {
         std::cerr << "  " << message << "\n";
       }
       failed_ = true;
     }
     return cond;
+  }
+
+  template <typename T>
+  struct print_any {
+    const T& r;
+  };
+  template <typename T>
+  print_any(T) -> print_any<T>;
+  template <typename Os, typename T>
+  friend Os& operator<<(Os& os, print_any<T> p) {
+    if constexpr (best::has_op<best::op::Shl, Os&, const T&>) {
+      return os << p.r;
+    }
+
+    os << "unprintable value: ";
+    const char* ptr = reinterpret_cast<const char*>(std::addressof(p.r));
+    for (size_t i = 0; i < sizeof(T); ++i) {
+      os << std::hex << std::setw(2) << std::setfill('0') << ptr[i];
+    }
+    return os;
   }
 
   std::function<void(test&)> body_;

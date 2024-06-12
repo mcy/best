@@ -44,6 +44,10 @@ using as_rref = as_ref<T, ref_kind::Rvalue>;
 template <typename T>
 using as_deref = std::remove_reference_t<T>;
 
+/// Removes cv-qualifiers from T.
+template <typename T>
+using as_dequal = std::remove_cv_t<T>;
+
 /// Adds a pointer to T, if it is a pointable type.
 ///
 /// If T is a reference, the reference is replaced with a pointer, so
@@ -61,6 +65,13 @@ using copy_quals = best::quals_internal::quals<Dst, Src>::copied;
 /// Dst, as-if by best::as_ref.
 template <typename Dst, typename Src>
 using copy_ref = best::quals_internal::refs<Dst, Src>::copied;
+
+/// Like std::move, but also works on const references to produce const&&
+/// references.
+template <typename T>
+BEST_INLINE_SYNTHETIC constexpr best::as_rref<best::as_deref<T>> move(T&& x) {
+  return static_cast<best::as_rref<best::as_deref<T>>>(x);
+}
 
 /// An object type, i.e., anything that is not a reference, a function type,
 /// or a void type.
@@ -95,19 +106,6 @@ concept qualifies_to = same<T, U> || same<const T, U> || same<volatile T, U> ||
 template <typename T>
 concept can_memcmp =
     std::is_integral_v<T> || std::is_enum_v<T> || std::is_pointer_v<T>;
-
-/// Computes the smallest unsigned integer type that can represent `n`.
-// TODO: move to the integers header.
-template <uint64_t n>
-struct smallest_uint
-    : std::conditional<
-          n <= UINT8_MAX, uint8_t,
-          std::conditional_t<
-              n <= UINT16_MAX, uint16_t,
-              std::conditional_t<n <= UINT32_MAX, uint32_t, uint64_t>>> {};
-template <uint64_t n>
-using smallest_uint_t = smallest_uint<n>::type;
-
 }  // namespace best
 
 #endif  // BEST_META_CONCEPTS_H_

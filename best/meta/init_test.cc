@@ -2,6 +2,7 @@
 
 #include <memory>
 
+#include "best/container/vec.h"
 #include "best/test/fodder.h"
 
 namespace best::init_test {
@@ -141,7 +142,7 @@ static_assert(best::copy_constructible<int()>);
 static_assert(best::copy_constructible<void>);
 static_assert(best::copy_constructible<NonTrivialPod>);
 static_assert(best::copy_constructible<TrivialCopy>);
-static_assert(best::copy_constructible<std::vector<int>>);
+static_assert(best::copy_constructible<best::vec<int>>);
 static_assert(!best::copy_constructible<std::unique_ptr<int>>);
 static_assert(!best::copy_constructible<Stuck>);
 
@@ -151,7 +152,7 @@ static_assert(best::copy_constructible<int(), trivially>);
 static_assert(best::copy_constructible<void, trivially>);
 static_assert(!best::copy_constructible<NonTrivialPod, trivially>);
 static_assert(best::copy_constructible<TrivialCopy, trivially>);
-static_assert(!best::copy_constructible<std::vector<int>, trivially>);
+static_assert(!best::copy_constructible<best::vec<int>, trivially>);
 static_assert(!best::copy_constructible<std::unique_ptr<int>, trivially>);
 static_assert(!best::copy_constructible<Stuck, trivially>);
 
@@ -161,7 +162,7 @@ static_assert(best::move_constructible<int()>);
 static_assert(best::move_constructible<void>);
 static_assert(best::move_constructible<NonTrivialPod>);
 static_assert(best::move_constructible<TrivialCopy>);
-static_assert(best::move_constructible<std::vector<int>>);
+static_assert(best::move_constructible<best::vec<int>>);
 static_assert(best::move_constructible<std::unique_ptr<int>>);
 static_assert(!best::move_constructible<Stuck>);
 
@@ -171,7 +172,7 @@ static_assert(best::move_constructible<int(), trivially>);
 static_assert(best::move_constructible<void, trivially>);
 static_assert(!best::move_constructible<NonTrivialPod, trivially>);
 static_assert(best::move_constructible<TrivialCopy, trivially>);
-static_assert(!best::move_constructible<std::vector<int>, trivially>);
+static_assert(!best::move_constructible<best::vec<int>, trivially>);
 static_assert(!best::move_constructible<std::unique_ptr<int>, trivially>);
 static_assert(!best::move_constructible<Stuck, trivially>);
 
@@ -181,7 +182,7 @@ static_assert(best::copy_assignable<int()>);
 static_assert(best::copy_assignable<void>);
 static_assert(best::copy_assignable<NonTrivialPod>);
 static_assert(best::copy_assignable<TrivialCopy>);
-static_assert(best::copy_assignable<std::vector<int>>);
+static_assert(best::copy_assignable<best::vec<int>>);
 static_assert(!best::copy_assignable<std::unique_ptr<int>>);
 static_assert(!best::copy_assignable<Stuck>);
 
@@ -191,7 +192,7 @@ static_assert(best::copy_assignable<int(), trivially>);
 static_assert(best::copy_assignable<void, trivially>);
 static_assert(!best::copy_assignable<NonTrivialPod, trivially>);
 static_assert(best::copy_assignable<TrivialCopy, trivially>);
-static_assert(!best::copy_assignable<std::vector<int>, trivially>);
+static_assert(!best::copy_assignable<best::vec<int>, trivially>);
 static_assert(!best::copy_assignable<std::unique_ptr<int>, trivially>);
 static_assert(!best::copy_assignable<Stuck, trivially>);
 
@@ -201,7 +202,7 @@ static_assert(best::move_assignable<int()>);
 static_assert(best::move_assignable<void>);
 static_assert(best::move_assignable<NonTrivialPod>);
 static_assert(best::move_assignable<TrivialCopy>);
-static_assert(best::move_assignable<std::vector<int>>);
+static_assert(best::move_assignable<best::vec<int>>);
 static_assert(best::move_assignable<std::unique_ptr<int>>);
 static_assert(!best::move_assignable<Stuck>);
 
@@ -211,7 +212,7 @@ static_assert(best::move_assignable<int(), trivially>);
 static_assert(best::move_assignable<void, trivially>);
 static_assert(!best::move_assignable<NonTrivialPod, trivially>);
 static_assert(best::move_assignable<TrivialCopy, trivially>);
-static_assert(!best::move_assignable<std::vector<int>, trivially>);
+static_assert(!best::move_assignable<best::vec<int>, trivially>);
 static_assert(!best::move_assignable<std::unique_ptr<int>, trivially>);
 static_assert(!best::move_assignable<Stuck, trivially>);
 
@@ -221,7 +222,7 @@ static_assert(best::copyable<int()>);
 static_assert(best::copyable<void>);
 static_assert(best::copyable<NonTrivialPod>);
 static_assert(best::copyable<TrivialCopy>);
-static_assert(best::copyable<std::vector<int>>);
+static_assert(best::copyable<best::vec<int>>);
 static_assert(!best::copyable<std::unique_ptr<int>>);
 static_assert(!best::copyable<Stuck>);
 
@@ -231,7 +232,7 @@ static_assert(best::copyable<int(), trivially>);
 static_assert(best::copyable<void, trivially>);
 static_assert(!best::copyable<NonTrivialPod, trivially>);
 static_assert(best::copyable<TrivialCopy, trivially>);
-static_assert(!best::copyable<std::vector<int>, trivially>);
+static_assert(!best::copyable<best::vec<int>, trivially>);
 static_assert(!best::copyable<std::unique_ptr<int>, trivially>);
 static_assert(!best::copyable<Stuck, trivially>);
 
@@ -241,7 +242,7 @@ static_assert(best::moveable<int()>);
 static_assert(best::moveable<void>);
 static_assert(best::moveable<NonTrivialPod>);
 static_assert(best::moveable<TrivialCopy>);
-static_assert(best::moveable<std::vector<int>>);
+static_assert(best::moveable<best::vec<int>>);
 static_assert(best::moveable<std::unique_ptr<int>>);
 static_assert(!best::moveable<Stuck>);
 
@@ -251,32 +252,11 @@ static_assert(best::moveable<int(), trivially>);
 static_assert(best::moveable<void, trivially>);
 static_assert(!best::moveable<NonTrivialPod, trivially>);
 static_assert(best::moveable<TrivialCopy, trivially>);
-static_assert(!best::moveable<std::vector<int>, trivially>);
+static_assert(!best::moveable<best::vec<int>, trivially>);
 static_assert(!best::moveable<std::unique_ptr<int>, trivially>);
 static_assert(!best::moveable<Stuck, trivially>);
 
 static_assert(best::relocatable<best_fodder::Relocatable, trivially>);
-
-static_assert(best::align_of<int32_t>() == 4);
-static_assert(best::align_of<int&>() == alignof(void*));
-static_assert(best::align_of<int()>() == alignof(void*));
-static_assert(best::align_of<void>() == 1);
-static_assert(best::align_of<int16_t, int32_t>() == 4);
-
-static_assert(best::size_of<int32_t>() == 4);
-static_assert(best::size_of<int&>() == sizeof(void*));
-static_assert(best::size_of<int()>() == sizeof(void*));
-static_assert(best::size_of<void>() == 1);
-static_assert(best::size_of<int16_t, int32_t>() == 8);
-static_assert(best::size_of<int16_t, int32_t, uint8_t>() == 12);
-
-static_assert(best::size_of_union<int32_t>() == 4);
-static_assert(best::size_of_union<int&>() == sizeof(void*));
-static_assert(best::size_of_union<int()>() == sizeof(void*));
-static_assert(best::size_of_union<void>() == 1);
-static_assert(best::size_of_union<int16_t, int32_t>() == 4);
-static_assert(best::size_of_union<int16_t, int32_t, uint8_t>() == 4);
-
 }  // namespace best::init_test
 
 int main() {}

@@ -8,53 +8,62 @@
 #include "best/meta/init.h"
 #include "best/meta/tags.h"
 
+//! Untagged unions that are somewhat sensible.
+//!
 //! Unions in C++ are kind of messed up. Quoth cppreference:
 //!
-//!   If a union contains a non-static data member with a non-trivial special
-//!   member function (copy/move constructor, copy/move assignment, or
-//!   destructor), that function is deleted by default in the union and needs to
-//!   be defined explicitly by the programmer.
-//!
-//!   If a union contains a non-static data member with a non-trivial default
-//!   constructor, the default constructor of the union is deleted by default
-//!   unless a variant member of the union has a default member initializer.
-//!
-//!   At most one variant member can have a default member initializer.
+//! > If a union contains a non-static data member with a non-trivial special
+//! > member function (copy/move constructor, copy/move assignment, or
+//! > destructor), that function is deleted by default in the union and needs to
+//! > be defined explicitly by the programmer.
+//! >
+//! > If a union contains a non-static data member with a non-trivial default
+//! > constructor, the default constructor of the union is deleted by default
+//! > unless a variant member of the union has a default member initializer.
+//! >
+//! > At most one variant member can have a default member initializer.
 //!
 //! These restrictions get in the way of metaprogramming over unions. This
 //! file provides a type, `best::pun`, that implements "reasonable" behaviors
 //! for a union. In particular, if any of the member types are not trivially
-//! default constructable or trivially destructible, resp, best::pun is still
+//! default constructable or trivially destructible, resp, `best::pun` is still
 //! defaultable/destructable, but the implementations are constexpr no-ops.
 
 namespace best {
+/// # `best::pun<...>`
+///
 /// An untagged union, for type-punning crimes.
 ///
 /// To construct a pun, you may either default construct it, which produces a
-/// union with no selected variant, or you must explicitly select the
+/// union with no selected alternative, or you must explicitly select the
 /// alternative like so:
 ///
-///   best::pun<int, best::str> my_pun(best::index<1>, "hello!");
+/// ```
+/// best::pun<int, best::str> my_pun(best::index<1>, "hello!");
+/// ```
 ///
-/// Alternatives within the pun can be accessed with .get(). There are features
-/// for accessing the tail padding of alternatives, but that will likely be
-/// removed. TODO(mcyoung)
+/// Alternatives within the pun can be accessed with `pun::get()`.
 ///
 /// Like all best containers, Alts... may be any types, which is automatically
 /// wrapped in a best::object.
 ///
-/// A best::pun is copyable if and only if all of its alternatives are
+/// A `best::pun` is copyable if and only if all of its alternatives are
 /// trivially copyable; otherwise, its copy constructors are deleted. The
 /// destructor is always a no-op, and trivial if all of the alternatives are
 /// trivially destructible.
 ///
 /// You must manually destroy the contained alternative. This means that
-/// a best::pun<T>, for a single T, can be used as a destructor-inhibitor.
+/// a `best::pun<T>`, for a single T, can be used as a destructor-inhibitor.
 template <typename... Alts>
 class pun final {
  public:
+  /// # `pun::types`
+  ///
+  /// A `tlist` of the alternatives in this pun.
   static constexpr auto types = best::types<Alts...>;
 
+  /// # `pun::type<n>`
+  ///
   /// Gets the nth type in this union.
   template <size_t n>
   using type = decltype(types)::template type<n>;
@@ -68,28 +77,21 @@ class pun final {
   template <size_t n> using ptr = best::as_ptr<type<n>>;
   // clang-format on
 
-  /// Constructs a union with no variant selected.
+  /// # `pun::pun()`.
+  ///
+  /// Constructs a union with no alternative selected.
   constexpr pun() = default;
 
+  /// # `pun::pun(pun)`.
+  ///
+  /// These are deleted, unless all of `Alts` are trivially copyable, in which
+  /// case this type is also trivially copyable.
   constexpr pun(const pun&) = default;
   constexpr pun& operator=(const pun&) = default;
   constexpr pun(pun&&) = default;
   constexpr pun& operator=(pun&&) = default;
 
-  /// Constructs an uninit union whose uninit contents are accessible.
-  ///
-  /// This is distinct from the default constructor, to ensure this type is
-  /// trivial if all of its elements are trivial.
-  constexpr pun(best::uninit_t) : BEST_PUN_IMPL_(best::uninit) {}
-
-  /// Returns a pointer to the full uninit contents.
-  ///
-  /// This is only valid for use in constexpr if and only if this union was
-  /// constructed with the best::uninit constructor.
-  constexpr const uint8_t* uninit() const { return impl().uninit(); }
-  constexpr uint8_t* uninit() { return impl().uninit(); }
-
-  /// Constructs the `n`th variant of this union with the given arguments.
+  /// Constructs the `n`th alternative of this union with the given arguments.
   template <size_t n, typename... Args>
   constexpr explicit pun(best::index_t<n>, Args&&... args)
     requires best::constructible<type<n>, Args&&...>
@@ -100,53 +102,40 @@ class pun final {
     requires best::has_niche<type<n>>
       : BEST_PUN_IMPL_(best::index<n>, nh) {}
 
-  /// Gets the `n`th variant of this union.
+  /// # `pun::get()`
+  ///
+  /// Gets the `n`th alternative of this union.
   ///
   /// This operation performs no checking, and can result in type confusion if
   /// not used carefully.
   template <size_t n>
-  constexpr cref<n> get(best::unsafe_t, best::index_t<n> = {}) const& {
-    return *object(best::unsafe, best::index<n>);
+  constexpr cref<n> get(unsafe u, best::index_t<n> = {}) const& {
+    return *object(u, best::index<n>);
   }
   template <size_t n>
-  constexpr ref<n> get(best::unsafe_t, best::index_t<n> = {}) & {
-    return *object(best::unsafe, best::index<n>);
+  constexpr ref<n> get(unsafe u, best::index_t<n> = {}) & {
+    return *object(u, best::index<n>);
   }
   template <size_t n>
-  constexpr crref<n> get(best::unsafe_t, best::index_t<n> = {}) const&& {
-    return static_cast<crref<n>>(*object(best::unsafe, best::index<n>));
+  constexpr crref<n> get(unsafe u, best::index_t<n> = {}) const&& {
+    return best::move(*object(u, best::index<n>));
   }
   template <size_t n>
-  constexpr rref<n> get(best::unsafe_t, best::index_t<n> = {}) && {
-    return static_cast<rref<n>>(*object(best::unsafe, best::index<n>));
+  constexpr rref<n> get(unsafe u, best::index_t<n> = {}) && {
+    return best::move(*object(u, best::index<n>));
   }
 
-  /// Like get(), but returns a best::object_ptr<T> instead.
+  /// # `pun::object()`
+  ///
+  /// Like `get()`, but returns a `best::object_ptr<T>` instead.
   template <size_t n>
   constexpr best::object_ptr<const type<n>> object(
-      best::unsafe_t, best::index_t<n> = {}) const& {
-    return std::addressof(impl().get(best::index<n>).value_);
+      unsafe, best::index_t<n> = {}) const& {
+    return std::addressof(impl().get(best::index<n>));
   }
   template <size_t n>
-  constexpr best::object_ptr<type<n>> object(best::unsafe_t,
-                                             best::index_t<n> = {}) & {
-    return std::addressof(impl().get(best::index<n>).value_);
-  }
-
-  /// Gets the `n`th variant's tail padding.
-  ///
-  /// This operation performs no checking, and can result in type confusion if
-  /// not used carefully.
-  ///
-  /// If that variant does not have uninit tail padding, returns nullptr.
-  template <size_t n>
-  constexpr const uint8_t* padding(best::unsafe_t,
-                                   best::index_t<n> = {}) const {
-    return impl().get(best::index<n>).padding();
-  }
-  template <size_t n>
-  constexpr uint8_t* padding(best::unsafe_t, best::index_t<n> = {}) {
-    return impl().get(best::index<n>).padding();
+  constexpr best::object_ptr<type<n>> object(unsafe, best::index_t<n> = {}) & {
+    return std::addressof(impl().get(best::index<n>));
   }
 
  private:
@@ -155,7 +144,7 @@ class pun final {
 
  public:
   // Public so that best::pun can be structural.
-  pun_internal::impl<best::init_info<Alts...>, Alts...> BEST_PUN_IMPL_;
+  pun_internal::impl<pun_internal::info<Alts...>, Alts...> BEST_PUN_IMPL_;
 #define BEST_PUB_IMPL_ _private
 };
 }  // namespace best

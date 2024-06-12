@@ -1,5 +1,6 @@
 #include "best/strings/str.h"
 
+#include "best/container/vec.h"
 #include "best/test/test.h"
 
 namespace best::str_test {
@@ -47,24 +48,24 @@ best::test Size = [](auto& t) {
 
 best::test Utf8Decode = [](auto& t) {
   best::str test = "solomon🧶🐈‍⬛黒猫";
-  std::vector<rune> runes;
+  best::vec<rune> runes;
   for (rune r : test.runes()) {
-    runes.push_back(r);
+    runes.push(r);
   }
 
-  t.expect_eq(best::span(runes),
+  t.expect_eq(runes,
               best::span<const rune>{'s', 'o', 'l', 'o', 'm', 'o', 'n', U'🧶',
                                      U'🐈', 0x200d, U'⬛', U'黒', U'猫'});
 };
 
 best::test Utf16Decode = [](auto& t) {
   best::str16 test = u"solomon🧶🐈‍⬛黒猫";
-  std::vector<rune> runes;
+  best::vec<rune> runes;
   for (rune r : test.runes()) {
-    runes.push_back(r);
+    runes.push(r);
   }
 
-  t.expect_eq(best::span(runes),
+  t.expect_eq(runes,
               best::span<const rune>{'s', 'o', 'l', 'o', 'm', 'o', 'n', U'🧶',
                                      U'🐈', 0x200d, U'⬛', U'黒', U'猫'});
 };

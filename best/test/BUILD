@@ -18,6 +18,7 @@ cc_library(
   srcs = ["test.cc"],
   testonly = True,
   deps = [
+    "//best/container:vec",
     "//best/strings:str",
     "//best/log:location",
   ],

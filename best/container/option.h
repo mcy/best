@@ -4,6 +4,7 @@
 #include <compare>
 #include <initializer_list>
 #include <type_traits>
+#include <utility>
 
 #include "best/base/fwd.h"
 #include "best/container/choice.h"
@@ -14,64 +15,83 @@
 #include "best/meta/ops.h"
 #include "best/meta/tags.h"
 
-//! An optional type, like std::optional.
+//! An optional type, like `std::optional`.
 //!
-//! best::option is the ideal type for dealing with "possibly missing" values.
-//! Unlike std::optional, it is a complete replacement for raw pointers:
-//! best::option<T&> has the same size and alignment as a pointer, while
+//! `best::option` is the ideal type for dealing with "possibly missing" values.
+//! Unlike `std::optional`, it is a complete replacement for raw pointers:
+//! `best::option<T&>` has the same size and alignment as a pointer, while
 //! offering safer options for manipulating it.
 //!
-//! best::option's API is a mix of that of std::optional and Rust's Option,
-//! trying to pick the best alternatives from each.
+//! `best::option`'s API is a mix of that of `std::optional` and Rust's
+//! `Option`, trying to pick the `best` alternatives from each.
 
 namespace best {
-/// A tag for constructing an empty best::optional<T>.
-/// Analogous to std::nullopt and Rust's None.
+/// # `best::none`
 ///
-///   best::option<int> x = best::none;
+/// A tag for constructing an empty `best::optional<T>`.
+/// Analogous to `std::nullopt` and Rust's `None`.
+///
+/// ```
+/// best::option<int> x = best::none;
+/// ```
 inline constexpr struct none_t {
 } none;
 
-/// Whether T is best::option<U> for some U.
+/// # `best::is_option`
+///
+/// Whether `T` is some `best::option<U>`.
 template <typename T>
 concept is_option =
     std::is_same_v<std::remove_cvref_t<T>,
                    best::option<typename std::remove_cvref_t<T>::type>>;
 
-/// Given T = best::option<U>, returns U.
+/// # `best::option_type<T>`
+///
+/// Given `best::option<U>`, returns `U`.
 template <is_option T>
 using option_type = typename std::remove_cvref_t<T>::type;
 
+/// # `best::option<T>`
+///
 /// An optional value.
 ///
-/// Constructing an best::option is very similar to constructing a
-/// std::optional. The default constructor produces an empty option:
+/// ## Construction
 ///
-///   best::option<int> x;  // Empty, same as best::none.
+/// Constructing an best::option is very similar to constructing a
+/// `std::optional`. The default constructor produces an empty option:
+///
+/// ```
+/// best::option<int> x;  // Empty, same as best::none.
+/// ```
 ///
 /// It can also be constructed by implicitly converting a value into an
 /// option that wraps it:
 ///
-///   best::option<int> x = 42;
-///   best::option<int&> r = *x;
+/// ```
+/// best::option<int> x = 42;
+/// best::option<int&> r = *x;
+/// ```
 ///
-/// best::option<void> can be tricky to construct, so we provide the
-/// best::VoidOption constant for explicitly constructing one.
+/// `best::option<void>` can be tricky to construct, so we provide the
+/// `best::VoidOption` constant for explicitly constructing one.
 ///
-/// best::option can also be constructed via conversion. For example, if
-/// T is convertible from const U&, then best::option<T> is convertible
-/// from const best::option<U>&. In particular, this means that best::option<T>&
-/// will convert into best::option<T&>.
+/// `best::option` can also be constructed via conversion. For example, if
+/// `T` is `best::convertible` from `const U&`, then `best::option<T>` is
+/// convertible from `const best::option<U>&`. In particular, this means that
+/// `best::option<T>&` will convert into `best::option<T&>`.
 ///
-/// best::option provides the same accessors as std::optional: has_value(),
-/// value(), operator*, operator->. Unlike std::optional, all accesses perform
-/// a runtime check.
+/// ## Other Operations
 ///
-/// best::option is comparable. An empty option compares as lesser than a
+/// best::option provides the same accessors as `std::optional`: `has_value()`,
+/// `value()`, `operator*`, `operator->`. Unlike `std::optional`, all accesses
+/// perform a runtime check. `best::option` contextually converts to `bool`,
+/// just like `std::optional`.
+///
+/// `best::option` is comparable. An empty option compares as lesser than a
 /// nonempty option.
 ///
-/// best::option is a structural type: it can be used as the type of a non-type
-/// template parameter.
+/// `best::option` is a structural type: it can be used as the type of a
+/// non-type template parameter.
 template <typename T>
 class option final {
  private:
@@ -82,13 +102,12 @@ class option final {
 
   template <typename U>
   static constexpr bool not_forbidden_conversion =
-      (!std::is_same_v<best::in_place_t, std::remove_cvref_t<U>>)&&(
-          !std::is_same_v<
-              option,
-              std::remove_cvref_t<U>>)&&(!std::is_same_v<bool,
-                                                         std::remove_cv_t<T>>);
+      (!std::is_same_v<best::in_place_t, std::remove_cvref_t<U>>)&&  //
+      (!std::is_same_v<option, std::remove_cvref_t<U>>)&&            //
+      (!std::is_same_v<bool, std::remove_cv_t<T>>);
 
  public:
+  /// Helper type aliases.
   using type = T;
   using value_type = std::remove_cvref_t<T>;
 
@@ -99,31 +118,35 @@ class option final {
   using cptr = best::as_ptr<const type>;
   using ptr = best::as_ptr<type>;
 
-  /// Empty option constructors.
+  /// # `option::option()`
   ///
   /// This constructs an empty optional value regardless `T`. The default value
   /// of every option is empty.
   ///
-  /// To construct a non-empty option containing the default value of T, if it
+  /// To construct a non-empty option containing the default value of `T`, if it
   /// has one, use `best::option<T>(best::in_place)`.
   constexpr option() : BEST_OPTION_IMPL_(best::index<0>) {}
+
+  /// # `option::option(none)`
+  ///
+  /// Conversion from `best::none`.
   constexpr option(best::none_t) : option() {}
   constexpr option& operator=(best::none_t) {
     reset();
     return *this;
   }
 
-  /// Copy/move constructors.
+  /// # `option::option(option)`
   ///
-  /// best::optional calls the copy constructors of T when nonempty.
+  /// Copy/move are trivial if they are trivial for `T`.
   constexpr option(const option&) = default;
   constexpr option& operator=(const option&) = default;
   constexpr option(option&&) = default;
   constexpr option& operator=(option&&) = default;
 
-  /// Nonempty option constructor.
+  /// # `option::option(T)`
   ///
-  /// This converts a value into an option containing it.
+  /// This converts a value into a non-empty option containing it.
   template <typename U = T>
   constexpr option(U&& arg)
     requires not_forbidden_conversion<U> && best::constructible<T, U> &&
@@ -135,14 +158,18 @@ class option final {
              best::moveable<U> && (!std::is_reference_v<T>)
       : option(best::in_place, std::move(arg)) {}
 
-  /// Converting copy/move constructors.
+  /// # `option::option(option<U>&)`
   ///
-  /// Constructs a best::option<T> by converting from a reference to
-  /// best::option<U> by copy or move. It will also construct e.g. a
-  /// best::option<T&> from a best::option<T>&.
+  /// Constructs a `best::option<T>` by converting from a reference to
+  /// `best::option<U>` by copy or move. In particular, this enables
   ///
-  /// Conditionally explicit: only available when T is implicitly convertible
-  /// from U.
+  /// ```
+  /// best::option<int> x = 42;
+  /// best::option<int&> y = x;
+  /// ```
+  ///
+  /// Conditionally explicit: only available when `T` is implicitly convertible
+  /// from `U`.
   template <is_option U>
   constexpr explicit(
       !best::convertible<T, best::copy_ref<best::option_type<U>, U&&>>)
@@ -171,7 +198,7 @@ class option final {
     return *this;
   }
 
-  /// Pointer constructors.
+  /// # `option::option(T*)`
   ///
   /// Constructs a best::option<T&> out of a T*. nullptr is mapped to
   /// an empty optional.
@@ -192,14 +219,16 @@ class option final {
     return *this;
   }
 
-  /// In-place constructors.
+  /// # `option::option(in_place, ...)`
   ///
-  /// Constructs a best::option<T> in-place with the given arguments. Use as
+  /// Constructs a `best::option<T>` in-place with the given arguments. E.g.
   ///
-  ///   best::optional<T> my_opt(best::in_place, arg1, arg2, ...);
+  /// ```
+  /// best::option<int> my_opt(best::in_place, 42);
+  /// ```
   ///
-  /// This constructor is intended for constructing optionals that contain
-  /// values that cannot be copied or moved.
+  /// This constructor is intended for constructing options that contain
+  /// values with troublesome constructors.
   template <typename... Args>
   constexpr explicit option(best::in_place_t, Args&&... args)
     requires best::constructible<T, Args...>
@@ -211,22 +240,40 @@ class option final {
     requires best::constructible<T, std::initializer_list<E>, Args...>
       : BEST_OPTION_IMPL_(best::index<1>, il, BEST_FWD(args)...) {}
 
+  /// # `option::is_empty()`
+  ///
   /// Returns whether this option is empty.
+  // FIXME(mcyoung): is_none, is_some?
   constexpr bool is_empty() const { return impl().which() == 0; }
 
+  /// # `option::has_value()`
+  ///
   /// Returns whether this option contains a value.
+  ///
+  /// If passed a predicate argument, this will return whether this option has
+  /// a value *and* it satisfies the predicate.
   constexpr bool has_value() const { return !is_empty(); }
+  constexpr bool has_value(auto&& p) const {
+    return impl().match([](best::index_t<0>) { return false; },
+                        [&](best::index_t<1>, auto&&... args) {
+                          return best::call(BEST_FWD(p), BEST_FWD(args)...);
+                        });
+  }
   constexpr explicit operator bool() const { return has_value(); }
 
-  /// Resets this option.
+  /// # `option::reset()`
+  ///
+  /// Resets this option.@
   ///
   /// Equivalent to `my_opt = best::none;`.
   constexpr void reset() { impl().emplace(index<0>); }
 
+  /// # `option::copy()`.
+  ///
   /// Constructs a version of this option that does not contain a reference.
   ///
-  /// In other words, if this is an option<T&>, it constructs an option<T> by
-  /// calling the copy constructor; if this is an option<T&&>, it calls the
+  /// In other words, if this is an `option<T&>`, it constructs an `option<T>`
+  /// by calling the copy constructor; if this is an `option<T&&>`, it calls the
   /// move constructor.
   constexpr best::option<value_type> copy() const& {
     return best::option<value_type>(*this);
@@ -235,51 +282,32 @@ class option final {
     return best::option<value_type>(std::move(*this));
   }
 
-  /// Constructs a version of this option that contains an rvalue reference.
-  constexpr best::option<rref> move() {
-    return best::option<rref>(std::move(*this));
-  }
-
-  /// Extracts the value of this option.
+  /// # `option::as_ref()`.
   ///
-  /// Crashes if `is_empty()` is true.
-  constexpr cref value(best::location loc = best::here) const& {
-    return check_ok(loc), value(best::unsafe);
+  /// Constructs a version of this option that contains an appropriate `T&`.
+  constexpr best::option<cref> as_ref() const& { return *this; }
+  constexpr best::option<ref> as_ref() & { return *this; }
+  constexpr best::option<crref> as_ref() const&& {
+    return best::option<crref>(best::move(*this));
   }
-  constexpr ref value(best::location loc = best::here) & {
-    return check_ok(loc), value(best::unsafe);
-  }
-  constexpr crref value(best::location loc = best::here) const&& {
-    return check_ok(loc), moved().value(best::unsafe);
-  }
-  constexpr rref value(best::location loc = best::here) && {
-    return check_ok(loc), moved().value(best::unsafe);
+  constexpr best::option<rref> as_ref() && {
+    return best::option<rref>(best::move(*this));
   }
 
-  /// Extracts the value of this option without checking.
+  // TODO: expect.
+
+  /// # `option::value()`.
   ///
-  /// Undefined behavior if `is_empty()` is true.
-  constexpr cref value(best::unsafe_t) const& {
-    return impl().at(best::unsafe, index<1>);
-  }
-  constexpr ref value(best::unsafe_t) & {
-    return impl().at(best::unsafe, index<1>);
-  }
-  constexpr crref value(best::unsafe_t) const&& {
-    return moved().impl().at(best::unsafe, index<1>);
-  }
-  constexpr rref value(best::unsafe_t) && {
-    return moved().impl().at(best::unsafe, index<1>);
-  }
+  /// Extracts the value of this option. Crashes if `this->is_empty()`.
+  constexpr cref value(best::location loc = best::here) const&;
+  constexpr ref value(best::location loc = best::here) &;
+  constexpr crref value(best::location loc = best::here) const&&;
+  constexpr rref value(best::location loc = best::here) &&;
 
-  /// Extracts the value of this option as a pointer.
+  /// # `option::value_or(...)`
   ///
-  /// Returns nullptr if `is_empty()` is true.
-  constexpr cptr as_ptr() const { return impl().as_ptr(index<1>); }
-  constexpr ptr as_ptr() { return impl().as_ptr(index<1>); }
-
-  /// Extracts the value of this option, or constructs a default with the given
-  /// arguments and returns that.
+  /// Extracts the value of this option by copy/move, or constructs a default
+  /// with the given arguments and returns that.
   template <typename... Args>
   constexpr value_type value_or(Args&&... args) const& {
     return has_value() ? value() : value_type(BEST_FWD(args)...);
@@ -289,6 +317,130 @@ class option final {
     return has_value() ? moved().value() : value_type(BEST_FWD(args)...);
   }
 
+  /// # `option::value_or([] { ... })`
+  ///
+  /// Extracts the value of this option by copy/move, or constructs a default
+  /// with the given callback.
+  constexpr value_type value_or(
+      best::callable<value_type()> auto&& or_else) const& {
+    return has_value() ? value() : best::call(BEST_FWD(or_else));
+  }
+  constexpr value_type value_or(
+      best::callable<value_type()> auto&& or_else) && {
+    return has_value() ? moved().value() : best::call(BEST_FWD(or_else));
+  }
+
+  /// # `option::value(unsafe)`.
+  ///
+  /// Extracts the value of this option without checking. Undefined behavior if
+  /// `this->is_empty()`.
+  constexpr cref value(unsafe u) const& { return impl().at(u, index<1>); }
+  constexpr ref value(unsafe u) & { return impl().at(u, index<1>); }
+  constexpr crref value(unsafe u) const&& {
+    return moved().impl().at(u, index<1>);
+  }
+  constexpr rref value(unsafe u) && { return moved().impl().at(u, index<1>); }
+
+  /// # `option::operator*, option::operator->`
+  ///
+  /// `best::option`'s contents can be accessed with the smart pointer
+  /// operators. These internally simply defer to `value()`.
+  constexpr cref operator*() const& { return value(); }
+  constexpr ref operator*() & { return value(); }
+  constexpr crref operator*() const&& { return moved().value(); }
+  constexpr rref operator*() && { return moved().value(); }
+  constexpr cptr operator->() const& {
+    return check_ok(), impl().as_ptr(index<1>);
+  }
+  constexpr ptr operator->() & { return check_ok(), impl().as_ptr(index<1>); }
+
+  /// # `option::map()`.
+  ///
+  /// Applies a function to the contents of this option, and returns a new
+  /// option with the result; maps `best::none` to `best::none`.
+  ///
+  /// If two arguments are provided, the first is used as a default, with the
+  /// same semantics as `value_or()`.
+  constexpr auto map(auto&& f) const&;
+  constexpr auto map(auto&& f) &;
+  constexpr auto map(auto&& f) const&&;
+  constexpr auto map(auto&& f) &&;
+  constexpr auto map(auto&& d, auto&& f) const&;
+  constexpr auto map(auto&& d, auto&& f) &;
+  constexpr auto map(auto&& d, auto&& f) const&&;
+  constexpr auto map(auto&& d, auto&& f) &&;
+
+  // TODO: ok_or, not_ok_or
+
+  /// # `option::inspect()`.
+  ///
+  /// Applies a function to the contents of this option, discards the result,
+  /// and returns the original option.
+  constexpr const option& inspect(auto&& f) const&;
+  constexpr option& inspect(auto&& f) &;
+  constexpr const option&& inspect(auto&& f) const&&;
+  constexpr option&& inspect(auto&& f) &&;
+
+  /// # `option::operator&`
+  ///
+  /// Returns `best::none` if `this->is_empty()`, else returns `that`.
+  /// Arguments are eagerly evaluated.
+  constexpr option operator&(auto&& that) const {
+    if (is_empty()) return best::none;
+    return BEST_FWD(that);
+  }
+
+  /// # `option::operator|`
+  ///
+  /// Returns this option if `this->has_value()`, else returns `that`.
+  /// Arguments are eagerly evaluated.
+  constexpr option operator|(auto&& that) const& {
+    if (has_value()) return *this;
+    return BEST_FWD(that);
+  }
+  constexpr option operator|(auto&& that) && {
+    if (has_value()) return moved();
+    return BEST_FWD(that);
+  }
+
+  /// # `option::operator^`
+  ///
+  /// Returns whichever one of `this` and `that` is nonempty, or `best::none`
+  /// if both are or are not empty.
+  constexpr option operator^(auto&& that) const& {
+    if (has_value() == that.has_value()) return best::none;
+    if (has_value()) return *this;
+    return BEST_FWD(that);
+  }
+  constexpr option operator^(auto&& that) && {
+    if (has_value() == that.has_value()) return best::none;
+    if (has_value()) return moved();
+    return BEST_FWD(that);
+  }
+
+  /// # `option::then()`
+  ///
+  /// Returns `best::none` if `this->is_empty()`, else calls `f` with this
+  /// option's contents and returns the result.
+  ///
+  /// Some languages call this operation `flatmap`, `>>=`, or `and_then`.
+  constexpr auto then(auto&& f) const&;
+  constexpr auto then(auto&& f) &;
+  constexpr auto then(auto&& f) const&&;
+  constexpr auto then(auto&& f) &&;
+
+  /// # `option::filter()`
+  ///
+  /// Returns `this` if `this->has_value(p)`; else returns `best::none`.
+  constexpr option filter(auto&& p) const& {
+    return has_value(BEST_FWD(p)) ? *this : best::none;
+  }
+  constexpr option filter(auto&& p) && {
+    return has_value(BEST_FWD(p)) ? moved() : best::none;
+  }
+
+  /// # `option::emplace()`
+  ///
   /// Constructs a new value in place.
   ///
   /// Returns a reference to the newly constructed value.
@@ -299,22 +451,31 @@ class option final {
     return impl().emplace(index<1>, BEST_FWD(args)...);
   }
 
-  // This makes best::option into a smart pointer.
-  constexpr cref operator*() const& { return value(); }
-  constexpr ref operator*() & { return value(); }
-  constexpr crref operator*() const&& { return moved().value(); }
-  constexpr rref operator*() && { return moved().value(); }
-  constexpr cptr operator->() const& {
-    return check_ok(), impl().as_ptr(index<1>);
+  /// # `option::or_emplace()`
+  ///
+  /// Returns the current value, or constructs a new value in place.
+  template <typename... Args>
+  constexpr ref or_emplace(Args&&... args)
+    requires best::constructible<T, Args&&...>
+  {
+    if (has_value()) return **this;
+    return emplace(BEST_FWD(args)...);
   }
-  constexpr ptr operator->() & { return check_ok(), impl().as_ptr(index<1>); }
+
+  /// # `option::as_ptr()`
+  ///
+  /// Extracts the value of this option as a pointer.
+  ///
+  /// Returns nullptr if `is_empty()` is true.
+  constexpr cptr as_ptr() const { return impl().as_ptr(index<1>); }
+  constexpr ptr as_ptr() { return impl().as_ptr(index<1>); }
 
   // TODO: BestFmt
   template <typename Os>
-  friend Os& operator<<(Os& os, option opt) {
+  friend Os& operator<<(Os& os, const option& opt) {
     if (!opt.has_value()) {
       return os << "none";
-    } else if constexpr (std::is_void_v<T>) {
+    } else if constexpr (best::void_type<T>) {
       return os << "option()";
     } else {
       return os << "option(" << *opt << ")";
@@ -348,7 +509,6 @@ class option final {
   }
 
   // Comparisons.
-
   template <typename U>
   constexpr bool operator==(const best::option<U>& that) const
     requires best::equatable<T, U>
@@ -440,8 +600,153 @@ Os& operator<<(Os& os, none_t opt) {
 inline constexpr best::option<void> VoidOption{best::in_place};
 
 // Forward declare span as soon as possible.
-template <typename, best::option<size_t>>
+template <best::object_type, best::option<size_t>>
 class span;
+
+/// --- IMPLEMENTATION DETAILS BELOW ---
+
+template <typename T>
+constexpr option<T>::cref option<T>::value(best::location loc) const& {
+  return unsafe::in(
+      [&](auto u) -> decltype(auto) { return check_ok(loc), value(u); });
+}
+template <typename T>
+constexpr option<T>::ref option<T>::value(best::location loc) & {
+  return unsafe::in(
+      [&](auto u) -> decltype(auto) { return check_ok(loc), value(u); });
+}
+template <typename T>
+constexpr option<T>::crref option<T>::value(best::location loc) const&& {
+  return unsafe::in([&](auto u) -> decltype(auto) {
+    return check_ok(loc), moved().value(u);
+  });
+}
+template <typename T>
+constexpr option<T>::rref option<T>::value(best::location loc) && {
+  return unsafe::in([&](auto u) -> decltype(auto) {
+    return check_ok(loc), moved().value(u);
+  });
+}
+
+template <typename T>
+constexpr auto option<T>::map(auto&& f) const& {
+  using U = best::call_result_with_void<decltype(f), cref>;
+  return impl().match([](best::index_t<0>) -> option<U> { return best::none; },
+                      [&](best::index_t<1>, auto&&... args) -> option<U> {
+                        return best::call(BEST_FWD(f), BEST_FWD(args)...);
+                      });
+}
+template <typename T>
+constexpr auto option<T>::map(auto&& f) & {
+  using U = best::call_result_with_void<decltype(f), ref>;
+  return impl().match([](best::index_t<0>) -> option<U> { return best::none; },
+                      [&](best::index_t<1>, auto&&... args) -> option<U> {
+                        return best::call(BEST_FWD(f), BEST_FWD(args)...);
+                      });
+}
+template <typename T>
+constexpr auto option<T>::map(auto&& f) const&& {
+  using U = best::call_result_with_void<decltype(f), crref>;
+  return moved().impl().match(
+      [](best::index_t<0>) -> option<U> { return best::none; },
+      [&](best::index_t<1>, auto&&... args) -> option<U> {
+        return best::call(BEST_FWD(f), BEST_FWD(args)...);
+      });
+}
+template <typename T>
+constexpr auto option<T>::map(auto&& f) && {
+  using U = best::call_result_with_void<decltype(f), rref>;
+  return moved().impl().match(
+      [](best::index_t<0>) -> option<U> { return best::none; },
+      [&](best::index_t<1>, auto&&... args) -> option<U> {
+        return best::call(BEST_FWD(f), BEST_FWD(args)...);
+      });
+}
+
+template <typename T>
+constexpr auto option<T>::map(auto&& d, auto&& f) const& {
+  return map(BEST_FWD(f)).value_or(BEST_FWD(d));
+}
+template <typename T>
+constexpr auto option<T>::map(auto&& d, auto&& f) & {
+  return map(BEST_FWD(f)).value_or(BEST_FWD(d));
+}
+template <typename T>
+constexpr auto option<T>::map(auto&& d, auto&& f) const&& {
+  return moved().map(BEST_FWD(f)).value_or(BEST_FWD(d));
+}
+template <typename T>
+constexpr auto option<T>::map(auto&& d, auto&& f) && {
+  return moved().map(BEST_FWD(f)).value_or(BEST_FWD(d));
+}
+
+template <typename T>
+constexpr const option<T>& option<T>::inspect(auto&& f) const& {
+  impl().match([](best::index_t<0>) {},
+               [&](best::index_t<1>, auto&&... args) {
+                 best::call(BEST_FWD(f), BEST_FWD(args)...);
+               });
+  return *this;
+}
+template <typename T>
+constexpr option<T>& option<T>::inspect(auto&& f) & {
+  impl().match([](best::index_t<0>) {},
+               [&](best::index_t<1>, auto&&... args) {
+                 best::call(BEST_FWD(f), BEST_FWD(args)...);
+               });
+  return *this;
+}
+template <typename T>
+constexpr const option<T>&& option<T>::inspect(auto&& f) const&& {
+  moved().impl().match([](best::index_t<0>) {},
+                       [&](best::index_t<1>, auto&&... args) {
+                         best::call(BEST_FWD(f), BEST_FWD(args)...);
+                       });
+  return moved();
+}
+template <typename T>
+constexpr option<T>&& option<T>::inspect(auto&& f) && {
+  moved().impl().match([](best::index_t<0>) {},
+                       [&](best::index_t<1>, auto&&... args) {
+                         best::call(BEST_FWD(f), BEST_FWD(args)...);
+                       });
+  return moved();
+}
+
+template <typename T>
+constexpr auto option<T>::then(auto&& f) const& {
+  using U = best::as_deref<best::call_result_with_void<decltype(f), cref>>;
+  return impl().match([](best::index_t<0>) -> U { return best::none; },
+                      [&](best::index_t<1>, auto&&... args) -> U {
+                        return best::call(BEST_FWD(f), BEST_FWD(args)...);
+                      });
+}
+template <typename T>
+constexpr auto option<T>::then(auto&& f) & {
+  using U = best::as_deref<best::call_result_with_void<decltype(f), cref>>;
+  return impl().match([](best::index_t<0>) -> U { return best::none; },
+                      [&](best::index_t<1>, auto&&... args) -> U {
+                        return best::call(BEST_FWD(f), BEST_FWD(args)...);
+                      });
+}
+template <typename T>
+constexpr auto option<T>::then(auto&& f) const&& {
+  using U = best::as_deref<best::call_result_with_void<decltype(f), cref>>;
+  return moved().impl().match([](best::index_t<0>) -> U { return best::none; },
+                              [&](best::index_t<1>, auto&&... args) -> U {
+                                return best::call(BEST_FWD(f),
+                                                  BEST_FWD(args)...);
+                              });
+}
+template <typename T>
+constexpr auto option<T>::then(auto&& f) && {
+  using U = best::as_deref<best::call_result_with_void<decltype(f), cref>>;
+  return moved().impl().match([](best::index_t<0>) -> U { return best::none; },
+                              [&](best::index_t<1>, auto&&... args) -> U {
+                                return best::call(BEST_FWD(f),
+                                                  BEST_FWD(args)...);
+                              });
+}
 }  // namespace best
 
 #endif  // BEST_CONTAINER_OPTION_H_

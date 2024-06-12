@@ -121,6 +121,24 @@ best::test Nonempty = [](auto& t) {
   t.expect(!y3.has_value());
 };
 
+best::test HasValue = [](auto& t) {
+  best::option<int> x0;
+  best::option<int> x1 = 0;
+  best::option<int> x2 = 42;
+
+  t.expect(!x0.has_value([](int x) { return x != 0; }));
+  t.expect(!x1.has_value([](int x) { return x != 0; }));
+  t.expect(x2.has_value([](int x) { return x != 0; }));
+
+  best::option<void> x3;
+  best::option<void> x4 = best::VoidOption;
+
+  t.expect(!x3.has_value([] { return true; }));
+  t.expect(x4.has_value([] { return true; }));
+  t.expect(!x3.has_value([] { return false; }));
+  t.expect(!x4.has_value([] { return false; }));
+};
+
 best::test Converting = [](auto& t) {
   best::option<int32_t> x1 = 42;
   best::option<int64_t> x2 = x1;
@@ -184,19 +202,96 @@ best::test ValueOr = [](auto& t) {
 best::test Refs = [](auto& t) {
   best::option<int> x0 = 42;
   best::option<int&> x1 = x0;
+  x1 = x0.as_ref();
   best::option<int&&> x2(std::move(x0));
 
   best::option<int> x3 = x1;
   t.expect_eq(x3, 42);
 
   best::option<std::unique_ptr<int>> x4 = new int(42);
-  best::option<std::unique_ptr<int>&&> x5 = x4.move();
+  best::option<std::unique_ptr<int>&&> x5 = std::move(x4).as_ref();
   best::option<std::unique_ptr<int>> x6 = std::move(x5);
   t.expect_eq(**x6, 42);
   t.expect_eq(*x4, nullptr);
 
-  auto x7 = x6.move().copy();
+  auto x7 = std::move(x6).copy();
   t.expect_eq(**x7, 42);
   t.expect_eq(*x6, nullptr);
+};
+
+best::test Map = [](auto& t) {
+  best::option<int> x0;
+  best::option<int> x1 = 42;
+
+  int c = 0;
+
+  t.expect_eq(x0.map([](int x) { return x + x; }), best::none);
+  t.expect_eq(x1.map([](int x) { return x + x; }), 84);
+
+  t.expect_eq(x0.inspect([&](int x) { c += x; }), best::none);
+  t.expect_eq(x1.inspect([&](int x) { c += x; }), 42);
+  t.expect_eq(c, 42);
+
+  t.expect_eq(x0.map(5, [](int x) { return x + x; }), 5);
+  t.expect_eq(x1.map(5, [](int x) { return x + x; }), 84);
+  t.expect_eq(x0.map([] { return 5; }, [](int x) { return x + x; }), 5);
+  t.expect_eq(x1.map([] { return 5; }, [](int x) { return x + x; }), 84);
+
+  best::option<void> x2;
+  best::option<void> x3 = best::VoidOption;
+
+  t.expect_eq(x2.map([] { return 42; }), best::none);
+  t.expect_eq(x3.map([] { return 42; }), 42);
+
+  best::option<std::unique_ptr<int>> x4;
+  best::option<std::unique_ptr<int>> x5 = new int(42);
+
+  t.expect_eq(std::move(x4).map([](auto&& x) { return std::move(x); }),
+              best::none);
+  t.expect_eq(**std::move(x5).map([](auto&& x) { return std::move(x); }), 42);
+  t.expect_eq(*x5, nullptr);
+};
+
+best::test AndThen = [](auto& t) {
+  best::option<int> x0;
+  best::option<int> x1 = 0;
+  best::option<int> x2 = 42;
+
+  auto f = [](int x) -> best::option<double> {
+    if (x == 0) return best::none;
+    return 1.0 / x;
+  };
+
+  t.expect_eq(x0.then(f), best::none);
+  t.expect_eq(x1.then(f), best::none);
+  t.expect_eq(x2.then(f), 1.0 / 42);
+};
+
+best::test Filter = [](auto& t) {
+  best::option<int> x0;
+  best::option<int> x1 = 0;
+  best::option<int> x2 = 42;
+
+  auto f = [](int x) { return x != 0; };
+
+  t.expect_eq(x0.filter(f), best::none);
+  t.expect_eq(x1.filter(f), best::none);
+  t.expect_eq(x2.filter(f), 42);
+};
+
+best::test BitOps = [](auto& t) {
+  best::option<int> x0;
+  best::option<int> x1 = 0;
+  best::option<int> x2 = 42;
+
+  t.expect_eq(x0 & x1, best::none);
+  t.expect_eq(x2 & x1, 0);
+  t.expect_eq(x1 & x0, best::none);
+  t.expect_eq(x0 | x1, 0);
+  t.expect_eq(x2 | x1, 42);
+  t.expect_eq(x1 | x0, 0);
+  t.expect_eq(x0 ^ x1, 0);
+  t.expect_eq(x2 ^ x1, best::none);
+  t.expect_eq(x1 ^ x0, 0);
 };
 }  // namespace best::option_test

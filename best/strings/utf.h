@@ -13,7 +13,9 @@
 //! This header defines the UTF-8, UTF-16, UTF-32, and WTF-8 encodings.
 
 namespace best {
-/// A best::encoding representing UTF-8.
+/// # `best::utf8`
+///
+/// A `best::encoding` representing UTF-8.
 struct utf8 final {
   using code = char;  // Not char8_t because the standard messed up.
   using state = utf8;
@@ -41,10 +43,12 @@ struct utf8 final {
   constexpr bool operator==(const utf8&) const = default;
 };
 
+/// # `best::wtf8`
+///
 /// A best::encoding representing WTF-8 (Wobbly Transformation Format).
 ///
-/// Its only difference with utf8 is that it allows decoded runes to be unpaired
-/// surrogates (in the range 0xd800 to 0xdfff).
+/// Its only difference with UTF-8 is that it allows decoded runes to be
+/// unpaired surrogates (in the range U+D800 to U+DFFF).
 struct wtf8 final {
   using code = char;  // Not char8_t because the standard messed up.
   using state = utf8;
@@ -68,6 +72,8 @@ struct wtf8 final {
   constexpr bool operator==(const wtf8&) const = default;
 };
 
+/// # `best::utf16`
+///
 /// A best::encoding representing UTF-16.
 struct utf16 final {
   using code = char16_t;
@@ -97,6 +103,8 @@ struct utf16 final {
   bool operator==(const utf16&) const = default;
 };
 
+/// # `best::utf32`
+///
 /// A best::encoding representing UTF-32.
 struct utf32 final {
   using code = char32_t;
@@ -128,7 +136,6 @@ struct utf32 final {
 constexpr const utf8& BestEncoding(auto, const std::string&) {
   return best::val<utf8{}>::value;
 }
-
 constexpr const utf8& BestEncoding(auto, const std::string_view&) {
   return best::val<utf8{}>::value;
 }

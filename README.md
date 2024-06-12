@@ -44,7 +44,9 @@ pieces of functionality.
 - `best/container` - Container types. We interpret any generic "wrapper" type as
   a container.
 - `best/log` - Logging utilities.
+- `best/math` - Numeric and integer utilities.
 - `best/meta` - Metaprogramming utilities.
+- `best/memory` - Low-level memory management.
 - `best/string` - Text processing utilities. `best` is a Unicode-first library.
 - `best/test` - A unit testing framework.
 
@@ -61,7 +63,8 @@ a few changes:
   other variables are `snake_case`.
 - Type parameters are `PascalCase`.
 - Documentation comments are Rust style. Header comments follow the include
-  list.
+  list. The first line of a documentation is the name of the thing being
+  documented. All public APIs must have a doc comment.
 
 ## Legal
 

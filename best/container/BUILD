@@ -93,6 +93,7 @@ cc_library(
   deps = [
     ":object",
     "//best/base:port",
+    "//best/memory:layout",
     "//best/meta:tags",
     "//best/meta:init",
   ],
@@ -114,6 +115,7 @@ cc_library(
   hdrs = [
     "span.h",
     "internal/span.h",
+    "span_sort.h",
   ],
   deps = [
     ":option",
@@ -126,9 +128,38 @@ cc_test(
   linkopts = ["-rdynamic"],
   deps = [
     ":span",
-    "//best/test"
+    "//best/test",
   ],
 )
+
+cc_library(
+  name = "vec",
+  hdrs = ["vec.h"],
+  deps = [
+    ":object",
+    ":option",
+    ":span",
+    "//best/math:bit",
+    "//best/math:overflow",
+    "//best/memory:allocator",
+    "//best/memory:layout",
+    "//best/meta:concepts",
+    "//best/meta:init",
+    "//best/meta:tags",
+  ],
+)
+
+cc_test(
+  name = "vec_test",
+  srcs = ["vec_test.cc"],
+  linkopts = ["-rdynamic"],
+  deps = [
+    ":vec",
+    "//best/test",
+    "//best/test:fodder",
+  ],
+)
+
 
 cc_library(
   name = "simple_option",

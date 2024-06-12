@@ -1,0 +1,139 @@
+#ifndef BEST_MATH_INT_H_
+#define BEST_MATH_INT_H_
+
+#include <stddef.h>
+
+#include <compare>
+#include <limits>
+#include <type_traits>
+
+#include "best/base/fwd.h"
+#include "best/base/hint.h"
+#include "best/meta/concepts.h"
+
+//! Utilities for working with primitive integer types.
+//!
+//! See also `overflow.h` and `bit.h` for more utilities.
+
+namespace best {
+/// # `best::integer`
+///
+/// Any primitive integer type.
+/// This explicitly excludes `bool` and non-`char` character types.
+template <typename T>
+concept integer =
+    std::is_integral_v<T> && !best::same<best::as_dequal<T>, bool> &&
+    !best::same<best::as_dequal<T>, wchar_t> &&
+    !best::same<best::as_dequal<T>, char16_t> &&
+    !best::same<best::as_dequal<T>, char32_t>;
+
+/// # `best::bits_of<T>`
+///
+/// The number of bits in `Int`.
+template <integer Int>
+inline constexpr size_t bits_of = sizeof(Int) * 8;
+
+/// # `best::min_of<T>`
+///
+/// The minimum value for a particular integer type.
+template <integer Int>
+inline constexpr Int min_of = std::numeric_limits<Int>::min();
+
+/// # `best::max_of<T>`
+///
+/// The maximum value for a particular integer type.
+template <integer Int>
+inline constexpr Int max_of = std::numeric_limits<Int>::max();
+/// # `best::signed_int`
+///
+/// Any primitive signed integer.
+template <typename T>
+concept signed_int = best::integer<T> && std::is_signed_v<T>;
+
+/// # `best::to_signed()`
+///
+/// Casts an integer to its signed counterpart, if it is not already signed.
+/// This operation never loses precision.
+BEST_INLINE_ALWAYS constexpr auto to_signed(integer auto x) {
+  return (std::make_signed_t<decltype(x)>)x;
+}
+
+/// # `best::signed_cmp()`
+///
+/// Compares two integers as if they were signed.
+BEST_INLINE_ALWAYS constexpr std::strong_ordering signed_cmp(integer auto x,
+                                                             integer auto y) {
+  return best::to_signed(x) <=> best::to_signed(y);
+}
+
+/// # `best::unsigned_int`
+///
+/// Any primitive unsigned integer.
+template <typename T>
+concept unsigned_int = best::integer<T> && std::is_unsigned_v<T>;
+
+/// # `best::to_unsigned()`
+///
+/// Casts an integer to its unsigned counterpart, if it is not already unsigned.
+/// This operation never loses precision.
+BEST_INLINE_ALWAYS constexpr auto to_unsigned(integer auto x) {
+  return (std::make_unsigned_t<decltype(x)>)x;
+}
+
+/// # `best::unsigned_cmp()`
+///
+/// Compares two integers as if they were unsigned.
+BEST_INLINE_ALWAYS constexpr std::strong_ordering unsigned_cmp(integer auto x,
+                                                               integer auto y) {
+  return best::to_unsigned(x) <=> best::to_unsigned(y);
+}
+
+/// # `best::int_cmp()`
+///
+/// Compares two integers as if they had infinite-precision.
+BEST_INLINE_ALWAYS constexpr std::strong_ordering int_cmp(integer auto x,
+                                                          integer auto y) {
+  if constexpr (signed_int<decltype(x)> == signed_int<decltype(y)>) {
+    return x <=> y;
+  } else if (x < 0) {
+    return std::strong_ordering::less;
+  } else if (y < 0) {
+    return std::strong_ordering::greater;
+  } else {
+    return best::unsigned_cmp(x, y);
+  }
+}
+
+/// # `best::int_fits()`
+///
+/// Checks whether an integer is representable by another integer type.
+template <integer Int>
+BEST_INLINE_ALWAYS constexpr bool int_fits(integer auto x) {
+  return best::int_cmp(x, min_of<Int>) >= 0 &&
+         best::int_cmp(max_of<Int>, x) >= 0;
+}
+
+/// # `best::checked_cast()`
+///
+/// Casts an integer to another type, returning `best::none` if the cast would
+/// not be exact.
+template <integer Int>
+BEST_INLINE_ALWAYS constexpr best::option<Int> checked_cast(integer auto x) {
+  if (!best::int_fits<Int>(x)) return {};
+  return x;
+}
+
+/// # `best::smallest_unsigned`
+///
+/// Computes the smallest unsigned integer type that can represent `n`.
+template <uint64_t n>
+using smallest_uint_t = std::conditional_t<  //
+    best::int_fits<uint8_t>(n), uint8_t,
+    std::conditional_t<  //
+        best::int_fits<uint16_t>(n), uint16_t,
+        std::conditional_t<                         //
+            best::int_fits<uint32_t>(n), uint32_t,  //
+            uint64_t>>>;
+}  // namespace best
+
+#endif  // BEST_MATH_INT_H_
