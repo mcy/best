@@ -1,7 +1,6 @@
 #ifndef BEST_CONTAINER_VEC_H_
 #define BEST_CONTAINER_VEC_H_
 
-#include <algorithm>
 #include <cstddef>
 #include <initializer_list>
 #include <iterator>
@@ -830,7 +829,7 @@ void vec<T, max_inline, A>::spill_to_heap(best::option<size_t> capacity_hint) {
     return;
   }
 
-  size_t new_size = std::max({capacity(), capacity_hint.value_or(0)});
+  size_t new_size = best::max(capacity(), capacity_hint.value_or(0));
   // Always snap to a power of 2.
   if (!best::is_pow2(new_size)) {
     new_size = best::next_pow2(new_size);

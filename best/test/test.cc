@@ -20,7 +20,7 @@ best::str symbol_name(const void* ptr, best::location loc) {
           << "; you may need to pass -rdynamic as part of your link options\n";
       std::exit(128);
     }
-    return best::str(di.dli_sname);
+    return *best::str::from_nul(di.dli_sname);
   } else {
     std::cerr << "could not parse symbol name for test at " << loc
               << "; it might not be a global variable?\n";

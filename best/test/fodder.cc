@@ -58,16 +58,17 @@ LeakTest::~LeakTest() {
     destroyed_.erase(token);
 
     if (diff > 0) {
-      t_->fail(std::format("unexpected extra {} free(s) of #{}", diff, token));
+      t_->fail(*best::str::from(
+          std::format("unexpected extra {} free(s) of #{}", diff, token)));
     } else if (diff < 0) {
-      t_->fail(
-          std::format("unexpected missing {} free(s) of #{}", -diff, token));
+      t_->fail(*best::str::from(
+          std::format("unexpected missing {} free(s) of #{}", -diff, token)));
     }
   }
 
   for (auto [token, destroyed] : destroyed_) {
-    t_->fail(std::format("unexpected {} free(s) of uncreated #{}", destroyed,
-                         token));
+    t_->fail(*best::str::from(std::format(
+        "unexpected {} free(s) of uncreated #{}", destroyed, token)));
   }
 }
 }  // namespace best_fodder

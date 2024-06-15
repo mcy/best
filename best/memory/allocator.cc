@@ -1,6 +1,5 @@
 #include "best/memory/allocator.h"
 
-#include <algorithm>
 #include <cstddef>
 #include <cstdlib>
 
@@ -52,7 +51,7 @@ void* malloc::realloc(void* ptr, best::layout old, best::layout layout) {
   }
 
   void* p = alloc(layout);
-  size_t common = std::min({old.size(), layout.size()});
+  size_t common = best::min(old.size(), layout.size());
   std::memcpy(p, ptr, common);
   return p;
 }

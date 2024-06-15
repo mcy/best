@@ -121,31 +121,31 @@ BEST_INLINE_SYNTHETIC constexpr auto run(tag<op::Index>, auto&& func,
 }
 
 template <typename... Args, typename Class, typename F>
-BEST_INLINE_SYNTHETIC constexpr auto call(F Class::*member, Class&& self,
+BEST_INLINE_SYNTHETIC constexpr auto call(F Class::*member, auto&& self,
                                           auto&&... args)
-    -> decltype(self.*member(BEST_FWD(args)...))
+    -> decltype((self.*member)(BEST_FWD(args)...))
   requires(std::is_function_v<F> && sizeof...(Args) == 0)
 {
   return (BEST_FWD(self).*member)(BEST_FWD(args)...);
 }
 template <typename... Args, typename Class, typename F>
-BEST_INLINE_SYNTHETIC constexpr auto call(F Class::*member, Class* self,
+BEST_INLINE_SYNTHETIC constexpr auto call(F Class::*member, auto* self,
                                           auto&&... args)
-    -> decltype(self->*member(BEST_FWD(args)...))
+    -> decltype((self->*member)(BEST_FWD(args)...))
   requires(std::is_function_v<F> && sizeof...(Args) == 0)
 {
   return (self->*member)(BEST_FWD(args)...);
 }
 
 template <typename... Args, typename Class, typename R>
-BEST_INLINE_SYNTHETIC constexpr auto call(R Class::*member, Class&& self)
+BEST_INLINE_SYNTHETIC constexpr auto call(R Class::*member, auto&& self)
     -> decltype(self.*member)
   requires(!std::is_function_v<R> && sizeof...(Args) == 0)
 {
   return BEST_FWD(self).*member;
 }
 template <typename... Args, typename Class, typename R>
-BEST_INLINE_SYNTHETIC constexpr auto call(R Class::*member, Class* self)
+BEST_INLINE_SYNTHETIC constexpr auto call(R Class::*member, auto* self)
     -> decltype(self->*member)
   requires(!std::is_function_v<R> && sizeof...(Args) == 0)
 {

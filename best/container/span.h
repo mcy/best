@@ -13,6 +13,7 @@
 #include "best/container/option.h"
 #include "best/log/location.h"
 #include "best/math/overflow.h"
+#include "best/memory/bytes.h"
 #include "best/meta/concepts.h"
 #include "best/meta/init.h"
 #include "best/meta/ops.h"
@@ -117,7 +118,9 @@ inline constexpr best::option<size_t> span_extent =
 ///
 /// Unfortunately, it is not possible to make `best::span<T>` work when `T` is
 /// not an object type.
-template <best::object_type T, best::option<size_t> n = best::none>
+template <best::object_type T,
+          // NOTE: This default is in the fwd decl in option.h.
+          best::option<size_t> n /* = best::none */>
 class span final {
  public:
   /// Helper type aliases.
@@ -234,6 +237,25 @@ class span final {
                                      best::location loc = best::here)
     requires is_const
       : span(std::data(il), std::size(il), loc) {}
+
+  /// # `span::from_nul()`
+  ///
+  /// Constructs a new span pointing to a NUL-terminated string (i.e., a string
+  /// of span elements, the last of which is zero).
+  ///
+  /// If `data` is null, returns an empty span.
+  ///
+  /// If this is a fixed-with span, this will perform the usual fatal bounds
+  /// check upon construction.
+  constexpr static span from_nul(T* data) {
+    if (data == nullptr) return {data, 0};
+
+    auto ptr = data;
+    while (*ptr++ != T{0})
+      ;
+
+    return best::span(data, ptr - data - 1);
+  }
 
  private:
   template <size_t m>
@@ -581,14 +603,14 @@ class span final {
   constexpr void copy_from(best::span<const U> src) const
     requires(!is_const)
   {
-    size_t to_copy = std::min({size(), src.size()});
     if (!std::is_constant_evaluated() && best::same<T, U> &&
         best::copyable<T, trivially>) {
-      std::memcpy(data(), src.data(), to_copy * size_of<T>);
+      best::copy_bytes(*this, src);
       return;
     }
 
     unsafe::in([&](auto u) {
+      size_t to_copy = best::min(size(), src.size());
       for (size_t i = 0; i < to_copy; ++i) {
         at(u, i) = src.at(u, i);
       }
@@ -602,13 +624,13 @@ class span final {
   constexpr void emplace_from(best::span<const U> src) const
     requires(!is_const)
   {
-    size_t to_copy = std::min({size(), src.size()});
     if (!std::is_constant_evaluated() && best::same<T, U> &&
         best::copyable<T, trivially>) {
-      std::memcpy(data(), src.data(), to_copy * size_of<T>);
+      best::copy_bytes(*this, src);
       return;
     }
 
+    size_t to_copy = best::min(size(), src.size());
     for (size_t i = 0; i < to_copy; ++i) {
       (data() + i).copy_from(src.data() + i, false);
     }
@@ -656,7 +678,11 @@ class span final {
 
   // TODO: BestFmt
   template <typename Os>
-  friend Os& operator<<(Os& os, span sp) {
+  friend Os& operator<<(Os& os, span sp)
+    requires requires {
+      { os << sp[0] };
+    }
+  {
     os << "[";
     bool first = true;
     for (auto&& value : sp) {
@@ -669,31 +695,9 @@ class span final {
   }
 
   // All spans are comparable.
-  template <typename U, best::option<size_t> m>
+  template <object_type U, best::option<size_t> m>
   constexpr bool operator==(best::span<U, m> that) const
-    requires best::equatable<T, U>
-  {
-    if (size() != that.size()) {
-      return false;
-    }
-
-    if constexpr (best::can_memcmp<T> && best::can_memcmp<U> &&
-                  best::same<const T, const U>) {
-      return data() == that.data() ||  // Optimize for the case where we are
-                                       // comparing a span to itself!
-             std::memcmp(data().raw(), that.data().raw(),
-                         size() * size_of<T>) == 0;
-    }
-
-    for (size_t i = 0; i < size(); ++i) {
-      if (data()[i] != that.data()[i]) {
-        return false;
-      }
-    }
-
-    return true;
-  }
-
+    requires best::equatable<T, U>;
   template <contiguous R>
   constexpr bool operator==(const R& range) const
     requires best::equatable<T, decltype(*std::data(range))> && (!is_span<R>)
@@ -701,37 +705,9 @@ class span final {
     return *this == best::span(range);
   }
 
-  template <typename U, best::option<size_t> m>
-  constexpr best::order_type<T, U> operator<=>(best::span<U, m> that) const {
-    if constexpr (best::can_memcmp<T> && best::can_memcmp<U> &&
-                  best::same<const T, const U>) {
-      if (data() == that.data()) {
-        return size() <=> that.size();
-      }
-
-      size_t prefix = std::min({size(), that.size()});
-      int result =
-          std::memcmp(data().raw(), that.data().raw(), prefix * size_of<T>);
-      if (result < 0) {
-        return std::strong_ordering::less;
-      } else if (result > 0) {
-        return std::strong_ordering::greater;
-      } else {
-        return size() <=> that.size();
-      }
-    }
-
-    size_t prefix = std::min({size(), that.size()});
-
-    for (size_t i = 0; i < prefix; ++i) {
-      if (auto result = data()[i] <=> that.data()[i]; result != 0) {
-        return result;
-      }
-    }
-
-    return size() <=> that.size();
-  }
-
+  template <object_type U, best::option<size_t> m>
+  constexpr auto operator<=>(best::span<U, m> that) const
+    requires best::comparable<T, U>;
   template <contiguous R>
   constexpr auto operator<=>(const R& range) const
     requires best::comparable<T, decltype(*std::data(range))> && (!is_span<R>)
@@ -746,6 +722,18 @@ class span final {
  private:
   span_internal::repr<T, n> repr_;
 };
+
+template <typename T>
+span(T*, size_t) -> span<T>;
+template <typename T>
+span(best::object_ptr<T>, size_t) -> span<T>;
+template <typename T>
+span(std::initializer_list<T>) -> span<const T>;
+template <contiguous R>
+span(R&& r) -> span<std::remove_reference_t<decltype(*std::data(r))>,
+                    best::static_size<R>>;
+
+// --- IMPLEMENTATION DETAILS BELOW ---
 
 template <best::object_type T, best::option<size_t> n>
 struct span<T, n>::iter final {
@@ -798,15 +786,44 @@ inline constexpr size_t BestStaticSize(auto, std::array<T, n>*) {
   return n;
 }
 
-template <typename T>
-span(T*, size_t) -> span<T>;
-template <typename T>
-span(best::object_ptr<T>, size_t) -> span<T>;
-template <typename T>
-span(std::initializer_list<T>) -> span<const T>;
-template <contiguous R>
-span(R&& r) -> span<std::remove_reference_t<decltype(*std::data(r))>,
-                    best::static_size<R>>;
+template <object_type T, best::option<size_t> n>
+template <object_type U, best::option<size_t> m>
+constexpr bool span<T, n>::operator==(span<U, m> that) const
+  requires best::equatable<T, U>
+{
+  if (size() != that.size()) return false;
+  if constexpr (best::byte_comparable<T, U>) {
+    return best::equate_bytes(span<T>(*this), span<U>(that));
+  }
+
+  for (size_t i = 0; i < size(); ++i) {
+    if (data()[i] != that.data()[i]) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+template <object_type T, best::option<size_t> n>
+template <object_type U, best::option<size_t> m>
+constexpr auto span<T, n>::operator<=>(span<U, m> that) const
+  requires best::comparable<T, U>
+{
+  if constexpr (best::byte_comparable<T, U>) {
+    return best::order_type<T, U>(
+        best::compare_bytes(span<T>(*this), span<U>(that)));
+  }
+
+  size_t prefix = best::min(size(), that.size());
+  for (size_t i = 0; i < prefix; ++i) {
+    if (auto result = data()[i] <=> that.data()[i]; result != 0) {
+      return result;
+    }
+  }
+
+  return best::order_type<T, U>(size() <=> that.size());
+}
 
 template <object_type T, option<size_t> n>
 constexpr void span<T, n>::shift_within(unsafe u, size_t dst, size_t src,
@@ -847,7 +864,8 @@ constexpr void span<T, n>::shift_within(unsafe u, size_t dst, size_t src,
   if (src + count <= dst || dst + count <= src) {
     // Non-overlapping case.
     if constexpr (best::relocatable<T, trivially>) {
-      std::memcpy(data() + dst, data() + src, count * size_of<T>);
+      best::copy_bytes(at(u, {.start = dst, .count = count}),
+                       at(u, {.start = src, .count = count}));
       at(u, {.start = src, .count = count}).destroy_in_place();
       return;
     }
@@ -858,7 +876,8 @@ constexpr void span<T, n>::shift_within(unsafe u, size_t dst, size_t src,
   } else if (src < dst && dst < src + count) {
     // Forward case.
     if constexpr (best::relocatable<T, trivially>) {
-      std::memmove(data() + dst, data() + src, count * size_of<T>);
+      best::copy_overlapping_bytes(at(u, {.start = dst, .count = count}),
+                                   at(u, {.start = src, .count = count}));
       at(u, {.start = src, .end = dst}).destroy_in_place();
       return;
     }
@@ -878,7 +897,8 @@ constexpr void span<T, n>::shift_within(unsafe u, size_t dst, size_t src,
   } else if (dst < src && src < dst + count) {
     // Backward case.
     if constexpr (best::relocatable<T, trivially>) {
-      std::memmove(data() + dst, data() + src, count * size_of<T>);
+      best::copy_overlapping_bytes(at(u, {.start = dst, .count = count}),
+                                   at(u, {.start = src, .count = count}));
       at(u, {.start = dst + count, .end = src + count}).destroy_in_place();
       return;
     }

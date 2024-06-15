@@ -119,6 +119,7 @@ cc_library(
   ],
   deps = [
     ":option",
+    "//best/memory:bytes",
   ],
 )
 
@@ -142,6 +143,7 @@ cc_library(
     "//best/math:bit",
     "//best/math:overflow",
     "//best/memory:allocator",
+    "//best/memory:bytes",
     "//best/memory:layout",
     "//best/meta:concepts",
     "//best/meta:init",

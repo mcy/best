@@ -34,3 +34,16 @@ cc_library(
     "//best/meta:init",
   ]
 )
+
+cc_library(
+  name = "bytes",
+  hdrs = [
+    "bytes.h",
+    "internal/bytes.h",
+  ],
+  srcs = ["bytes.cc"],
+  deps = [
+    "//best/container:option",
+    "//best/meta:concepts",
+  ]
+)
