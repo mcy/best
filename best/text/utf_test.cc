@@ -1,7 +1,7 @@
-#include "best/strings/utf.h"
+#include "best/text/utf.h"
 
-#include "best/strings/rune.h"
 #include "best/test/test.h"
+#include "best/text/rune.h"
 
 namespace best::utf_test {
 best::test Utf8Encode = [](auto& t) {

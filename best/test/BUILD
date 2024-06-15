@@ -7,7 +7,7 @@ cc_library(
   testonly = True,
   deps = [
     ":test",
-    "//best/strings:str",
+    "//best/text:str",
     "//best/log:location",
   ],
 )
@@ -19,7 +19,7 @@ cc_library(
   testonly = True,
   deps = [
     "//best/container:vec",
-    "//best/strings:str",
+    "//best/text:str",
     "//best/log:location",
   ],
 )

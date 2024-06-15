@@ -1,5 +1,5 @@
-#ifndef BEST_STRINGS_RUNE_H_
-#define BEST_STRINGS_RUNE_H_
+#ifndef BEST_TEXT_RUNE_H_
+#define BEST_TEXT_RUNE_H_
 
 #include <cstddef>
 #include <ios>
@@ -9,7 +9,7 @@
 #include "best/container/option.h"
 #include "best/container/span.h"
 #include "best/log/internal/crash.h"
-#include "best/strings/internal/utf.h"
+#include "best/text/internal/utf.h"
 
 //! Unicode characters and encodings.
 //!
@@ -618,4 +618,4 @@ constexpr bool rune::is_ascii_space() const {
 
 }  // namespace best
 
-#endif  // BEST_STRINGS_RUNE_H_
+#endif  // BEST_TEXT_RUNE_H_

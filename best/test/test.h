@@ -8,7 +8,7 @@
 
 #include "best/log/location.h"
 #include "best/meta/ops.h"
-#include "best/strings/str.h"
+#include "best/text/str.h"
 
 //! The best unit testing library.
 

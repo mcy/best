@@ -41,17 +41,17 @@ class track_location;
 template <typename...>
 class tlist;
 
-// best/strings/rune.h
+// best/text/rune.h
 class rune;
 
 // best::text cannot be forward-declared because that depends on
 // best::encoding being defined.
 //
-// best/strings/str.h
+// best/text/str.h
 // template <best::encoding>
 // class text;
 
-// best/strings/utf.h
+// best/text/utf.h
 struct utf8;
 struct wtf8;
 struct utf16;

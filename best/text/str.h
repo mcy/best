@@ -1,5 +1,5 @@
-#ifndef BEST_STRINGS_STR_H_
-#define BEST_STRINGS_STR_H_
+#ifndef BEST_TEXT_STR_H_
+#define BEST_TEXT_STR_H_
 
 #include <cstddef>
 #include <cstring>
@@ -11,8 +11,8 @@
 #include "best/container/span.h"
 #include "best/memory/bytes.h"
 #include "best/meta/ops.h"
-#include "best/strings/rune.h"
-#include "best/strings/utf.h"
+#include "best/text/rune.h"
+#include "best/text/utf.h"
 
 //! Unicode strings.
 //!
@@ -545,4 +545,4 @@ constexpr best::option<std::pair<rune, text<E>>> text<E>::break_off() const {
 }
 }  // namespace best
 
-#endif  // BEST_STRINGS_STR_H_
+#endif  // BEST_TEXT_STR_H_

@@ -1,5 +1,5 @@
 
-#include "best/strings/rune.h"
+#include "best/text/rune.h"
 
 #include "best/test/test.h"
 

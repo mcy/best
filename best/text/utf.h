@@ -1,12 +1,12 @@
-#ifndef BEST_STRINGS_UTF_H_
-#define BEST_STRINGS_UTF_H_
+#ifndef BEST_TEXT_UTF_H_
+#define BEST_TEXT_UTF_H_
 
 #include <cstddef>
 
 #include "best/container/option.h"
 #include "best/container/span.h"
-#include "best/strings/internal/utf.h"
-#include "best/strings/rune.h"
+#include "best/text/internal/utf.h"
+#include "best/text/rune.h"
 
 //! Encodings for the "Unicode Transformation Formats".
 //!
@@ -225,4 +225,4 @@ constexpr const utf32& BestEncoding(auto, const char32_t (&)[n]) {
 
 }  // namespace best
 
-#endif  // BEST_STRINGS_UTF_H_
+#endif  // BEST_TEXT_UTF_H_

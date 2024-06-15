@@ -1,4 +1,4 @@
-#include "best/strings/str.h"
+#include "best/text/str.h"
 
 #include "best/container/vec.h"
 #include "best/test/test.h"
