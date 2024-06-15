@@ -60,6 +60,25 @@ cc_test(
 )
 
 cc_library(
+  name = "strbuf",
+  hdrs = ["strbuf.h"],
+  deps = [
+    ":str",
+    "//best/container:vec",
+  ]
+)
+
+cc_test(
+  name = "strbuf_test",
+  srcs = ["strbuf_test.cc"],
+  linkopts = ["-rdynamic"],
+  deps = [
+    ":strbuf",
+    "//best/test",
+  ]
+)
+
+cc_library(
   name = "utf_internal",
   hdrs = ["internal/utf.h"],
   deps = [

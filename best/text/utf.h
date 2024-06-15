@@ -22,6 +22,7 @@ struct utf8 final {
       .max_codes_per_rune = 4,
       .is_self_syncing = true,
       .is_lexicographic = true,
+      .is_universal = true,
   };
 
   static constexpr bool is_boundary(best::span<const char> input, size_t idx) {
@@ -69,6 +70,8 @@ struct wtf8 final {
       .max_codes_per_rune = 4,
       .is_self_syncing = true,
       .is_lexicographic = true,
+      .is_universal = true,
+      .allows_surrogates = true,
   };
 
   static constexpr bool is_boundary(best::span<const char> input, size_t idx) {
@@ -106,6 +109,7 @@ struct utf16 final {
   static constexpr best::encoding_about About{
       .max_codes_per_rune = 2,
       .is_self_syncing = true,
+      .is_universal = true,
   };
 
   static constexpr bool is_boundary(best::span<const char16_t> input,
@@ -156,6 +160,7 @@ struct utf32 final {
       .max_codes_per_rune = 1,
       .is_self_syncing = true,
       .is_lexicographic = true,
+      .is_universal = true,
   };
 
   static constexpr bool is_boundary(best::span<const char32_t> input,

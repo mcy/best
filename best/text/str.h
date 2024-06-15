@@ -120,7 +120,6 @@ class text final {
   /// Creates a new string from some other `best::string_type`.
   ///
   /// Crashes if the string is not correctly text::
-  template <string_type Str>
   constexpr explicit text(unsafe, best::span<const code> data,
                           encoding enc = {})
       : text(in_place, data, std::move(enc)) {}
@@ -145,26 +144,26 @@ class text final {
     return from(best::span<const code>::from_nul(data), std::move(enc));
   }
 
-  /// # `text::size()`
-  ///
-  /// Returns the size of the string, in code units.
-  constexpr size_t size() const { return span_.size(); }
-
   /// # `text::data()`
   ///
   /// Returns the string's data pointer.
   /// This value is never null.
   constexpr const code* data() const { return span_.data(); }
 
-  /// # `text::get_encoding()`
-  ///
-  /// Returns the underlying text encoding.
-  constexpr const encoding& enc() const { return enc_; }
-
   /// # `text::is_empty()`
   ///
   /// Checks whether the string is empty.
   constexpr bool is_empty() const { return size() == 0; }
+
+  /// # `text::size()`
+  ///
+  /// Returns the size of the string, in code units.
+  constexpr size_t size() const { return span_.size(); }
+
+  /// # `text::enc()`
+  ///
+  /// Returns the underlying text encoding.
+  constexpr const encoding& enc() const { return enc_; }
 
   /// # `text::as_codes()`
   ///
@@ -341,11 +340,6 @@ class text final {
     if (span_.data() == nullptr) span_ = {&empty, 0};
   }
 
-  template <string_type S>
-  static constexpr bool compatible =
-      best::same<code,
-                 std::remove_cvref_t<decltype(*std::data(std::declval<S>()))>>;
-
   constexpr bool can_memeq(const auto& that) const {
     return !std::is_constant_evaluated() &&
            (best::addr_eq(this, std::addressof(that)) ||
@@ -430,7 +424,7 @@ constexpr option<text<E>> text<E>::trim_prefix(
   rune::iter needle(str);
   rune::iter haystack(*this);
 
-  if constexpr (compatible<decltype(str)>) {
+  if constexpr (best::same_encoding_code<text, decltype(str)>()) {
     if (can_memeq(str)) {
       auto that = needle.rest();
       auto prefix = span_.at({.end = that.size()});
@@ -472,7 +466,7 @@ constexpr best::option<std::pair<text<E>, text<E>>> text<E>::split_on(
   rune::iter haystack_start(*this);
   rune::iter needle_start(str);
 
-  if constexpr (compatible<decltype(str)>) {
+  if constexpr (best::same_encoding_code<text, decltype(str)>()) {
     if (can_memmem(str)) {
       best::span that = needle_start.rest();
       auto idx = best::search_bytes(span_, that);

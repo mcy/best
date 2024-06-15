@@ -599,8 +599,8 @@ class span final {
   /// Copies values from src. This has the same semantics as Go's `copy()`
   /// builtin: if the lengths are not equal, only the overlapping part is
   /// copied.
-  template <typename U = T>
-  constexpr void copy_from(best::span<const U> src) const
+  template <typename U = const T>
+  constexpr void copy_from(best::span<U> src) const
     requires(!is_const)
   {
     if (!std::is_constant_evaluated() && best::same<T, U> &&
@@ -620,8 +620,8 @@ class span final {
   /// # `span::emplace_from()`
   ///
   /// Like `copy_from()`, but assumes this span's elements are uninitialized.
-  template <typename U = T>
-  constexpr void emplace_from(best::span<const U> src) const
+  template <typename U = const T>
+  constexpr void emplace_from(best::span<U> src) const
     requires(!is_const)
   {
     if (!std::is_constant_evaluated() && best::same<T, U> &&

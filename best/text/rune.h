@@ -60,6 +60,17 @@ struct encoding_about final {
   /// start with hex digit `0xd`; this means that `U+FFFF > U+10000` when
   /// encoded as UTF-16.
   bool is_lexicographic = false;
+
+  /// Whether this encoding can encode all of Unicode, not including the
+  /// unpaired surrogates.
+  ///
+  /// A universal encoding's encode() function will never fail when called on
+  /// a buffer at least `max_codes_per_rune` in length, unless it is passed an
+  /// unpaired surrogate.
+  bool is_universal = false;
+
+  /// Whether this encoding allows encoding unpaired surrogates.
+  bool allows_surrogates = false;
 };
 
 /// # `best::encoding`
@@ -128,20 +139,33 @@ constexpr const auto& encoding_of(const string_type auto& string) {
   return BestEncoding(best::types<decltype(string)>, string);
 }
 
+/// # `best::encoding_type<S>`
+///
+/// Extracts the encoding type out of some string type.
+template <string_type S>
+using encoding_type =
+    std::remove_cvref_t<decltype(best::encoding_of(std::declval<S>()))>;
+
 /// # `best::same_encoding()`
 ///
 /// Returns whether two string values have the same encoding. This verifies that
 /// their encodings compare as equal.
 constexpr bool same_encoding(const string_type auto& lhs,
                              const string_type auto& rhs) {
-  using E1 = std::remove_cvref_t<decltype(best::encoding_of(lhs))>;
-  using E2 = std::remove_cvref_t<decltype(best::encoding_of(rhs))>;
-
-  if constexpr (best::equatable<E1, E2>) {
+  if constexpr (best::equatable<encoding_type<decltype(lhs)>,
+                                encoding_type<decltype(rhs)>>) {
     return best::encoding_of(lhs) == best::encoding_of(rhs);
   }
 
   return false;
+}
+
+/// # `best::same_encoding_code()`
+///
+/// Returns whether two string types have the same code unit type.
+template <string_type S1, string_type S2>
+constexpr bool same_encoding_code() {
+  return best::same<code<encoding_type<S1>>, code<encoding_type<S2>>>;
 }
 
 /// # `best::rune`
@@ -149,8 +173,8 @@ constexpr bool same_encoding(const string_type auto& lhs,
 /// A Unicode scalar value, called a "rune" in the p9 tradition.
 ///
 /// this rune corresponds to a valid Unicode scalar value, which may
-/// potentially be an unpaired surrogate. This is to allow encodings that allow
-/// unpaired surrogates, such as WTF-8, to produce best::runes.
+/// potentially be an unpaired surrogate. This is to allow encodings that
+/// allow unpaired surrogates, such as WTF-8, to produce best::runes.
 class rune final {
  private:
   static constexpr bool is_unicode(uint32_t value) { return value < 0x11'0000; }
@@ -241,8 +265,8 @@ class rune final {
   ///
   /// Performs a single indivisible encoding operation.
   ///
-  /// Returns the part of `output` written to. If `output` is passed by pointer
-  /// rather than by value, it is automatically advanced.
+  /// Returns the part of `output` written to. If `output` is passed by
+  /// pointer rather than by value, it is automatically advanced.
   ///
   /// Returns `best::none` on failure; in this case, `output` is not advanced.
   template <encoding E = utf8>
@@ -293,10 +317,12 @@ class rune final {
   /// An iterator over some encoded span that yields runes. The span need not
   /// be well-encoded: if encoding errors are encountered, then either:
   ///
-  /// 1. If the encoding is synchronizing, yields one `rune::replacement()` for
+  /// 1. If the encoding is synchronizing, yields one `rune::replacement()`
+  /// for
   ///    each bad code unit.
   ///
-  /// 2. If the encoding is not synchronizing, yields one `rune::replacement()`
+  /// 2. If the encoding is not synchronizing, yields one
+  /// `rune::replacement()`
   ///    and halts further iteration.
   template <encoding>
   struct iter;
@@ -308,8 +334,8 @@ class rune final {
 
   /// # `rune::from_digit()`
   ///
-  /// Returns the appropriate character to represent `num` in the given `radix`
-  /// (i.e., base). Crashes if `radix > 36`.
+  /// Returns the appropriate character to represent `num` in the given
+  /// `radix` (i.e., base). Crashes if `radix > 36`.
   constexpr static best::option<rune> from_digit(uint32_t num,
                                                  uint32_t radix = 10);
 
