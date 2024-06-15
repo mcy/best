@@ -63,7 +63,7 @@ best::test NonTrivial = [](auto& t) {
 
 best::test String = [](auto& t) {
   unsafe::in([&](auto u) {
-    best::pun<best::str, int> s(best::index<0>, "hello...");
+    best::pun<best::str, int> s(best::index<0>, best::str("hello..."));
     t.expect_eq(s.get<0>(u), "hello...");
   });
 };

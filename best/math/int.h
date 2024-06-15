@@ -9,6 +9,8 @@
 
 #include "best/base/fwd.h"
 #include "best/base/hint.h"
+#include "best/base/port.h"
+#include "best/math/internal/common_int.h"
 #include "best/meta/concepts.h"
 
 //! Utilities for working with primitive integer types.
@@ -44,6 +46,7 @@ inline constexpr Int min_of = std::numeric_limits<Int>::min();
 /// The maximum value for a particular integer type.
 template <integer Int>
 inline constexpr Int max_of = std::numeric_limits<Int>::max();
+
 /// # `best::signed_int`
 ///
 /// Any primitive signed integer.
@@ -121,6 +124,67 @@ template <integer Int>
 BEST_INLINE_ALWAYS constexpr best::option<Int> checked_cast(integer auto x) {
   if (!best::int_fits<Int>(x)) return {};
   return x;
+}
+
+/// # `best::common_int<...>`
+///
+/// Computes a "common int" type among the given integers.
+///
+/// This is defined to be the larges integer type among them. If any of them
+/// are unsigned, the type is also unsigned.
+template <integer... Ints>
+using common_int = decltype(best::int_internal::common<best::types<Ints...>>());
+
+/// # `best::min()`
+///
+/// Computes the minimum from a collection of signed or unsigned integers.
+template <unsigned_int... Ints>
+BEST_INLINE_ALWAYS constexpr best::common_int<Ints...> min(Ints... args)
+  requires(sizeof...(args) > 0)
+{
+  BEST_PUSH_GCC_DIAGNOSTIC()
+  BEST_IGNORE_GCC_DIAGNOSTIC("-Wunused-value")
+  best::common_int<Ints...> output = (args, ...);
+  BEST_POP_GCC_DIAGNOSTIC()
+  ((output > args ? output = args : 0), ...);
+  return output;
+}
+template <signed_int... Ints>
+BEST_INLINE_ALWAYS constexpr best::common_int<Ints...> min(Ints... args)
+  requires(sizeof...(args) > 0)
+{
+  BEST_PUSH_GCC_DIAGNOSTIC()
+  BEST_IGNORE_GCC_DIAGNOSTIC("-Wunused-value")
+  best::common_int<Ints...> output = (args, ...);
+  BEST_POP_GCC_DIAGNOSTIC()
+  ((output > args ? output = args : 0), ...);
+  return output;
+}
+
+/// # `best::max()`
+///
+/// Computes the maximum from a collection of signed or unsigned integers.
+template <unsigned_int... Ints>
+BEST_INLINE_ALWAYS constexpr best::common_int<Ints...> max(Ints... args)
+  requires(sizeof...(args) > 0)
+{
+  BEST_PUSH_GCC_DIAGNOSTIC()
+  BEST_IGNORE_GCC_DIAGNOSTIC("-Wunused-value")
+  best::common_int<Ints...> output = (args, ...);
+  BEST_POP_GCC_DIAGNOSTIC()
+  ((output < args ? output = args : 0), ...);
+  return output;
+}
+template <signed_int... Ints>
+BEST_INLINE_ALWAYS constexpr best::common_int<Ints...> max(Ints... args)
+  requires(sizeof...(args) > 0)
+{
+  BEST_PUSH_GCC_DIAGNOSTIC()
+  BEST_IGNORE_GCC_DIAGNOSTIC("-Wunused-value")
+  best::common_int<Ints...> output = (args, ...);
+  BEST_POP_GCC_DIAGNOSTIC()
+  ((output < args ? output = args : 0), ...);
+  return output;
 }
 
 /// # `best::smallest_unsigned`

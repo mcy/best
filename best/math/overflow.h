@@ -7,20 +7,11 @@
 #include "best/log/internal/crash.h"
 #include "best/log/location.h"
 #include "best/math/int.h"
-#include "best/math/internal/common_int.h"
 #include "best/meta/ops.h"
 
 //! Overflow-detection utilities.
 
 namespace best {
-/// # `best::common_int<...>`
-///
-/// Computes a "common int" type among the given integers.
-///
-/// This is defined to be the larges integer type among them. If any of them
-/// are unsigned, the type is also unsigned.
-template <integer... Ints>
-using common_int = decltype(best::int_internal::common<best::types<Ints...>>());
 
 template <integer>
 struct overflow;

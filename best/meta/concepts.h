@@ -101,11 +101,6 @@ concept abominable_func_type = std::is_function_v<T>;
 template <typename T, typename U>
 concept qualifies_to = same<T, U> || same<const T, U> || same<volatile T, U> ||
                        same<const volatile T, U>;
-
-/// Whether a type T can be safely memcmp'd.
-template <typename T>
-concept can_memcmp =
-    std::is_integral_v<T> || std::is_enum_v<T> || std::is_pointer_v<T>;
 }  // namespace best
 
 #endif  // BEST_META_CONCEPTS_H_

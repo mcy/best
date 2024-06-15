@@ -45,6 +45,16 @@ cc_test(
 )
 
 cc_library(
+  name = "ebo",
+  hdrs = ["ebo.h"],
+  deps = [
+    ":concepts",
+    ":init",
+    ":tags",
+  ]
+)
+
+cc_library(
   name = "tlist",
   hdrs = [
     "tlist.h",

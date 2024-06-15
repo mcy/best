@@ -1,34 +1,41 @@
 package(default_visibility = ["//visibility:public"])
 
 cc_library(
-  name = "encoding",
-  hdrs = ["encoding.h"],
-  deps = [
-    "//best/container:option",
-    "//best/container:span",
-  ]
-)
-
-cc_library(
   name = "rune",
   hdrs = ["rune.h"],
   deps = [
-    ":encoding",
     ":utf_internal",
     "//best/log/internal:crash",
     "//best/container:span",
   ]
 )
 
+cc_test(
+  name = "rune_test",
+  srcs = ["rune_test.cc"],
+  linkopts = ["-rdynamic"],
+  deps = [
+    ":rune",
+    "//best/test",
+  ]
+)
+
 cc_library(
   name = "utf",
-  hdrs = [
-    "utf.h",
-  ],
+  hdrs = ["utf.h"],
   deps = [
-    ":encoding",
     ":rune",
     ":utf_internal",
+  ]
+)
+
+cc_test(
+  name = "utf_test",
+  srcs = ["utf_test.cc"],
+  linkopts = ["-rdynamic"],
+  deps = [
+    ":utf",
+    "//best/test",
   ]
 )
 

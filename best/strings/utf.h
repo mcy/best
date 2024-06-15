@@ -18,26 +18,40 @@ namespace best {
 /// A `best::encoding` representing UTF-8.
 struct utf8 final {
   using code = char;  // Not char8_t because the standard messed up.
-  using state = utf8;
-  using self_syncing = void;
+  static constexpr best::encoding_about About{
+      .max_codes_per_rune = 4,
+      .is_self_syncing = true,
+      .is_lexicographic = true,
+  };
 
-  static constexpr size_t MaxCodesPerRune = 4;
+  static constexpr bool is_boundary(best::span<const char> input, size_t idx) {
+    return input.size() == idx || input.at(idx).has_value([](char c) {
+      return best::leading_ones(c) != 1;
+    });
+  }
 
-  static constexpr best::option<rune> read_rune(utf8,
-                                                best::span<const char>& input) {
-    if (auto result = best::utf_internal::decode8(input)) {
-      input = input[{.start = result->first}];
+  static constexpr bool encode(best::span<char>* output, rune rune) {
+    if (auto result = best::utf_internal::encode8(*output, rune)) {
+      *output = (*output)[{.start = *result}];
+      return true;
+    }
+    return false;
+  }
+
+  static constexpr best::option<rune> decode(best::span<const char>* input) {
+    if (auto result = best::utf_internal::decode8(*input)) {
+      *input = (*input)[{.start = result->first}];
       return rune::from_int(result->second);
     }
     return best::none;
   }
 
-  static constexpr bool write_rune(utf8, best::span<char>& output, rune rune) {
-    if (auto result = best::utf_internal::encode8(output, rune)) {
-      output = output[{.start = *result}];
-      return true;
+  static constexpr best::option<rune> undecode(best::span<const char>* input) {
+    if (auto result = best::utf_internal::undecode8(*input)) {
+      *input = (*input)[{.end = input->size() - result->first}];
+      return rune::from_int(result->second);
     }
-    return false;
+    return best::none;
   }
 
   constexpr bool operator==(const utf8&) const = default;
@@ -51,22 +65,34 @@ struct utf8 final {
 /// unpaired surrogates (in the range U+D800 to U+DFFF).
 struct wtf8 final {
   using code = char;  // Not char8_t because the standard messed up.
-  using state = utf8;
-  using self_syncing = void;
+  static constexpr best::encoding_about About{
+      .max_codes_per_rune = 4,
+      .is_self_syncing = true,
+      .is_lexicographic = true,
+  };
 
-  static constexpr size_t MaxCodesPerRune = 4;
+  static constexpr bool is_boundary(best::span<const char> input, size_t idx) {
+    return utf8::is_boundary(input, idx);
+  }
 
-  static constexpr best::option<rune> read_rune(wtf8,
-                                                best::span<const char>& input) {
-    if (auto result = best::utf_internal::decode8(input)) {
-      input = input[{.start = result->first}];
+  static constexpr bool encode(best::span<char>* output, rune rune) {
+    return utf8::encode(output, rune);
+  }
+
+  static constexpr best::option<rune> decode(best::span<const char>* input) {
+    if (auto result = best::utf_internal::decode8(*input)) {
+      *input = (*input)[{.start = result->first}];
       return rune::from_int_allow_surrogates(result->second);
     }
     return best::none;
   }
 
-  static constexpr bool write_rune(wtf8, best::span<char>& output, rune rune) {
-    return utf8::write_rune({}, output, rune);
+  static constexpr best::option<rune> undecode(best::span<const char>* input) {
+    if (auto result = best::utf_internal::undecode8(*input)) {
+      *input = (*input)[{.end = input->size() - result->first}];
+      return rune::from_int_allow_surrogates(result->second);
+    }
+    return best::none;
   }
 
   constexpr bool operator==(const wtf8&) const = default;
@@ -77,27 +103,45 @@ struct wtf8 final {
 /// A best::encoding representing UTF-16.
 struct utf16 final {
   using code = char16_t;
-  using state = utf16;
-  using self_syncing = void;
+  static constexpr best::encoding_about About{
+      .max_codes_per_rune = 2,
+      .is_self_syncing = true,
+  };
 
-  static constexpr size_t MaxCodesPerRune = 2;
+  static constexpr bool is_boundary(best::span<const char16_t> input,
+                                    size_t idx) {
+    return input.size() == idx ||
+           input.at(idx)
+               .then([](char16_t c) {
+                 return rune::from_int_allow_surrogates(c);
+               })
+               .has_value([](rune r) { return !r.is_low_surrogate(); });
+  }
 
-  static constexpr best::option<rune> read_rune(
-      utf16, best::span<const char16_t>& input) {
-    if (auto result = best::utf_internal::decode16(input)) {
-      input = input[{.start = result->first}];
+  static constexpr bool encode(best::span<char16_t>* output, rune rune) {
+    if (auto result = best::utf_internal::encode16(*output, rune)) {
+      *output = (*output)[{.start = *result}];
+      return true;
+    }
+    return false;
+  }
+
+  static constexpr best::option<rune> decode(
+      best::span<const char16_t>* input) {
+    if (auto result = best::utf_internal::decode16(*input)) {
+      *input = (*input)[{.start = result->first}];
       return rune::from_int(result->second);
     }
     return best::none;
   }
 
-  static constexpr bool write_rune(utf16, best::span<char16_t>& output,
-                                   rune rune) {
-    if (auto result = best::utf_internal::encode16(output, rune)) {
-      output = output[{.start = *result}];
-      return true;
+  static constexpr best::option<rune> undecode(
+      best::span<const char16_t>* input) {
+    if (auto result = best::utf_internal::undecode16(*input)) {
+      *input = (*input)[{.end = input->size() - result->first}];
+      return rune::from_int(result->second);
     }
-    return false;
+    return best::none;
   }
 
   bool operator==(const utf16&) const = default;
@@ -108,26 +152,39 @@ struct utf16 final {
 /// A best::encoding representing UTF-32.
 struct utf32 final {
   using code = char32_t;
-  using state = utf32;
-  using self_syncing = void;
+  static constexpr best::encoding_about About{
+      .max_codes_per_rune = 1,
+      .is_self_syncing = true,
+      .is_lexicographic = true,
+  };
 
-  static constexpr size_t MaxCodesPerRune = 1;
+  static constexpr bool is_boundary(best::span<const char32_t> input,
+                                    size_t idx) {
+    return idx <= input.size();
+  }
 
-  static constexpr best::option<rune> read_rune(
-      utf32, best::span<const char32_t>& input) {
-    if (auto next = input.take_first(1)) {
+  static constexpr bool encode(best::span<char32_t>* output, rune rune) {
+    if (auto next = output->take_first(1)) {
+      (*next)[0] = rune;
+      return true;
+    }
+    return false;
+  }
+
+  static constexpr best::option<rune> decode(
+      best::span<const char32_t>* input) {
+    if (auto next = input->take_first(1)) {
       return rune::from_int((*next)[0]);
     }
     return best::none;
   }
 
-  static constexpr bool write_rune(utf32, best::span<char32_t>& output,
-                                   rune rune) {
-    if (auto next = output.take_first(1)) {
-      (*next)[0] = rune;
-      return true;
+  static constexpr best::option<rune> undecode(
+      best::span<const char32_t>* input) {
+    if (auto next = input->take_last(1)) {
+      return rune::from_int((*next)[0]);
     }
-    return false;
+    return best::none;
   }
 
   constexpr bool operator==(const utf32&) const = default;
@@ -139,6 +196,33 @@ constexpr const utf8& BestEncoding(auto, const std::string&) {
 constexpr const utf8& BestEncoding(auto, const std::string_view&) {
   return best::val<utf8{}>::value;
 }
+template <size_t n>
+constexpr const utf8& BestEncoding(auto, const char (&)[n]) {
+  return best::val<utf8{}>::value;
+}
+
+constexpr const utf16& BestEncoding(auto, const std::u16string&) {
+  return best::val<utf16{}>::value;
+}
+constexpr const utf16& BestEncoding(auto, const std::u16string_view&) {
+  return best::val<utf16{}>::value;
+}
+template <size_t n>
+constexpr const utf16& BestEncoding(auto, const char16_t (&)[n]) {
+  return best::val<utf16{}>::value;
+}
+
+constexpr const utf32& BestEncoding(auto, const std::u32string&) {
+  return best::val<utf32{}>::value;
+}
+constexpr const utf32& BestEncoding(auto, const std::u32string_view&) {
+  return best::val<utf32{}>::value;
+}
+template <size_t n>
+constexpr const utf32& BestEncoding(auto, const char32_t (&)[n]) {
+  return best::val<utf32{}>::value;
+}
+
 }  // namespace best
 
 #endif  // BEST_STRINGS_UTF_H_

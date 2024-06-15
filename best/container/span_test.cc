@@ -63,6 +63,13 @@ best::test InitList = [](auto& t) {
   cb({1, 2, 3});
 };
 
+best::test FromNul = [](auto& t) {
+  int ints[] = {1, 2, 3, 0, 4, 5, 6, 0};
+  auto span = best::span<int>::from_nul(ints);
+  t.expect_eq(span, best::span{1, 2, 3});
+  t.expect_eq(best::span<int>::from_nul(nullptr), best::span<int>{});
+};
+
 best::test Ordering = [](auto& t) {
   int32_t ints[] = {1, 2, 3};
   int64_t longs[] = {1, 2, 3};

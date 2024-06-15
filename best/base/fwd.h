@@ -44,12 +44,18 @@ class tlist;
 // best/strings/rune.h
 class rune;
 
-// best::str cannot be forward-declared because that depends on
+// best::text cannot be forward-declared because that depends on
 // best::encoding being defined.
 //
 // best/strings/str.h
 // template <best::encoding>
-// class str;
+// class text;
+
+// best/strings/utf.h
+struct utf8;
+struct wtf8;
+struct utf16;
+struct utf32;
 
 // best/test/test.h
 class test;

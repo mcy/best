@@ -472,7 +472,11 @@ class option final {
 
   // TODO: BestFmt
   template <typename Os>
-  friend Os& operator<<(Os& os, const option& opt) {
+  friend Os& operator<<(Os& os, const option& opt)
+    requires best::void_type<T> || requires {
+      { os << *opt };
+    }
+  {
     if (!opt.has_value()) {
       return os << "none";
     } else if constexpr (best::void_type<T>) {
@@ -600,7 +604,7 @@ Os& operator<<(Os& os, none_t opt) {
 inline constexpr best::option<void> VoidOption{best::in_place};
 
 // Forward declare span as soon as possible.
-template <best::object_type, best::option<size_t>>
+template <best::object_type, best::option<size_t> = best::none>
 class span;
 
 /// --- IMPLEMENTATION DETAILS BELOW ---

@@ -359,7 +359,7 @@ class object_ptr final {
 /// This type wraps any `T` and reproduces its properties. The wrapped `T` can
 /// be accessed via `operator*` and `operator->`.
 template <typename T>
-class object {
+class object final {
  public:
   /// # `object::wrapped_type`
   ///
