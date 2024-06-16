@@ -102,8 +102,8 @@ class option final {
 
   template <typename U>
   static constexpr bool not_forbidden_conversion =
-      (!std::is_same_v<best::in_place_t, std::remove_cvref_t<U>>)&&  //
-      (!std::is_same_v<option, std::remove_cvref_t<U>>)&&            //
+      (!std::is_same_v<best::in_place_t, std::remove_cvref_t<U>>) &&  //
+      (!std::is_same_v<option, std::remove_cvref_t<U>>) &&            //
       (!std::is_same_v<bool, std::remove_cv_t<T>>);
 
  public:
@@ -149,7 +149,7 @@ class option final {
   /// This converts a value into a non-empty option containing it.
   template <typename U = T>
   constexpr option(U&& arg)
-    requires not_forbidden_conversion<U> && best::constructible<T, U> &&
+    requires not_forbidden_conversion<U> && best::constructible<T, U&&> &&
              (!best::moveable<std::remove_cvref_t<U>> || std::is_reference_v<T>)
       : option(best::in_place, BEST_FWD(arg)) {}
   template <typename U = T>
@@ -231,13 +231,13 @@ class option final {
   /// values with troublesome constructors.
   template <typename... Args>
   constexpr explicit option(best::in_place_t, Args&&... args)
-    requires best::constructible<T, Args...>
+    requires best::constructible<T, Args&&...>
       : BEST_OPTION_IMPL_(best::index<1>, BEST_FWD(args)...) {}
 
   template <typename E, typename... Args>
   constexpr explicit option(best::in_place_t, std::initializer_list<E> il,
                             Args&&... args)
-    requires best::constructible<T, std::initializer_list<E>, Args...>
+    requires best::constructible<T, std::initializer_list<E>, Args&&...>
       : BEST_OPTION_IMPL_(best::index<1>, il, BEST_FWD(args)...) {}
 
   /// # `option::is_empty()`
@@ -349,12 +349,12 @@ class option final {
   constexpr ref operator*() & { return value(); }
   constexpr crref operator*() const&& { return moved().value(); }
   constexpr rref operator*() && { return moved().value(); }
-  constexpr cptr operator->() const& {
+  constexpr cptr operator->() const {
     return check_ok(), impl().as_ptr(index<1>);
   }
-  constexpr ptr operator->() & { return check_ok(), impl().as_ptr(index<1>); }
+  constexpr ptr operator->() { return check_ok(), impl().as_ptr(index<1>); }
 
-  /// # `option::map()`.
+  /// # `option::map()`
   ///
   /// Applies a function to the contents of this option, and returns a new
   /// option with the result; maps `best::none` to `best::none`.
@@ -370,9 +370,7 @@ class option final {
   constexpr auto map(auto&& d, auto&& f) const&&;
   constexpr auto map(auto&& d, auto&& f) &&;
 
-  // TODO: ok_or, not_ok_or
-
-  /// # `option::inspect()`.
+  /// # `option::inspect()`
   ///
   /// Applies a function to the contents of this option, discards the result,
   /// and returns the original option.
@@ -470,6 +468,148 @@ class option final {
   constexpr cptr as_ptr() const { return impl().as_ptr(index<1>); }
   constexpr ptr as_ptr() { return impl().as_ptr(index<1>); }
 
+  /// # `option::ok_or()`, `option::err_or()`
+  ///
+  /// If this option has a value, `ok_or()` returns a `best::ok`; otherwise,
+  /// returns a `best::err` constructed with the given arguments. `err_or()`
+  /// does the opposite.
+  ///
+  /// Each function has four groups of overloads: one that takes an explicit
+  /// template parameter and a variable number of arguments, which performs
+  /// in-place construction; a variant that takes one argument and no template
+  /// parameter, which deduces E to be the type of that argument; and a variant
+  /// that takes a callback to construct the alternate.
+  //
+  // NOTE: The below 24 (yes, 24!) functions apparently cannot be outlined
+  // without crashing clang in some configurations.
+  // clang-format off
+  template <typename E>
+  constexpr best::result<T, E> ok_or(auto&&... args) const&
+  requires best::constructible<T, cref> && best::constructible<E, decltype(args)...> {
+    if (has_value()) return make_ok(); return best::err(BEST_FWD(args)...);
+  }
+  template <typename E>
+  constexpr best::result<T, E> ok_or(auto&&... args) &
+  requires best::constructible<T, ref> && best::constructible<E, decltype(args)...> {
+    if (has_value()) return make_ok(); return best::err(BEST_FWD(args)...);
+  }
+  template <typename E>
+  constexpr best::result<T, E> ok_or(auto&&... args) const&&
+  requires best::constructible<T, crref> && best::constructible<E, decltype(args)...> {
+    if (has_value()) return moved().make_ok(); return best::err(BEST_FWD(args)...);
+  }
+  template <typename E>
+  constexpr best::result<T, E> ok_or(auto&&... args) &&
+  requires best::constructible<T, rref> && best::constructible<E, decltype(args)...> {
+    if (has_value()) return moved().make_ok(); return best::err(BEST_FWD(args)...);
+  }
+  template <int&... deduction_barrier>
+  constexpr auto ok_or(auto&& arg) const& -> best::result<T, std::remove_cvref_t<decltype(arg)>>
+  requires best::constructible<T, cref> && (!best::callable<decltype(arg), void()>) {
+    if (has_value()) return make_ok(); return best::err(BEST_FWD(arg));
+  }
+  template <int&... deduction_barrier>
+  constexpr auto ok_or(auto&& arg) const&& -> best::result<T, std::remove_cvref_t<decltype(arg)>>
+  requires best::constructible<T, ref> && (!best::callable<decltype(arg), void()>) {
+    if (has_value()) return make_ok(); return best::err(BEST_FWD(arg));
+  }
+  template <int&... deduction_barrier>
+  constexpr auto ok_or(auto&& arg) & -> best::result<T, std::remove_cvref_t<decltype(arg)>>
+  requires best::constructible<T, crref> && (!best::callable<decltype(arg), void()>) {
+    if (has_value()) return moved().make_ok(); return best::err(BEST_FWD(arg));
+  }
+  template <int&... deduction_barrier>
+  constexpr auto ok_or(auto&& arg) && -> best::result<T, std::remove_cvref_t<decltype(arg)>>
+  requires best::constructible<T, rref> && (!best::callable<decltype(arg), void()>) {
+    if (has_value()) return moved().make_ok(); return best::err(BEST_FWD(arg));
+  }
+  constexpr auto ok_or(best::callable<void()> auto&& arg) const&
+  -> best::result<T, decltype(best::call(BEST_FWD(arg)))>
+  requires best::constructible<T, cref> {
+    if (has_value()) return make_ok(); return best::err(best::call(BEST_FWD(arg)));
+  }
+  constexpr auto ok_or(best::callable<void()> auto&& arg) const&&
+  -> best::result<T, decltype(best::call(BEST_FWD(arg)))>
+  requires best::constructible<T, ref> {
+    if (has_value()) return make_ok(); return best::err(best::call(BEST_FWD(arg)));
+  }
+  constexpr auto ok_or(best::callable<void()> auto&& arg) &
+  -> best::result<T, decltype(best::call(BEST_FWD(arg)))>
+  requires best::constructible<T, crref> {
+    if (has_value()) return moved().make_ok(); return best::err(best::call(BEST_FWD(arg)));
+  }
+  constexpr auto ok_or(best::callable<void()> auto&& arg) &&
+  -> best::result<T, decltype(best::call(BEST_FWD(arg)))>
+  requires best::constructible<T, rref> {
+    if (has_value()) return moved().make_ok(); return best::err(best::call(BEST_FWD(arg)));
+  }
+
+  template <typename E>
+  constexpr best::result<E, T> err_or(auto&&... args) const&
+  requires best::constructible<T, cref> && best::constructible<E, decltype(args)...> {
+    if (has_value()) return make_err(); return best::ok(BEST_FWD(args)...);
+  }
+  template <typename E>
+  constexpr best::result<E, T> err_or(auto&&... args) &
+  requires best::constructible<T, ref> && best::constructible<E, decltype(args)...> {
+    if (has_value()) return make_err(); return best::ok(BEST_FWD(args)...);
+  }
+  template <typename E>
+  constexpr best::result<E, T> err_or(auto&&... args) const&&
+  requires best::constructible<T, crref> && best::constructible<E, decltype(args)...> {
+    if (has_value()) return moved().make_err(); return best::ok(BEST_FWD(args)...);
+  }
+  template <typename E>
+  constexpr best::result<E, T> err_or(auto&&... args) &&
+  requires best::constructible<T, rref> && best::constructible<E, decltype(args)...> {
+    if (has_value()) return moved().make_err(); return best::ok(BEST_FWD(args)...);
+  }
+  template <int&... deduction_barrier>
+  constexpr auto err_or(auto&& arg) const& 
+  -> best::result<std::remove_cvref_t<decltype(arg)>, T>
+  requires best::constructible<T, cref> && (!best::callable<decltype(arg), void()>) {
+    if (has_value()) return make_err(); return best::ok(BEST_FWD(arg));
+  }
+  template <int&... deduction_barrier>
+  constexpr auto err_or(auto&& arg) const&&
+  -> best::result<std::remove_cvref_t<decltype(arg)>, T>
+  requires best::constructible<T, ref> && (!best::callable<decltype(arg), void()>) {
+    if (has_value()) return make_err(); return best::ok(BEST_FWD(arg));
+  }
+  template <int&... deduction_barrier>
+  constexpr auto err_or(auto&& arg) &
+  -> best::result<std::remove_cvref_t<decltype(arg)>, T>
+  requires best::constructible<T, crref> && (!best::callable<decltype(arg), void()>) {
+    if (has_value()) return moved().make_err(); return best::ok(BEST_FWD(arg));
+  }
+  template <int&... deduction_barrier>
+  constexpr auto err_or(auto&& arg) &&
+  -> best::result<std::remove_cvref_t<decltype(arg)>, T>
+  requires best::constructible<T, rref> && (!best::callable<decltype(arg), void()>) {
+    if (has_value()) return moved().make_err(); return best::ok(BEST_FWD(arg));
+  }
+  constexpr auto err_or(best::callable<void()> auto&& arg) const&
+  -> best::result<decltype(best::call(BEST_FWD(arg))), T>
+  requires best::constructible<T, cref> {
+    if (has_value()) return make_err(); return best::ok(best::call(BEST_FWD(arg)));
+  }
+  constexpr auto err_or(best::callable<void()> auto&& arg) const&&
+  -> best::result<decltype(best::call(BEST_FWD(arg))), T>
+  requires best::constructible<T, ref> {
+    if (has_value()) return make_err(); return best::ok(best::call(BEST_FWD(arg)));
+  }
+  constexpr auto err_or(best::callable<void()> auto&& arg) &
+  -> best::result<decltype(best::call(BEST_FWD(arg))), T>
+  requires best::constructible<T, crref> {
+    if (has_value()) return moved().make_err(); return best::ok(best::call(BEST_FWD(arg)));
+  }
+  constexpr auto err_or(best::callable<void()> auto&& arg) &&
+  -> best::result<decltype(best::call(BEST_FWD(arg))), T>
+  requires best::constructible<T, rref> {
+    if (has_value()) return moved().make_err(); return best::ok(best::call(BEST_FWD(arg)));
+  }
+  // clang-format on
+
   // TODO: BestFmt
   template <typename Os>
   friend Os& operator<<(Os& os, const option& opt)
@@ -513,39 +653,34 @@ class option final {
   }
 
   // Comparisons.
-  template <typename U>
-  constexpr bool operator==(const best::option<U>& that) const
-    requires best::equatable<T, U>
-  {
+  template <best::equatable<T> U>
+  constexpr bool operator==(const best::option<U>& that) const {
     return impl() == that.impl();
   }
-  template <typename U>
-  constexpr bool operator==(const U& u) const
-    requires best::equatable<T, U>
-  {
+  template <best::equatable<T> U>
+  constexpr bool operator==(const U& u) const {
     return operator==(best::option<const U&>(u));
   }
-  template <typename U>
+  template <best::equatable<T> U>
   constexpr bool operator==(const U* u) const
-
-    requires best::equatable<T, U> && std::is_reference_v<T>
+    requires best::ref_type<T>
   {
     return operator==(best::option<const U&>(u));
   }
   constexpr bool operator==(const best::none_t&) const { return is_empty(); }
 
-  template <typename U>
+  template <best::comparable<T> U>
   constexpr best::order_type<T, U> operator<=>(
       const best::option<U>& that) const {
     return impl() <=> that.impl();
   }
-  template <typename U>
+  template <best::comparable<T> U>
   constexpr best::order_type<T, U> operator<=>(const U& u) const {
     return operator<=>(best::option<const U&>(u));
   }
-  template <typename U>
+  template <best::comparable<T> U>
   constexpr best::order_type<T, U> operator<=>(const U* u) const
-    requires std::is_reference_v<T>
+    requires best::ref_type<T>
   {
     return operator<=>(best::option<const U&>(u));
   }
@@ -581,6 +716,72 @@ class option final {
   }
   constexpr auto&& impl() && {
     return static_cast<best::choice<void, T>&&>(BEST_OPTION_IMPL_);
+  }
+
+  template <typename... Args>
+  static constexpr auto empty_ok() {
+    return best::ok<Args...>();
+  }
+  constexpr auto make_ok() const& {
+    if constexpr (best::void_type<T>) {
+      return empty_ok<>();
+    } else {
+      return best::ok(**this);
+    }
+  }
+  constexpr auto make_ok() & {
+    if constexpr (best::void_type<T>) {
+      return empty_ok<>();
+    } else {
+      return best::ok(**this);
+    }
+  }
+  constexpr auto make_ok() const&& {
+    if constexpr (best::void_type<T>) {
+      return empty_ok<>();
+    } else {
+      return best::ok(*moved());
+    }
+  }
+  constexpr auto make_ok() && {
+    if constexpr (best::void_type<T>) {
+      return empty_ok<>();
+    } else {
+      return best::ok(*moved());
+    }
+  }
+
+  template <typename... Args>
+  static constexpr auto empty_err() {
+    return best::err<Args...>();
+  }
+  constexpr auto make_err() const& {
+    if constexpr (best::void_type<T>) {
+      return empty_err<>();
+    } else {
+      return best::err(**this);
+    }
+  }
+  constexpr auto make_err() & {
+    if constexpr (best::void_type<T>) {
+      return empty_err<>();
+    } else {
+      return best::err(**this);
+    }
+  }
+  constexpr auto make_err() const&& {
+    if constexpr (best::void_type<T>) {
+      return empty_err<>();
+    } else {
+      return best::err(*moved());
+    }
+  }
+  constexpr auto make_err() && {
+    if constexpr (best::void_type<T>) {
+      return empty_err<>();
+    } else {
+      return best::err(*moved());
+    }
   }
 
  public:
@@ -727,7 +928,7 @@ constexpr auto option<T>::then(auto&& f) const& {
 }
 template <typename T>
 constexpr auto option<T>::then(auto&& f) & {
-  using U = best::as_deref<best::call_result_with_void<decltype(f), cref>>;
+  using U = best::as_deref<best::call_result_with_void<decltype(f), ref>>;
   return impl().match([](best::index_t<0>) -> U { return best::none; },
                       [&](best::index_t<1>, auto&&... args) -> U {
                         return best::call(BEST_FWD(f), BEST_FWD(args)...);
@@ -735,7 +936,7 @@ constexpr auto option<T>::then(auto&& f) & {
 }
 template <typename T>
 constexpr auto option<T>::then(auto&& f) const&& {
-  using U = best::as_deref<best::call_result_with_void<decltype(f), cref>>;
+  using U = best::as_deref<best::call_result_with_void<decltype(f), crref>>;
   return moved().impl().match([](best::index_t<0>) -> U { return best::none; },
                               [&](best::index_t<1>, auto&&... args) -> U {
                                 return best::call(BEST_FWD(f),
@@ -744,12 +945,17 @@ constexpr auto option<T>::then(auto&& f) const&& {
 }
 template <typename T>
 constexpr auto option<T>::then(auto&& f) && {
-  using U = best::as_deref<best::call_result_with_void<decltype(f), cref>>;
+  using U = best::as_deref<best::call_result_with_void<decltype(f), rref>>;
   return moved().impl().match([](best::index_t<0>) -> U { return best::none; },
                               [&](best::index_t<1>, auto&&... args) -> U {
                                 return best::call(BEST_FWD(f),
                                                   BEST_FWD(args)...);
                               });
+}
+
+constexpr auto BestGuardResidual(auto&&, is_option auto&&) { return none; }
+constexpr auto BestGuardReturn(auto&&, is_option auto&&, auto&&) {
+  return none;
 }
 }  // namespace best
 

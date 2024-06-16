@@ -1,5 +1,7 @@
 #include "best/container/option.h"
 
+#include "best/container/result.h"
+#include "best/container/vec.h"
 #include "best/test/fodder.h"
 #include "best/test/test.h"
 
@@ -293,5 +295,36 @@ best::test BitOps = [](auto& t) {
   t.expect_eq(x0 ^ x1, 0);
   t.expect_eq(x2 ^ x1, best::none);
   t.expect_eq(x1 ^ x0, 0);
+};
+
+best::test OkOr = [](auto& t) {
+  best::option<int> x0;
+  best::option<int> x1 = 42;
+  best::option<int&> x2 = x1;
+
+  t.expect_eq(x0.ok_or(5), best::err(5));
+  t.expect_eq(x1.ok_or(5), best::ok(42));
+  t.expect_eq(x2.ok_or(5), best::ok(42));
+  t.expect_eq(&*x2.ok_or(5).ok(), &*x1);
+
+  t.expect_eq(x0.ok_or<best::vec<int>>(best::span{1, 2, 3}),
+              best::err(best::span{1, 2, 3}));
+  t.expect_eq(x1.ok_or<best::vec<int>>(best::span{1, 2, 3}), best::ok(42));
+  t.expect_eq(x2.ok_or<best::vec<int>>(best::span{1, 2, 3}), best::ok(42));
+
+
+  t.expect_eq(x0.ok_or([] { return 5; }), best::err(5));
+  t.expect_eq(x1.ok_or([] { return 5; }), best::ok(42));
+  t.expect_eq(x2.ok_or([] { return 5; }), best::ok(42));
+
+  t.expect_eq(x0.err_or(5), best::ok(5));
+  t.expect_eq(x1.err_or(5), best::err(42));
+  t.expect_eq(x2.err_or(5), best::err(42));
+  t.expect_eq(&*x2.err_or(5).err(), &*x1);
+
+  t.expect_eq(x0.err_or<best::vec<int>>(best::span{1, 2, 3}),
+              best::ok(best::span{1, 2, 3}));
+  t.expect_eq(x1.err_or<best::vec<int>>(best::span{1, 2, 3}), best::err(42));
+  t.expect_eq(x2.err_or<best::vec<int>>(best::span{1, 2, 3}), best::err(42));
 };
 }  // namespace best::option_test

@@ -52,7 +52,7 @@ using str32 = best::text<utf32>;
   BEST_ENABLE_IF_CONSTEXPR(literal_)                                       \
   BEST_ENABLE_IF(                                                          \
       rune::validate(best::span(literal_, std::size(literal_) - 1), enc_), \
-      "string must be validly text")
+      "string literal must satisfy rune::validate() for the chosen encoding")
 
 /// # `best::text`
 ///

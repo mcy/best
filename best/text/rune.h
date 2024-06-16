@@ -7,9 +7,9 @@
 
 #include "best/base/hint.h"
 #include "best/container/option.h"
+#include "best/container/result.h"
 #include "best/container/span.h"
 #include "best/log/internal/crash.h"
-#include "best/text/internal/utf.h"
 
 //! Unicode characters and encodings.
 //!
@@ -73,6 +73,18 @@ struct encoding_about final {
   bool allows_surrogates = false;
 };
 
+/// # `best::encoding_error`
+///
+/// An error produced by an encoder.
+enum class encoding_error : uint8_t {
+  /// Insufficient space in the input/output buffer.
+  OutOfBounds,
+  /// Attempted to encode/decode a rune the encoding does not support.
+  Invalid,
+};
+}  // namespace best
+
+namespace best {
 /// # `best::encoding`
 ///
 /// A text encoding type. This type usually won't be used on its own; instead,
@@ -106,10 +118,10 @@ concept encoding =
       requires requires(size_t idx, rune r,
                         best::span<const typename E::code>& input,
                         best::span<typename E::code>& output) {
-        { e.is_boundary(input, idx) } -> std::convertible_to<bool>;
-        { e.encode(&output, r) } -> std::convertible_to<bool>;
-        { e.decode(&input) } -> std::convertible_to<best::option<rune>>;
-        { e.undecode(&input) } -> std::convertible_to<best::option<rune>>;
+        { e.is_boundary(input, idx) } -> same<bool>;
+        { e.encode(&output, r) } -> same<result<void, encoding_error>>;
+        { e.decode(&input) } -> same<result<rune, encoding_error>>;
+        { e.undecode(&input) } -> same<result<rune, encoding_error>>;
       };
     };
 
@@ -129,7 +141,7 @@ concept string_type = best::contiguous<T> && requires(const T& value) {
   {
     std::data(value)
   } -> best::same<const typename std::remove_cvref_t<decltype(BestEncoding(
-      best::types<const T&>, value))>::code*>;
+        best::types<const T&>, value))>::code*>;
 };
 
 /// # `best::encoding_of()`
@@ -249,7 +261,7 @@ class rune final {
   /// Returns the number of code units needed to encode this rune. Returns
   /// `best::none` if this rune is not encodable with `E`.
   template <encoding E = utf8>
-  constexpr best::option<size_t> size(const E& = {}) const;
+  constexpr best::result<size_t, encoding_error> size(const E& = {}) const;
 
   /// # `rune::is_boundary()`
   ///
@@ -270,11 +282,11 @@ class rune final {
   ///
   /// Returns `best::none` on failure; in this case, `output` is not advanced.
   template <encoding E = utf8>
-  constexpr best::option<best::span<code<E>>> encode(
+  constexpr best::result<best::span<code<E>>, encoding_error> encode(
       best::span<code<E>>* output, const E& = {}) const;
   template <encoding E = utf8>
-  constexpr best::option<best::span<code<E>>> encode(best::span<code<E>> output,
-                                                     const E& enc = {}) const {
+  constexpr best::result<best::span<code<E>>, encoding_error> encode(
+      best::span<code<E>> output, const E& enc = {}) const {
     return encode(&output, enc);
   }
 
@@ -287,11 +299,11 @@ class rune final {
   ///
   /// Returns `best::none` on failure; in this case, `input` is not advanced.
   template <encoding E = utf8>
-  constexpr static best::option<rune> decode(best::span<const code<E>>* input,
-                                             const E& enc = {});
+  constexpr static best::result<rune, encoding_error> decode(
+      best::span<const code<E>>* input, const E& enc = {});
   template <encoding E = utf8>
-  constexpr static best::option<rune> decode(best::span<const code<E>> input,
-                                             const E& enc = {}) {
+  constexpr static best::result<rune, encoding_error> decode(
+      best::span<const code<E>> input, const E& enc = {}) {
     return decode(&input, enc);
   }
 
@@ -304,11 +316,11 @@ class rune final {
   ///
   /// Returns `best::none` on failure; in this case, `input` is not advanced.
   template <encoding E = utf8>
-  constexpr static best::option<rune> undecode(best::span<const code<E>>* input,
-                                               const E& enc = {});
+  constexpr static best::result<rune, encoding_error> undecode(
+      best::span<const code<E>>* input, const E& enc = {});
   template <encoding E = utf8>
-  constexpr static best::option<rune> undecode(best::span<const code<E>> input,
-                                               const E& enc = {}) {
+  constexpr static best::result<rune, encoding_error> undecode(
+      best::span<const code<E>> input, const E& enc = {}) {
     return undecode(&input, enc);
   }
 
@@ -449,10 +461,7 @@ class rune final {
   /// Tempoaray hack until BestFmt.
   template <typename Os>
   friend Os& operator<<(Os& os, rune r) {
-    char encoded[5] = {};
-    best::utf_internal::encode8(encoded, r);
-
-    return os << encoded << "/" << std::hex << r.to_int();
+    return os << std::hex << r.to_int();
   }
 
   // best::rune has a niche representation.
@@ -524,7 +533,7 @@ struct rune::iter final {
       return *this;
     }
 
-    next_ = decode(&codes_, *enc_);
+    next_ = decode(&codes_, *enc_).ok();
     if (next_) return *this;
 
     next_ = rune::replacement();
@@ -566,41 +575,43 @@ constexpr best::option<rune> rune::from_int_allow_surrogates(int32_t value) {
 }
 
 template <encoding E>
-constexpr best::option<size_t> rune::size(const E& enc) const {
+constexpr best::result<size_t, encoding_error> rune::size(const E& enc) const {
   code<E> codes[E::About.max_codes_per_rune];
   return encode(codes, enc).map([](auto sp) { return sp.size(); });
 }
 
 template <encoding E>
-constexpr best::option<best::span<code<E>>> rune::encode(
+constexpr best::result<best::span<code<E>>, encoding_error> rune::encode(
     best::span<code<E>>* output, const E& enc) const {
-  auto out0 = *output;
-  if (enc.encode(output, *this)) {
-    size_t written = out0.size() - output->size();
-    return out0[{.count = written}];
-  }
-
-  *output = out0;
-  return best::none;
+  auto orig = *output;
+  return enc.encode(output, *this)
+      .map([&] {
+        size_t written = orig.size() - output->size();
+        return orig[{.count = written}];
+      })
+      .map_err([&](auto e) {
+        *output = orig;
+        return e;
+      });
 }
 
 template <encoding E>
-constexpr best::option<rune> rune::decode(best::span<const code<E>>* input,
-                                          const E& enc) {
-  auto in0 = *input;
-  if (auto encoded = enc.decode(input)) return encoded;
-
-  *input = in0;
-  return best::none;
+constexpr best::result<rune, encoding_error> rune::decode(
+    best::span<const code<E>>* input, const E& enc) {
+  auto orig = *input;
+  return enc.decode(input).map_err([&](auto e) {
+    *input = orig;
+    return e;
+  });
 }
 template <encoding E>
-constexpr best::option<rune> rune::undecode(best::span<const code<E>>* input,
-                                            const E& enc) {
-  auto in0 = *input;
-  if (auto encoded = enc.undecode(input)) return encoded;
-
-  *input = in0;
-  return best::none;
+constexpr best::result<rune, encoding_error> rune::undecode(
+    best::span<const code<E>>* input, const E& enc) {
+  auto orig = *input;
+  return enc.undecode(input).map_err([&](auto e) {
+    *input = orig;
+    return e;
+  });
 }
 
 constexpr best::option<rune> rune::from_digit(uint32_t num, uint32_t radix) {

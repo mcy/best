@@ -4,9 +4,9 @@ cc_library(
   name = "rune",
   hdrs = ["rune.h"],
   deps = [
-    ":utf_internal",
-    "//best/log/internal:crash",
     "//best/container:span",
+    "//best/container:result",
+    "//best/log/internal:crash",
   ]
 )
 
@@ -22,10 +22,15 @@ cc_test(
 
 cc_library(
   name = "utf",
-  hdrs = ["utf.h"],
+  hdrs = [
+    "utf.h",
+    "internal/utf.h",
+  ],
   deps = [
     ":rune",
-    ":utf_internal",
+    "//best/container:option",
+    "//best/container:span",
+    "//best/meta:guard",
   ]
 )
 
@@ -75,14 +80,5 @@ cc_test(
   deps = [
     ":strbuf",
     "//best/test",
-  ]
-)
-
-cc_library(
-  name = "utf_internal",
-  hdrs = ["internal/utf.h"],
-  deps = [
-    "//best/container:option",
-    "//best/container:span",
   ]
 )

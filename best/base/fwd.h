@@ -26,6 +26,14 @@ template <typename>
 class option;
 struct none_t;
 
+// best/container/result.h
+template <typename, typename>
+class result;
+template <typename...>
+struct ok;
+template <typename...>
+struct err;
+
 // best/container/pun.h
 template <typename...>
 class pun;

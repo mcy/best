@@ -80,10 +80,21 @@ cc_test(
   linkopts = ["-rdynamic"],
   deps = [
     ":option",
+    ":result",
     "//best/test",
     "//best/test:fodder",
   ],
 )
+
+cc_library(
+  name = "result",
+  hdrs = ["result.h"],
+  deps = [
+    ":choice",
+    "//best/log/internal:crash",
+  ],
+)
+
 
 cc_library(
   name = "pun",
