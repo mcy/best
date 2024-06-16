@@ -1,31 +1,5 @@
 package(default_visibility = ["//visibility:public"])
 
-
-cc_library(
-  name = "bag",
-  hdrs = [
-    "bag.h",
-    "internal/bag.h",
-  ],
-  deps = [
-    ":object",
-    "//best/base:port",
-    "//best/meta:tags",
-    "//best/meta:concepts",
-    "//best/log/internal:crash",
-  ],
-)
-
-cc_test(
-  name = "bag_test",
-  srcs = ["bag_test.cc"],
-  linkopts = ["-rdynamic"],
-  deps = [
-    ":bag",
-    "//best/test",
-  ],
-)
-
 cc_library(
   name = "bounds",
   hdrs = ["bounds.h"],
@@ -134,6 +108,30 @@ cc_test(
     ":pun",
     "//best/test",
     "//best/test:fodder",
+  ],
+)
+
+cc_library(
+  name = "row",
+  hdrs = [
+    "row.h",
+    "internal/row.h",
+  ],
+  deps = [
+    ":object",
+    "//best/base:port",
+    "//best/meta:tags",
+    "//best/meta:concepts",
+  ],
+)
+
+cc_test(
+  name = "row_test",
+  srcs = ["row_test.cc"],
+  linkopts = ["-rdynamic"],
+  deps = [
+    ":row",
+    "//best/test",
   ],
 )
 

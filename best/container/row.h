@@ -1,9 +1,9 @@
-#ifndef BEST_CONTAINER_BAG_H_
-#define BEST_CONTAINER_BAG_H_
+#ifndef BEST_CONTAINER_ROW_H_
+#define BEST_CONTAINER_ROW_H_
 
 #include <compare>
 
-#include "best/container/internal/bag.h"
+#include "best/container/internal/row.h"
 #include "best/container/object.h"
 #include "best/meta/concepts.h"
 #include "best/meta/ebo.h"
@@ -13,66 +13,70 @@
 
 //! A product type, like `std::tuple`.
 //!
-//! `best::bag` is the `best` tool for representing a heterogenous sequence.
+//! `best::row` is the `best` tool for representing a heterogenous sequence.
 //!
-//! `best::bag` tries to approximate the spirit of Rust tuples, where it makes
+//! `best::row` tries to approximate the spirit of Rust tuples, where it makes
 //! sense.
 
 namespace best {
-/// # `best::bag`
+/// # `best::row`
 ///
-/// A runtime bag of heterogenous things. Note that the semantics of `best::bag`
-/// for non-object types does not match `std::tuple`. Instead, a `best::bag`
-/// models a sequence of `best::object`s. In particular, a `best::bag<T>` and
+/// A list of heterogenous things. Note that the semantics of `best::row`
+/// for non-object types does not match `std::tuple`. Instead, a `best::row`
+/// models a sequence of `best::object`s. In particular, a `best::row<T>` and
 /// a `best::choice<T>` have the same internal semantics.
+///
+/// This type is named `best::row` instead of `best::tuple` because it is a
+/// common "type wart" that makes function signatures longer than they need to
+/// be, so saving single characters can help a lot!
 ///
 /// ## Construction
 ///
-/// `best::bag`s are constructed just the same way as ordinary `std::tuples`:
+/// `best::row`s are constructed just the same way as ordinary `std::tuples`:
 ///
 /// ```
-/// best::bag things{1, &x, 5.6, false};
+/// best::row things{1, &x, 5.6, false};
 /// ```
 ///
-/// You can, naturally, specify the type of the thing being put into the bag.
+/// You can, naturally, specify the type of the thing being put into the row.
 /// This is necessary when creating a tuple of references.
 ///
-/// NOTE: Unlike `std::tuple`, assigning `best::bag` DOES NOT assign through;
+/// NOTE: Unlike `std::tuple`, assigning `best::row` DOES NOT assign through;
 /// instead, it rebinds, like all other `best` containers.
 ///
 /// ## Access
 ///
-/// Accessing the elements of a bag is done through either `at()` or
+/// Accessing the elements of a row is done through either `at()` or
 /// `operator[]`. They are semantically identical, but different ones are easier
 /// to call in different contexts.
 ///
 /// ```
-/// best::bag things{1, &x, 5.6, false};
+/// best::row things{1, &x, 5.6, false};
 /// things[best::index<0>]++;
 /// things.at<1>()->bonk();
 /// ```
 ///
 /// ## Other Features
 ///
-/// - `best::bag` supports structured bindings.
-/// - `best::bag` is comparable in the obvious way.
-/// - `best::bag<>` is guaranteed to be an empty type.
-/// - `best::bag` is trivial when all of its elements are trivial.
+/// - `best::row` supports structured bindings.
+/// - `best::row` is comparable in the obvious way.
+/// - `best::row<>` is guaranteed to be an empty type.
+/// - `best::row` is trivial when all of its elements are trivial.
 template <typename... Elems>
-class bag final
-    : bag_internal::impl<decltype(best::indices<sizeof...(Elems)>), Elems...> {
+class row final
+    : row_internal::impl<decltype(best::indices<sizeof...(Elems)>), Elems...> {
  public:
-  /// # `bag::types`
+  /// # `row::types`
   ///
-  /// A `tlist` of the elements in this bag.
+  /// A `tlist` of the elements in this row.
   static constexpr auto types = best::types<Elems...>;
 
-  /// # `bag::indices`
+  /// # `row::indices`
   ///
-  /// A `vlist` of the indices of the elements in this bag.
+  /// A `vlist` of the indices of the elements in this row.
   static constexpr auto indices = best::indices<types.size()>;
 
-  /// # `bag::type<n>`
+  /// # `row::type<n>`
   ///
   /// Gets the nth type in this choice.
   template <size_t n>
@@ -88,32 +92,32 @@ class bag final
   // clang-format on
 
  private:
-  using impl = bag_internal::impl<decltype(indices), Elems...>;
+  using impl = row_internal::impl<decltype(indices), Elems...>;
 
  public:
-  /// # `bag::bag()`.
+  /// # `row::row()`.
   ///
-  /// Default constructs each element of the bag.
-  constexpr bag() = default;
+  /// Default constructs each element of the row.
+  constexpr row() = default;
 
-  /// # `bag::bag(bag)`.
+  /// # `row::row(row)`.
   ///
   /// These forward to the appropriate move/copy constructor of each element.
-  constexpr bag(const bag&) = default;
-  constexpr bag& operator=(const bag&) = default;
-  constexpr bag(bag&&) = default;
-  constexpr bag& operator=(bag&&) = default;
+  constexpr row(const row&) = default;
+  constexpr row& operator=(const row&) = default;
+  constexpr row(row&&) = default;
+  constexpr row& operator=(row&&) = default;
 
  public:
-  /// # `bag::bag(...)`
+  /// # `row::row(...)`
   ///
-  /// Constructs a bag by initializing each element from the corresponding
+  /// Constructs a row by initializing each element from the corresponding
   /// argument.
-  constexpr bag(auto&&... args)
+  constexpr row(auto&&... args)
     requires(best::constructible<Elems, decltype(args)> && ...)
       : impl{{best::in_place, best::in_place, BEST_FWD(args)}...} {}
 
-  /// # `bag[index<n>]`
+  /// # `row[index<n>]`
   ///
   /// Returns the `n`th element.
   // clang-format off
@@ -123,7 +127,7 @@ class bag final
   template <size_t n> constexpr rref<n> operator[](best::index_t<n> idx) &&;
   // clang-format on
 
-  /// # `bag::at(index<n>)`
+  /// # `row::at(index<n>)`
   ///
   /// Identical to `operator[]` in all ways.
   // clang-format off
@@ -133,7 +137,7 @@ class bag final
   template <size_t n> constexpr rref<n> at(best::index_t<n> = {}) &&;
   // clang-format on
 
-  /// # `bag::at(index<n>)`
+  /// # `row::at(index<n>)`
   ///
   /// Identical to `operator[]` in all ways except that when we would return a
   /// void type , we instead return a `best::empty` values (not a reference).
@@ -146,7 +150,7 @@ class bag final
   template <size_t n> constexpr decltype(auto) get(best::index_t<n> = {}) &&;
   // clang-format on
 
-  /// # `bag::apply()`
+  /// # `row::apply()`
   ///
   /// Calls `f` with a pack of references of the elements of this tuple.
   /// Elements of void type are replaced with `best::empty` values, as in
@@ -158,13 +162,13 @@ class bag final
 
   // TODO: BestFmt
   template <typename Os>
-  friend Os& operator<<(Os& os, const bag& bag) {
+  friend Os& operator<<(Os& os, const row& row) {
     os << "(";
     bool first = true;
-    bag.indices.apply([&]<typename... I> {
+    row.indices.apply([&]<typename... I> {
       (void)((std::exchange(first, false)
-                  ? os << bag.get(best::index<I::value>)
-                  : os << ", " << bag.get(best::index<I::value>)),
+                  ? os << row.get(best::index<I::value>)
+                  : os << ", " << row.get(best::index<I::value>)),
              ...);
     });
     return os << ")";
@@ -172,7 +176,7 @@ class bag final
 
   // Comparisons.
   template <typename... Us>
-  constexpr bool operator==(const bag<Us...>& that) const
+  constexpr bool operator==(const row<Us...>& that) const
     requires(best::equatable<Elems, Us> && ...)
   {
     return indices.apply([&]<typename... I> {
@@ -198,22 +202,22 @@ class bag final
   }
 
  private:
-  constexpr const bag&& moved() const {
-    return static_cast<const bag&&>(*this);
+  constexpr const row&& moved() const {
+    return static_cast<const row&&>(*this);
   }
-  constexpr bag&& moved() { return static_cast<bag&&>(*this); }
+  constexpr row&& moved() { return static_cast<row&&>(*this); }
 };
 
 template <typename... Elems>
-bag(Elems&&...) -> bag<Elems...>;
+row(Elems&&...) -> row<Elems...>;
 
 /// --- IMPLEMENTATION DETAILS BELOW ---
 
-namespace bag_internal {}  // namespace bag_internal
+namespace row_internal {}  // namespace row_internal
 
 template <typename... A>
 template <size_t n>
-constexpr bag<A...>::cref<n> bag<A...>::operator[](
+constexpr row<A...>::cref<n> row<A...>::operator[](
     best::index_t<n> idx) const& {
   using T = type<n>;
   using B = best::ebo<best::object<T>, T, n>;
@@ -221,14 +225,14 @@ constexpr bag<A...>::cref<n> bag<A...>::operator[](
 }
 template <typename... A>
 template <size_t n>
-constexpr bag<A...>::ref<n> bag<A...>::operator[](best::index_t<n> idx) & {
+constexpr row<A...>::ref<n> row<A...>::operator[](best::index_t<n> idx) & {
   using T = type<n>;
   using B = best::ebo<best::object<T>, T, n>;
   return *static_cast<B&>(*this).get();
 }
 template <typename... A>
 template <size_t n>
-constexpr bag<A...>::crref<n> bag<A...>::operator[](
+constexpr row<A...>::crref<n> row<A...>::operator[](
     best::index_t<n> idx) const&& {
   using T = type<n>;
   using B = best::ebo<best::object<T>, T, n>;
@@ -237,7 +241,7 @@ constexpr bag<A...>::crref<n> bag<A...>::operator[](
 }
 template <typename... A>
 template <size_t n>
-constexpr bag<A...>::rref<n> bag<A...>::operator[](best::index_t<n> idx) && {
+constexpr row<A...>::rref<n> row<A...>::operator[](best::index_t<n> idx) && {
   using T = type<n>;
   using B = best::ebo<best::object<T>, T, n>;
   return static_cast<best::as_rref<T>>(*static_cast<B&>(*this).get());
@@ -245,21 +249,21 @@ constexpr bag<A...>::rref<n> bag<A...>::operator[](best::index_t<n> idx) && {
 
 template <typename... A>
 template <size_t n>
-constexpr bag<A...>::cref<n> bag<A...>::at(best::index_t<n> idx) const& {
+constexpr row<A...>::cref<n> row<A...>::at(best::index_t<n> idx) const& {
   using T = type<n>;
   using B = best::ebo<best::object<T>, T, n>;
   return *static_cast<const B&>(*this).get();
 }
 template <typename... A>
 template <size_t n>
-constexpr bag<A...>::ref<n> bag<A...>::at(best::index_t<n> idx) & {
+constexpr row<A...>::ref<n> row<A...>::at(best::index_t<n> idx) & {
   using T = type<n>;
   using B = best::ebo<best::object<T>, T, n>;
   return *static_cast<B&>(*this).get();
 }
 template <typename... A>
 template <size_t n>
-constexpr bag<A...>::crref<n> bag<A...>::at(best::index_t<n> idx) const&& {
+constexpr row<A...>::crref<n> row<A...>::at(best::index_t<n> idx) const&& {
   using T = type<n>;
   using B = best::ebo<best::object<T>, T, n>;
   return static_cast<best::as_rref<const T>>(
@@ -267,7 +271,7 @@ constexpr bag<A...>::crref<n> bag<A...>::at(best::index_t<n> idx) const&& {
 }
 template <typename... A>
 template <size_t n>
-constexpr bag<A...>::rref<n> bag<A...>::at(best::index_t<n> idx) && {
+constexpr row<A...>::rref<n> row<A...>::at(best::index_t<n> idx) && {
   using T = type<n>;
   using B = best::ebo<best::object<T>, T, n>;
   return static_cast<best::as_rref<T>>(*static_cast<B&>(*this).get());
@@ -275,7 +279,7 @@ constexpr bag<A...>::rref<n> bag<A...>::at(best::index_t<n> idx) && {
 
 template <typename... A>
 template <size_t n>
-constexpr decltype(auto) bag<A...>::get(best::index_t<n> idx) const& {
+constexpr decltype(auto) row<A...>::get(best::index_t<n> idx) const& {
   using T = type<n>;
   if constexpr (best::void_type<T>) {
     return best::empty{};
@@ -286,7 +290,7 @@ constexpr decltype(auto) bag<A...>::get(best::index_t<n> idx) const& {
 }
 template <typename... A>
 template <size_t n>
-constexpr decltype(auto) bag<A...>::get(best::index_t<n> idx) & {
+constexpr decltype(auto) row<A...>::get(best::index_t<n> idx) & {
   using T = type<n>;
   if constexpr (best::void_type<T>) {
     return best::empty{};
@@ -297,7 +301,7 @@ constexpr decltype(auto) bag<A...>::get(best::index_t<n> idx) & {
 }
 template <typename... A>
 template <size_t n>
-constexpr decltype(auto) bag<A...>::get(best::index_t<n> idx) const&& {
+constexpr decltype(auto) row<A...>::get(best::index_t<n> idx) const&& {
   using T = type<n>;
   if constexpr (best::void_type<T>) {
     return best::empty{};
@@ -309,7 +313,7 @@ constexpr decltype(auto) bag<A...>::get(best::index_t<n> idx) const&& {
 }
 template <typename... A>
 template <size_t n>
-constexpr decltype(auto) bag<A...>::get(best::index_t<n> idx) && {
+constexpr decltype(auto) row<A...>::get(best::index_t<n> idx) && {
   using T = type<n>;
   if constexpr (best::void_type<T>) {
     return best::empty{};
@@ -320,25 +324,25 @@ constexpr decltype(auto) bag<A...>::get(best::index_t<n> idx) && {
 }
 
 template <typename... A>
-constexpr decltype(auto) bag<A...>::apply(auto&& f) const& {
+constexpr decltype(auto) row<A...>::apply(auto&& f) const& {
   return indices.apply([&]<typename... I>() -> decltype(auto) {
     return best::call(BEST_FWD(f), get(best::index<I::value>)...);
   });
 }
 template <typename... A>
-constexpr decltype(auto) bag<A...>::apply(auto&& f) & {
+constexpr decltype(auto) row<A...>::apply(auto&& f) & {
   return indices.apply([&]<typename... I>() -> decltype(auto) {
     return best::call(BEST_FWD(f), get(best::index<I::value>)...);
   });
 }
 template <typename... A>
-constexpr decltype(auto) bag<A...>::apply(auto&& f) const&& {
+constexpr decltype(auto) row<A...>::apply(auto&& f) const&& {
   return indices.apply([&]<typename... I>() -> decltype(auto) {
     return best::call(BEST_FWD(f), moved().get(best::index<I::value>)...);
   });
 }
 template <typename... A>
-constexpr decltype(auto) bag<A...>::apply(auto&& f) && {
+constexpr decltype(auto) row<A...>::apply(auto&& f) && {
   return indices.apply([&]<typename... I>() -> decltype(auto) {
     return best::call(BEST_FWD(f), moved().get(best::index<I::value>)...);
   });
@@ -348,13 +352,13 @@ constexpr decltype(auto) bag<A...>::apply(auto&& f) && {
 // Enable structured bindings.
 namespace std {
 template <typename... Elems>
-struct tuple_size<::best::bag<Elems...>> {
+struct tuple_size<::best::row<Elems...>> {
   static constexpr size_t value = sizeof...(Elems);
 };
 template <size_t i, typename... Elems>
-struct tuple_element<i, ::best::bag<Elems...>> {
-  using type = ::best::bag<Elems...>::template type<i>;
+struct tuple_element<i, ::best::row<Elems...>> {
+  using type = ::best::row<Elems...>::template type<i>;
 };
 }  // namespace std
 
-#endif  // BEST_CONTAINER_BAG_H_
+#endif  // BEST_CONTAINER_ROW_H_
