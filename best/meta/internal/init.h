@@ -28,14 +28,14 @@ concept ctor =
      (trivial
           ? (args == types<void>
                  ? std::is_trivially_default_constructible_v<T>
-                 : args.template apply<[]<typename... Args> {
+                 : args.apply([]<typename... Args> {
                      return std::is_trivially_constructible_v<T, Args...>;
-                   }>())
+                   }))
 
           : (args == types<void> ? std::is_default_constructible_v<T>
-                                 : args.template apply<[]<typename... Args> {
+                                 : args.template apply([]<typename... Args> {
                                      return std::is_constructible_v<T, Args...>;
-                                   }>()))) ||
+                                   })))) ||
     //
     (best::ref_type<T> && args.size() == 1 &&
      // References can only be constructed from references.

@@ -16,7 +16,7 @@ static_assert(empty >= empty);
 
 static_assert(empty.is_empty());
 static_assert(empty.map<[]<typename> {}>() == empty);
-static_assert(empty.apply<[]<typename... Ts> { return sizeof...(Ts); }>() == 0);
+static_assert(empty.apply([]<typename... Ts> { return sizeof...(Ts); }) == 0);
 static_assert(decltype(empty)::type<0, best::tlist<int>>{} == best::types<int>);
 static_assert(best::types<> < best::types<int>);
 

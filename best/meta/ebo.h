@@ -41,7 +41,8 @@ class ebo /* not final! */ {
   /// # `ebo::ebo(...)`
   ///
   /// Constructs a new `ebo` by calling the constructor of the wrapped type
-  constexpr ebo(best::in_place_t, auto&&... args) : value_(BEST_FWD(args)...) {}
+  constexpr ebo(best::in_place_t, auto&&... args)
+      : BEST_EBO_VALUE_(BEST_FWD(args)...) {}
 
   constexpr ebo()
     requires best::constructible<T>
@@ -54,11 +55,12 @@ class ebo /* not final! */ {
   /// # `ebo::get()`
   ///
   /// Returns the wrapped value.
-  constexpr const T& get() const { return value_; }
-  constexpr T& get() { return value_; }
+  constexpr const T& get() const { return BEST_EBO_VALUE_; }
+  constexpr T& get() { return BEST_EBO_VALUE_; }
 
- private:
-  T value_;
+ public:
+  T BEST_EBO_VALUE_;
+#define BEST_EBO_VALUE_ _private
 };
 
 template <best::object_type T, typename Tag, auto ident>
