@@ -121,4 +121,16 @@ best::test Irregular = [](auto& t) {
   (void)r;
   (void)r2;
 };
+
+best::test Guard = [](auto& t) {
+  auto cb =
+      [](best::result<int, best::str> x) -> best::result<bool, best::str> {
+    BEST_GUARD(x);
+    return *x == 0;
+  };
+
+  t.expect_eq(cb(0), best::ok(true));
+  t.expect_eq(cb(1), best::ok(false));
+  t.expect_eq(cb(best::str("no")), best::err("no"));
+};
 }  // namespace best::result_test
