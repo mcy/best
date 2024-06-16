@@ -1,5 +1,5 @@
-#ifndef BEST_CONTAINER_GUARD_H_
-#define BEST_CONTAINER_GUARD_H_
+#ifndef BEST_META_GUARD_H_
+#define BEST_META_GUARD_H_
 
 #include "best/meta/tlist.h"
 
@@ -66,4 +66,4 @@ template <typename R>
 impl(R&&) -> impl<R&&>;
 }  // namespace guard_internal
 }  // namespace best
-#endif
+#endif  // BEST_META_GUARD_H_

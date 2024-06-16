@@ -1,6 +1,7 @@
 #ifndef BEST_TEXT_STR_H_
 #define BEST_TEXT_STR_H_
 
+#include <compare>
 #include <cstddef>
 #include <cstring>
 #include <iterator>
@@ -297,7 +298,7 @@ class text final {
   /// interpreted to end at that position, with a replacement character.
   constexpr rune::iter<E> runes() const { return rune::iter<E>(span_, enc_); }
 
-  /// # `text::operator==`
+  /// # `text::operator==`, `text::operator<=>`
   ///
   /// Strings can be compared regardless of encoding, and they may be compared
   /// with runes, too.
@@ -309,6 +310,16 @@ class text final {
   }
   constexpr bool operator==(const code* lit) const {
     return span_ == best::span<const code>::from_nul(lit);
+  }
+
+  constexpr std::strong_ordering operator<=>(rune) const;
+  constexpr std::strong_ordering operator<=>(const string_type auto&) const;
+  constexpr std::strong_ordering operator<=>(
+      best::span<const code> span) const {
+    return span_ <=> span;
+  }
+  constexpr std::strong_ordering operator<=>(const code* lit) const {
+    return span_ <=> best::span<const code>::from_nul(lit);
   }
 
   // Make this into a best::string_type.
@@ -346,7 +357,7 @@ class text final {
             best::same_encoding(*this, that));
   }
 
-  constexpr bool byte_comparable(const auto& that) const {
+  constexpr bool can_memcmp(const auto& that) const {
     return can_memeq(that) && best::byte_comparable<code> &&
            E::About.is_lexicographic;
   }
@@ -527,6 +538,40 @@ constexpr bool text<E>::operator==(rune r) const {
 template <encoding E>
 constexpr bool text<E>::operator==(const string_type auto& s) const {
   return trim_prefix(s).has_value(&text::is_empty);
+}
+
+template <encoding E>
+constexpr std::strong_ordering text<E>::operator<=>(rune r) const {
+  if (is_empty()) return std::strong_ordering::less;
+
+  auto [r2, rest] = *break_off();
+  if (auto result = r <=> r2; result != 0) {
+    return result;
+  }
+  return 0 <=> rest;
+}
+
+template <encoding E>
+constexpr std::strong_ordering text<E>::operator<=>(
+    const string_type auto& str) const {
+  rune::iter a(*this);
+  rune::iter b(str);
+
+  if constexpr (best::same_encoding_code<text, decltype(str)>()) {
+    if (can_memcmp(str)) return a.rest() <=> b.rest();
+  }
+
+  while (true) {
+    auto r1 = a.next();
+    auto r2 = b.next();
+    if (r1.is_empty() && r2.is_empty()) {
+      return std::strong_ordering::equal;
+    }
+
+    if (auto result = r1 <=> r2; result != 0) {
+      return result;
+    }
+  }
 }
 
 template <encoding E>

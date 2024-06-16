@@ -1,5 +1,5 @@
-#ifndef BEST_STRINGS_INTERNAL_UTF_H_
-#define BEST_STRINGS_INTERNAL_UTF_H_
+#ifndef BEST_TEXT_INTERNAL_UTF_H_
+#define BEST_TEXT_INTERNAL_UTF_H_
 
 #include <bit>
 #include <cstddef>
@@ -164,4 +164,4 @@ constexpr best::result<size_t, encoding_error> encode16(
 }
 }  // namespace best::utf_internal
 
-#endif  // BEST_STRINGS_INTERNAL_UTF_H_
+#endif  // BEST_TEXT_INTERNAL_UTF_H_

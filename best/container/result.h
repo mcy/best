@@ -4,7 +4,7 @@
 #include <utility>
 
 #include "best/container/choice.h"
-#include "best/meta/init.h"
+#include "best/container/row.h"
 #include "best/meta/tags.h"
 
 //! A result type, like `std::expected`.
@@ -26,10 +26,8 @@ namespace best {
 /// ```
 template <typename... Args>
 struct ok {
-  ok(Args... args) : args(BEST_FWD(args)...) {}
-
-  // TODO: best::tuple
-  std::tuple<Args...> args;
+  constexpr ok(Args... args) : row(BEST_FWD(args)...) {}
+  best::row<Args...> row;
 };
 template <typename... Args>
 ok(Args&&...) -> ok<Args&&...>;
@@ -45,10 +43,8 @@ ok(Args&&...) -> ok<Args&&...>;
 /// ```
 template <typename... Args>
 struct err {
-  err(Args... args) : args(BEST_FWD(args)...) {}
-
-  // TODO: best::tuple
-  std::tuple<Args...> args;
+  constexpr err(Args... args) : row(BEST_FWD(args)...) {}
+  best::row<Args...> row;
 };
 template <typename... Args>
 err(Args&&...) -> err<Args&&...>;
@@ -66,23 +62,25 @@ concept is_result =
 ///
 /// Given `best::result<U, E>`, returns `U`.
 template <is_result T>
-using ok_type = typename std::remove_cvref_t<T>::ok;
+using ok_type = typename std::remove_cvref_t<T>::ok_type;
 
 /// # `best::err_type<T>`
 ///
 /// Given `best::result<U, E>`, returns `E`.
 template <is_result T>
-using err_type = typename std::remove_cvref_t<T>::err;
+using err_type = typename std::remove_cvref_t<T>::err_type;
 
 template <typename T, typename E>
 class [[nodiscard(
-    "best::results may contain an error and must be explicitly handled!")]]
-result final {
+    "best::results may contain an error and must be explicitly "
+    "handled!")]] result final {
  private:
   template <typename U>
   static constexpr bool cannot_init_from =
-      !best::constructible<T, const U&> && !best::constructible<T, U&&> &&
-      !best::constructible<T, const U&>;
+      ((!best::constructible<T, const U&> && !best::constructible<T, U&&>) ||
+       best::void_type<T>)&&((!best::constructible<E, const U&> &&
+                              !best::constructible<E, U&&>) ||
+                             best::void_type<E>);
 
  public:
   /// Helper type aliases.
@@ -130,19 +128,17 @@ result final {
   ///
   /// Constructs an ok result from a `best::ok(...)`.
   template <typename... Args>
-  constexpr result(best::ok<Args...>&& args)
+  constexpr result(best::ok<Args...> args)
     requires best::constructible<T, Args...>
-      : result(best::index<0>, std::make_index_sequence<sizeof...(Args)>{},
-               std::move(args)) {}
+      : BEST_RESULT_IMPL_(best::index<0>, std::move(args).row.forward()) {}
 
   /// # `result::result(err(...))`
   ///
   /// Constructs an error result from a `best::error(...)`.
   template <typename... Args>
-  constexpr result(best::err<Args...>&& args)
+  constexpr result(best::err<Args...> args)
     requires best::constructible<E, Args...>
-      : result(best::index<1>, std::make_index_sequence<sizeof...(Args)>{},
-               std::move(args)) {}
+      : BEST_RESULT_IMPL_(best::index<1>, std::move(args).row.forward()) {}
 
   /// # `result::result(result<U, F>&)`
   ///
@@ -231,65 +227,61 @@ result final {
 
   // Comparisons.
   template <best::equatable<T> U, best::equatable<E> F>
-  constexpr bool operator==(const best::result<U, F>& that) const {
+  BEST_INLINE_SYNTHETIC constexpr bool operator==(
+      const best::result<U, F>& that) const {
     return impl() == that.impl();
   }
-  constexpr bool operator==(const best::equatable<T> auto& u) const {
+  BEST_INLINE_SYNTHETIC constexpr bool operator==(
+      const best::equatable<T> auto& u) const {
     return operator==(best::ok(u));
   }
-  constexpr bool operator==(const best::equatable<E> auto& u) const {
+  BEST_INLINE_SYNTHETIC constexpr bool operator==(
+      const best::equatable<E> auto& u) const {
     return operator==(best::err(u));
   }
   template <best::equatable<T> U>
-  constexpr bool operator==(const best::ok<U>& u) const {
-    return operator==(best::result<const U&, E>(best::ok(std::get<0>(u.args))));
-  }
-  template <best::equatable<E> U>
-  constexpr bool operator==(const best::err<U>& u) const {
-    return operator==(
-        best::result<T, const U&>(best::err(std::get<0>(u.args))));
-  }
-
-// TODO: best::tuple
-#if 0
-  constexpr bool operator==(best::ok<> u) const {
+  BEST_INLINE_SYNTHETIC constexpr bool operator==(best::ok<U> u) const {
     return operator==(best::result<const U&, E>(u));
   }
-  constexpr bool operator==(best::err<> u) const {
+  template <best::equatable<E> U>
+  BEST_INLINE_SYNTHETIC constexpr bool operator==(best::err<U> u) const {
     return operator==(best::result<T, const U&>(u));
   }
-#endif
+
+  BEST_INLINE_SYNTHETIC constexpr bool operator==(best::ok<> u) const {
+    return ok().has_value();
+  }
+  BEST_INLINE_SYNTHETIC constexpr bool operator==(best::err<> u) const {
+    return err().has_value();
+  }
 
   template <best::equatable<T> U, best::equatable<E> F>
-  constexpr auto operator<=>(const best::result<U, F>& that) const {
+  BEST_INLINE_SYNTHETIC constexpr auto operator<=>(
+      const best::result<U, F>& that) const {
     return impl() <=> that.impl();
   }
-  constexpr auto operator<=>(const best::equatable<T> auto& u) const {
+  BEST_INLINE_SYNTHETIC constexpr auto operator<=>(
+      const best::equatable<T> auto& u) const {
     return operator<=>(best::ok(u));
   }
-  constexpr auto operator<=>(const best::equatable<E> auto& u) const {
+  BEST_INLINE_SYNTHETIC constexpr auto operator<=>(
+      const best::equatable<E> auto& u) const {
     return operator<=>(best::err(u));
   }
   template <best::equatable<T> U>
-  constexpr auto operator<=>(const best::ok<U>& u) const {
-    return operator<=>(
-        best::result<const U&, E>(best::ok(std::get<0>(u.args))));
-  }
-  template <best::equatable<E> U>
-  constexpr auto operator<=>(const best::err<U>& u) const {
-    return operator<=>(
-        best::result<T, const U&>(best::err(std::get<0>(u.args))));
-  }
-
-// TODO: best::tuple
-#if 0
-  constexpr bool operator<=>(best::ok<> u) const {
+  BEST_INLINE_SYNTHETIC constexpr auto operator<=>(best::ok<U> u) const {
     return operator<=>(best::result<const U&, E>(u));
   }
-  constexpr bool operator<=>(best::err<> u) const {
+  template <best::equatable<E> U>
+  BEST_INLINE_SYNTHETIC constexpr auto operator<=>(best::err<U> u) const {
     return operator<=>(best::result<T, const U&>(u));
   }
-#endif
+  BEST_INLINE_SYNTHETIC constexpr bool operator<=>(best::ok<> u) const {
+    return operator<=>(best::result<void, E>(u));
+  }
+  BEST_INLINE_SYNTHETIC constexpr bool operator<=>(best::err<> u) const {
+    return operator<=>(best::result<T, void>(u));
+  }
 
   // TODO: BestFmt
   template <typename Os>
@@ -320,12 +312,6 @@ result final {
   template <typename, typename>
   friend class result;
 
-  // This is mostly a workaround until we have our own tuple support.
-  template <size_t n, size_t... i>
-  BEST_INLINE_ALWAYS constexpr result(best::index_t<n> idx,
-                                      std::index_sequence<i...>, auto&& args)
-      : BEST_RESULT_IMPL_(idx, std::get<i>(BEST_FWD(args).args)...) {}
-
   constexpr const result&& moved() const {
     return static_cast<const result&&>(*this);
   }
@@ -353,13 +339,13 @@ constexpr result<T, E>::result(R&& that)
            best::constructible<E, best::copy_ref<best::err_type<R>, R&&>> &&
            cannot_init_from<R>
     : BEST_RESULT_IMPL_(best::uninit) {
-  if (auto v = that.ok()) {
+  if (auto v = BEST_FWD(that).ok()) {
     if constexpr (best::void_type<best::ok_type<R>>) {
-      std::construct_at(&impl(best::index<0>));
+      std::construct_at(&impl(), best::index<0>);
     } else {
       std::construct_at(&impl(), best::index<0>, *std::move(v));
     }
-  } else if (auto v = that.err()) {
+  } else if (auto v = BEST_FWD(that).err()) {
     if constexpr (best::void_type<best::err_type<R>>) {
       std::construct_at(&impl(), best::index<1>);
     } else {
@@ -379,13 +365,13 @@ constexpr result<T, E>& result<T, E>::operator=(R&& that)
            best::constructible<E, best::copy_ref<best::err_type<R>, R&&>> &&
            cannot_init_from<R>
 {
-  if (auto v = that.ok()) {
+  if (auto v = BEST_FWD(that).ok()) {
     if constexpr (best::void_type<best::ok_type<R>>) {
       *this = best::ok();
     } else {
       *this = best::ok(*std::move(v));
     }
-  } else if (auto v = that.err()) {
+  } else if (auto v = BEST_FWD(that).err()) {
     if constexpr (best::void_type<best::err_type<R>>) {
       *this = best::err();
     } else {
@@ -571,4 +557,4 @@ constexpr auto BestGuardReturn(auto&&, is_result auto&&, auto&& e) {
   return best::err(BEST_FWD(e));
 }
 }  // namespace best
-#endif
+#endif  // BEST_CONTAINER_RESULT_H_

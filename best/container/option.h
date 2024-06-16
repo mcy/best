@@ -97,13 +97,13 @@ class option final {
  private:
   template <typename U>
   static constexpr bool cannot_init_from =
-      !best::constructible<T, const U&> && !best::constructible<T, U&&> &&
-      !best::constructible<T, const U&>;
+      (!best::constructible<T, const U&> && !best::constructible<T, U&&>) ||
+      best::void_type<T>;
 
   template <typename U>
   static constexpr bool not_forbidden_conversion =
-      (!std::is_same_v<best::in_place_t, std::remove_cvref_t<U>>) &&  //
-      (!std::is_same_v<option, std::remove_cvref_t<U>>) &&            //
+      (!std::is_same_v<best::in_place_t, std::remove_cvref_t<U>>)&&  //
+      (!std::is_same_v<option, std::remove_cvref_t<U>>)&&            //
       (!std::is_same_v<bool, std::remove_cv_t<T>>);
 
  public:
@@ -309,11 +309,12 @@ class option final {
   /// Extracts the value of this option by copy/move, or constructs a default
   /// with the given arguments and returns that.
   template <typename... Args>
-  constexpr value_type value_or(Args&&... args) const& {
+  constexpr best::dependent<value_type, Args...> value_or(
+      Args&&... args) const& {
     return has_value() ? value() : value_type(BEST_FWD(args)...);
   }
   template <typename... Args>
-  constexpr value_type value_or(Args&&... args) && {
+  constexpr best::dependent<value_type, Args...> value_or(Args&&... args) && {
     return has_value() ? moved().value() : value_type(BEST_FWD(args)...);
   }
 
@@ -321,12 +322,13 @@ class option final {
   ///
   /// Extracts the value of this option by copy/move, or constructs a default
   /// with the given callback.
-  constexpr value_type value_or(
-      best::callable<value_type()> auto&& or_else) const& {
+  constexpr auto value_or(best::callable<value_type()> auto&& or_else)
+      const& -> best::dependent<value_type, decltype(or_else)> {
     return has_value() ? value() : best::call(BEST_FWD(or_else));
   }
-  constexpr value_type value_or(
-      best::callable<value_type()> auto&& or_else) && {
+  constexpr auto value_or(
+      best::callable<value_type()> auto&&
+          or_else) && -> best::dependent<value_type, decltype(or_else)> {
     return has_value() ? moved().value() : best::call(BEST_FWD(or_else));
   }
 

@@ -87,16 +87,6 @@ cc_test(
 )
 
 cc_library(
-  name = "result",
-  hdrs = ["result.h"],
-  deps = [
-    ":choice",
-    "//best/log/internal:crash",
-  ],
-)
-
-
-cc_library(
   name = "pun",
   hdrs = [
     "pun.h",
@@ -119,6 +109,29 @@ cc_test(
     ":pun",
     "//best/test",
     "//best/test:fodder",
+  ],
+)
+
+cc_library(
+  name = "result",
+  hdrs = ["result.h"],
+  deps = [
+    ":choice",
+    ":row",
+    "//best/log/internal:crash",
+  ],
+)
+
+cc_test(
+  name = "result_test",
+  srcs = ["result_test.cc"],
+  linkopts = ["-rdynamic"],
+  deps = [
+    ":option",
+    ":result",
+    "//best/test",
+    "//best/test:fodder",
+    "//best/text:strbuf",
   ],
 )
 

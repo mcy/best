@@ -5,7 +5,6 @@
 #include <ostream>
 #include <type_traits>
 
-#include "best/base/port.h"
 #include "best/test/test.h"
 
 //! Testing fodder.

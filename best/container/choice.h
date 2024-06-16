@@ -123,9 +123,12 @@ class choice final {
   ///
   /// Constructs the unique alternative that can be converted to from `Arg`.
   /// If there is no such alternative, this constructor is deleted.
+  ///
+  /// This will never select a `void` alternative.
   template <typename Arg>
   constexpr choice(Arg&& arg)
-    requires(convert_from<Arg>.has_value())
+    requires(convert_from<Arg>.has_value() &&
+             !best::void_type<type<*convert_from<Arg>>>)
       : choice(best::index<*convert_from<Arg>>, BEST_FWD(arg)) {}
 
   /// # `choice::choice(uninit)`
@@ -291,7 +294,7 @@ class choice final {
 
   // Comparisons.
   template <typename... Us>
-  constexpr bool operator==(const choice<Us...>& that) const
+  BEST_INLINE_ALWAYS constexpr bool operator==(const choice<Us...>& that) const
     requires(best::equatable<Alts, Us> && ...)
   {
     return which() == that.which() &&  //
@@ -301,7 +304,8 @@ class choice final {
   }
 
   template <typename... Us>
-  constexpr std::common_comparison_category_t<best::order_type<Alts, Us>...>
+  BEST_INLINE_ALWAYS constexpr std::common_comparison_category_t<
+      best::order_type<Alts, Us>...>
   operator<=>(const choice<Us...>& that) const
     requires(best::comparable<Alts, Us> && ...)
   {

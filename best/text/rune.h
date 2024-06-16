@@ -141,7 +141,7 @@ concept string_type = best::contiguous<T> && requires(const T& value) {
   {
     std::data(value)
   } -> best::same<const typename std::remove_cvref_t<decltype(BestEncoding(
-        best::types<const T&>, value))>::code*>;
+      best::types<const T&>, value))>::code*>;
 };
 
 /// # `best::encoding_of()`

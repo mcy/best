@@ -49,6 +49,47 @@ best::test Eq = [](auto& t) {
   t.expect_ne(test, std::string_view("solomon"));
 };
 
+best::test Cmp = [](auto& t) {
+  best::str x0 = "";
+  best::str x1 = "xyx";
+  best::str x2 = "xyz";
+  best::str x3 = "xyz2";
+  best::str16 x4 = u"";
+  best::str16 x5 = u"xyx";
+  best::str16 x6 = u"xyz";
+  best::str16 x7 = u"xyz2";
+
+  // Same-encoding comparisons.
+  t.expect_lt(x0, x1);
+  t.expect_lt(x0, x2);
+  t.expect_lt(x1, x2);
+  t.expect_lt(x0, x3);
+  t.expect_lt(x1, x3);
+  t.expect_lt(x2, x3);
+
+  t.expect_lt(x4, x5);
+  t.expect_lt(x4, x6);
+  t.expect_lt(x5, x6);
+  t.expect_lt(x4, x7);
+  t.expect_lt(x5, x7);
+  t.expect_lt(x6, x7);
+
+  // Cross-encoding comparisons.
+  t.expect_lt(x4, x1);
+  t.expect_lt(x4, x2);
+  t.expect_lt(x5, x2);
+  t.expect_lt(x4, x3);
+  t.expect_lt(x5, x3);
+  t.expect_lt(x6, x3);
+
+  t.expect_lt(x0, x5);
+  t.expect_lt(x0, x6);
+  t.expect_lt(x1, x6);
+  t.expect_lt(x0, x7);
+  t.expect_lt(x1, x7);
+  t.expect_lt(x2, x7);
+};
+
 best::test Utf8Decode = [](auto& t) {
   best::str test = "solomon🧶🐈‍⬛黒猫";
   t.expect_eq(test.size(), 27);

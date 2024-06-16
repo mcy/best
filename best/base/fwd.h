@@ -10,10 +10,6 @@
 //! best. Users SHOULD NOT forward-declared best types.
 
 namespace best {
-// best/container/bag.h
-template <typename...>
-class bag;
-
 // best/container/bounds.h
 struct bounds;
 
@@ -33,6 +29,12 @@ template <typename...>
 struct ok;
 template <typename...>
 struct err;
+
+// best/container/row.h
+template <typename...>
+class row;
+template <typename...>
+struct row_forward;
 
 // best/container/pun.h
 template <typename...>
