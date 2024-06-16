@@ -40,6 +40,18 @@ concept is_vec =
     best::same<std::remove_cvref_t<V>,
                best::vec<typename V::type, V::MaxInline, typename V::alloc>>;
 
+/// # `best::vec_inline_default()`
+///
+/// The default inlining parameter for `best::vec`.
+template <typename T>
+constexpr size_t vec_inline_default() {
+  // This is at most 24, so we only need to take a single byte
+  // for the size.
+  auto best_possible = best::layout::of_struct<best::span<T>, size_t>().size() /
+                       best::size_of<T>;
+  return best::saturating_sub(best_possible, 1);
+}
+
 /// # `best::vec<T>`
 ///
 /// A possibly-heap-allocated sequence, with built-in SSO (i.e., inline storage)
@@ -52,16 +64,7 @@ concept is_vec =
 ///
 /// In addition to all of the `best::span` functions, `best::vec` offers the
 /// usual complement of push, insert, remove, etc. functionality.
-template <best::relocatable T,
-          size_t max_inline =
-              [] {
-                // This is at most 24, so we only need to take a single byte
-                // for the size.
-                auto best_possible =
-                    best::layout::of_struct<best::span<T>, size_t>().size() /
-                    best::size_of<T>;
-                return best::saturating_sub(best_possible, 1);
-              }(),
+template <best::relocatable T, size_t max_inline = vec_inline_default<T>(),
           best::allocator A = best::malloc>
 class vec final {
  public:
@@ -88,14 +91,8 @@ class vec final {
 
   /// # `vec::vec()`
   ///
-  /// Constructs an empty vector.
-  vec()
-    requires best::constructible<alloc>
-      : vec(alloc{}) {}
-
-  /// # `vec::vec(alloc)`
-  ///
   /// Constructs an empty vector using the given allocator.
+  vec() : vec(alloc{}) {}
   explicit vec(alloc alloc)
       : size_(0), alloc_(best::in_place, std::move(alloc)) {}
 

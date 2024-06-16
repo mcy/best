@@ -99,7 +99,7 @@ class choice final {
   template <size_t n> using ptr = best::as_ptr<type<n>>;
   // clang-format on
 
-  /// # `pun::pun(pun)`.
+  /// # `choice::choice(choice)`.
   ///
   /// These forward to the appropriate move/copy constructor of the
   /// corresponding alternative.
@@ -114,30 +114,46 @@ class choice final {
       []<typename T> { return best::convertible<T, best::as_rref<Arg>>; });
 
  public:
-  /// # `pun::pun(x)`
+  /// # `choice::choice()`
+  ///
+  /// Choices cannot be default-constructed.
+  choice() = delete;
+
+  /// # `choice::choice(x)`
   ///
   /// Constructs the unique alternative that can be converted to from `Arg`.
   /// If there is no such alternative, this constructor is deleted.
+  ///
+  /// This will never select a `void` alternative.
   template <typename Arg>
   constexpr choice(Arg&& arg)
-    requires(convert_from<Arg>.has_value())
+    requires(convert_from<Arg>.has_value() &&
+             !best::void_type<type<*convert_from<Arg>>>)
       : choice(best::index<*convert_from<Arg>>, BEST_FWD(arg)) {}
 
-  /// # `pun::pun(index<n>, x)`
+  /// # `choice::choice(uninit)`
+  ///
+  /// Constructs an uninitialized choice. The purpose of this constructor is to
+  /// enabled delayed initialization in other constructors; any operation on the
+  /// resulting choice, even destruction, is Undefined Behavior. It must be
+  /// `best::construct_at`-ed, instead.
+  constexpr choice(best::uninit_t) {}
+
+  /// # `choice::choice(index<n>, x)`
   ///
   /// Constructs the `n`th alternative from the given arguments, in-place.
   template <size_t n, typename... Args>
   constexpr explicit(sizeof...(Args) == 0)
       choice(best::index_t<n> tag, Args&&... args)
-    requires best::constructible<type<n>, Args...>
+    requires best::constructible<type<n>, Args&&...>
       : BEST_CHOICE_IMPL_(tag, BEST_FWD(args)...) {}
   template <size_t n, typename U, typename... Args>
   constexpr choice(best::index_t<n> tag, std::initializer_list<U> il,
                    Args&&... args)
-    requires best::constructible<type<n>, decltype(il), Args...>
+    requires best::constructible<type<n>, decltype(il), Args&&...>
       : BEST_CHOICE_IMPL_(tag, il, BEST_FWD(args)...) {}
 
-  /// # `pun::which()`.
+  /// # `choice::which()`.
   ///
   /// Returns the index of the current alternative.
   constexpr size_t which() const { return impl().tag(); }
@@ -180,13 +196,13 @@ class choice final {
   template <size_t n>
   constexpr cptr<n> as_ptr(best::index_t<n> i = {}) const {
     return unsafe::in([&](auto u) {
-      return which() != n ? nullptr : impl().template ptr<1>(u);
+      return which() != n ? nullptr : impl().template ptr<n>(u);
     });
   }
   template <size_t n>
   constexpr ptr<n> as_ptr(best::index_t<n> i = {}) {
     return unsafe::in([&](auto u) {
-      return which() != n ? nullptr : impl().template ptr<1>(u);
+      return which() != n ? nullptr : impl().template ptr<n>(u);
     });
   }
 
@@ -278,7 +294,7 @@ class choice final {
 
   // Comparisons.
   template <typename... Us>
-  constexpr bool operator==(const choice<Us...>& that) const
+  BEST_INLINE_ALWAYS constexpr bool operator==(const choice<Us...>& that) const
     requires(best::equatable<Alts, Us> && ...)
   {
     return which() == that.which() &&  //
@@ -288,7 +304,8 @@ class choice final {
   }
 
   template <typename... Us>
-  constexpr std::common_comparison_category_t<best::order_type<Alts, Us>...>
+  BEST_INLINE_ALWAYS constexpr std::common_comparison_category_t<
+      best::order_type<Alts, Us>...>
   operator<=>(const choice<Us...>& that) const
     requires(best::comparable<Alts, Us> && ...)
   {
@@ -400,9 +417,9 @@ constexpr best::option<typename choice<A...>::template crref<n>>
 choice<A...>::at(best::index_t<n> i) const&& {
   if (which() != n) return {};
 
-  return unsafe::in([&](auto u) -> decltype(auto) {
+  return best::option<crref<n>>(unsafe::in([&](auto u) -> decltype(auto) {
     return best::invoke([&]() -> decltype(auto) { return impl().move(u, i); });
-  });
+  }));
 }
 template <typename... A>
 template <size_t n>
@@ -410,9 +427,9 @@ constexpr best::option<typename choice<A...>::template rref<n>>
 choice<A...>::at(best::index_t<n> i) && {
   if (which() != n) return {};
 
-  return unsafe::in([&](auto u) -> decltype(auto) {
+  return best::option<rref<n>>(unsafe::in([&](auto u) -> decltype(auto) {
     return best::invoke([&]() -> decltype(auto) { return impl().move(u, i); });
-  });
+  }));
 }
 
 template <typename... A>

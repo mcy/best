@@ -153,6 +153,8 @@ class impl : public storage<Ts...> {
   using Base::get;
   using Base::tag;
 
+  constexpr impl() = default;
+
   constexpr impl(const impl&)
     requires(info.trivial_copy)
   = default;
@@ -227,54 +229,60 @@ class impl : public storage<Ts...> {
     std::construct_at(this, best::index<which>, BEST_FWD(args)...);
   }
 
-  template <size_t which>
-  constexpr decltype(auto) deref(unsafe u, best::index_t<which> i = {}) const {
+  template <size_t n>
+  BEST_INLINE_SYNTHETIC constexpr best::as_ref<const type<n>> deref(
+      unsafe u, best::index_t<n> i = {}) const {
     return *get(u, i);
   }
-  template <size_t which>
-  constexpr decltype(auto) deref(unsafe u, best::index_t<which> i = {}) {
+  template <size_t n>
+  BEST_INLINE_SYNTHETIC constexpr best::as_ref<type<n>> deref(
+      unsafe u, best::index_t<n> i = {}) {
     return *get(u, i);
   }
-  template <size_t which>
-  constexpr decltype(auto) move(unsafe u, best::index_t<which> i = {}) const {
-    return static_cast<best::as_rref<const type<which>>>(*get(u, i));
+  template <size_t n>
+  BEST_INLINE_SYNTHETIC constexpr best::as_rref<const type<n>> move(
+      unsafe u, best::index_t<n> i = {}) const {
+    return static_cast<best::as_rref<const type<n>>>(*get(u, i));
   }
-  template <size_t which>
-  constexpr decltype(auto) move(unsafe u, best::index_t<which> i = {}) {
-    return static_cast<best::as_rref<type<which>>>(*get(u, i));
+  template <size_t n>
+  BEST_INLINE_SYNTHETIC constexpr best::as_rref<type<n>> move(
+      unsafe u, best::index_t<n> i = {}) {
+    return static_cast<best::as_rref<type<n>>>(*get(u, i));
   }
-  template <size_t which>
-  constexpr decltype(auto) ptr(unsafe u, best::index_t<which> i = {}) const {
+  template <size_t n>
+  BEST_INLINE_SYNTHETIC constexpr best::as_ptr<type<n>> ptr(
+      unsafe u, best::index_t<n> i = {}) const {
     return get(u, i).operator->();
   }
-  template <size_t which>
-  constexpr decltype(auto) ptr(unsafe u, best::index_t<which> i = {}) {
+  template <size_t n>
+  BEST_INLINE_SYNTHETIC constexpr best::as_ptr<type<n>> ptr(
+      unsafe u, best::index_t<n> i = {}) {
     return get(u, i).operator->();
   }
 
   template <typename F>
-  constexpr decltype(auto) match(F&& callback) const& {
-    return raw_match(make_match_arm(*this, BEST_FWD(callback)));
+  BEST_INLINE_SYNTHETIC constexpr decltype(auto) match(F&& callback) const& {
+    return JumpTable<decltype(make_match_arm(*this,
+                                             BEST_FWD(callback)))>[tag()](
+        make_match_arm(*this, BEST_FWD(callback)));
   }
   template <typename F>
-  constexpr decltype(auto) match(F&& callback) & {
-    return raw_match(make_match_arm(*this, BEST_FWD(callback)));
+  BEST_INLINE_SYNTHETIC constexpr decltype(auto) match(F&& callback) & {
+    return JumpTable<decltype(make_match_arm(*this,
+                                             BEST_FWD(callback)))>[tag()](
+        make_match_arm(*this, BEST_FWD(callback)));
   }
   template <typename F>
-  constexpr decltype(auto) match(F&& callback) const&& {
-    return raw_match(
+  BEST_INLINE_SYNTHETIC constexpr decltype(auto) match(F&& callback) const&& {
+    return JumpTable<decltype(make_match_arm(static_cast<const impl&&>(*this),
+                                             BEST_FWD(callback)))>[tag()](
         make_match_arm(static_cast<const impl&&>(*this), BEST_FWD(callback)));
   }
   template <typename F>
-  constexpr decltype(auto) match(F&& callback) && {
-    return raw_match(
+  BEST_INLINE_SYNTHETIC constexpr decltype(auto) match(F&& callback) && {
+    return JumpTable<decltype(make_match_arm(static_cast<impl&&>(*this),
+                                             BEST_FWD(callback)))>[tag()](
         make_match_arm(static_cast<impl&&>(*this), BEST_FWD(callback)));
-  }
-
- protected:
-  template <typename F>
-  constexpr decltype(auto) raw_match(F&& callback) const {
-    return JumpTable<decltype(callback)>[tag()](BEST_FWD(callback));
   }
 
  private:

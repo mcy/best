@@ -1,6 +1,7 @@
 #ifndef BEST_TEXT_STR_H_
 #define BEST_TEXT_STR_H_
 
+#include <compare>
 #include <cstddef>
 #include <cstring>
 #include <iterator>
@@ -52,7 +53,7 @@ using str32 = best::text<utf32>;
   BEST_ENABLE_IF_CONSTEXPR(literal_)                                       \
   BEST_ENABLE_IF(                                                          \
       rune::validate(best::span(literal_, std::size(literal_) - 1), enc_), \
-      "string must be validly text")
+      "string literal must satisfy rune::validate() for the chosen encoding")
 
 /// # `best::text`
 ///
@@ -120,7 +121,6 @@ class text final {
   /// Creates a new string from some other `best::string_type`.
   ///
   /// Crashes if the string is not correctly text::
-  template <string_type Str>
   constexpr explicit text(unsafe, best::span<const code> data,
                           encoding enc = {})
       : text(in_place, data, std::move(enc)) {}
@@ -145,26 +145,26 @@ class text final {
     return from(best::span<const code>::from_nul(data), std::move(enc));
   }
 
-  /// # `text::size()`
-  ///
-  /// Returns the size of the string, in code units.
-  constexpr size_t size() const { return span_.size(); }
-
   /// # `text::data()`
   ///
   /// Returns the string's data pointer.
   /// This value is never null.
   constexpr const code* data() const { return span_.data(); }
 
-  /// # `text::get_encoding()`
-  ///
-  /// Returns the underlying text encoding.
-  constexpr const encoding& enc() const { return enc_; }
-
   /// # `text::is_empty()`
   ///
   /// Checks whether the string is empty.
   constexpr bool is_empty() const { return size() == 0; }
+
+  /// # `text::size()`
+  ///
+  /// Returns the size of the string, in code units.
+  constexpr size_t size() const { return span_.size(); }
+
+  /// # `text::enc()`
+  ///
+  /// Returns the underlying text encoding.
+  constexpr const encoding& enc() const { return enc_; }
 
   /// # `text::as_codes()`
   ///
@@ -298,7 +298,7 @@ class text final {
   /// interpreted to end at that position, with a replacement character.
   constexpr rune::iter<E> runes() const { return rune::iter<E>(span_, enc_); }
 
-  /// # `text::operator==`
+  /// # `text::operator==`, `text::operator<=>`
   ///
   /// Strings can be compared regardless of encoding, and they may be compared
   /// with runes, too.
@@ -310,6 +310,16 @@ class text final {
   }
   constexpr bool operator==(const code* lit) const {
     return span_ == best::span<const code>::from_nul(lit);
+  }
+
+  constexpr std::strong_ordering operator<=>(rune) const;
+  constexpr std::strong_ordering operator<=>(const string_type auto&) const;
+  constexpr std::strong_ordering operator<=>(
+      best::span<const code> span) const {
+    return span_ <=> span;
+  }
+  constexpr std::strong_ordering operator<=>(const code* lit) const {
+    return span_ <=> best::span<const code>::from_nul(lit);
   }
 
   // Make this into a best::string_type.
@@ -341,18 +351,13 @@ class text final {
     if (span_.data() == nullptr) span_ = {&empty, 0};
   }
 
-  template <string_type S>
-  static constexpr bool compatible =
-      best::same<code,
-                 std::remove_cvref_t<decltype(*std::data(std::declval<S>()))>>;
-
   constexpr bool can_memeq(const auto& that) const {
     return !std::is_constant_evaluated() &&
            (best::addr_eq(this, std::addressof(that)) ||
             best::same_encoding(*this, that));
   }
 
-  constexpr bool byte_comparable(const auto& that) const {
+  constexpr bool can_memcmp(const auto& that) const {
     return can_memeq(that) && best::byte_comparable<code> &&
            E::About.is_lexicographic;
   }
@@ -430,7 +435,7 @@ constexpr option<text<E>> text<E>::trim_prefix(
   rune::iter needle(str);
   rune::iter haystack(*this);
 
-  if constexpr (compatible<decltype(str)>) {
+  if constexpr (best::same_encoding_code<text, decltype(str)>()) {
     if (can_memeq(str)) {
       auto that = needle.rest();
       auto prefix = span_.at({.end = that.size()});
@@ -472,7 +477,7 @@ constexpr best::option<std::pair<text<E>, text<E>>> text<E>::split_on(
   rune::iter haystack_start(*this);
   rune::iter needle_start(str);
 
-  if constexpr (compatible<decltype(str)>) {
+  if constexpr (best::same_encoding_code<text, decltype(str)>()) {
     if (can_memmem(str)) {
       best::span that = needle_start.rest();
       auto idx = best::search_bytes(span_, that);
@@ -533,6 +538,40 @@ constexpr bool text<E>::operator==(rune r) const {
 template <encoding E>
 constexpr bool text<E>::operator==(const string_type auto& s) const {
   return trim_prefix(s).has_value(&text::is_empty);
+}
+
+template <encoding E>
+constexpr std::strong_ordering text<E>::operator<=>(rune r) const {
+  if (is_empty()) return std::strong_ordering::less;
+
+  auto [r2, rest] = *break_off();
+  if (auto result = r <=> r2; result != 0) {
+    return result;
+  }
+  return 0 <=> rest;
+}
+
+template <encoding E>
+constexpr std::strong_ordering text<E>::operator<=>(
+    const string_type auto& str) const {
+  rune::iter a(*this);
+  rune::iter b(str);
+
+  if constexpr (best::same_encoding_code<text, decltype(str)>()) {
+    if (can_memcmp(str)) return a.rest() <=> b.rest();
+  }
+
+  while (true) {
+    auto r1 = a.next();
+    auto r2 = b.next();
+    if (r1.is_empty() && r2.is_empty()) {
+      return std::strong_ordering::equal;
+    }
+
+    if (auto result = r1 <=> r2; result != 0) {
+      return result;
+    }
+  }
 }
 
 template <encoding E>

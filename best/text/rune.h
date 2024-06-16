@@ -7,9 +7,9 @@
 
 #include "best/base/hint.h"
 #include "best/container/option.h"
+#include "best/container/result.h"
 #include "best/container/span.h"
 #include "best/log/internal/crash.h"
-#include "best/text/internal/utf.h"
 
 //! Unicode characters and encodings.
 //!
@@ -60,8 +60,31 @@ struct encoding_about final {
   /// start with hex digit `0xd`; this means that `U+FFFF > U+10000` when
   /// encoded as UTF-16.
   bool is_lexicographic = false;
+
+  /// Whether this encoding can encode all of Unicode, not including the
+  /// unpaired surrogates.
+  ///
+  /// A universal encoding's encode() function will never fail when called on
+  /// a buffer at least `max_codes_per_rune` in length, unless it is passed an
+  /// unpaired surrogate.
+  bool is_universal = false;
+
+  /// Whether this encoding allows encoding unpaired surrogates.
+  bool allows_surrogates = false;
 };
 
+/// # `best::encoding_error`
+///
+/// An error produced by an encoder.
+enum class encoding_error : uint8_t {
+  /// Insufficient space in the input/output buffer.
+  OutOfBounds,
+  /// Attempted to encode/decode a rune the encoding does not support.
+  Invalid,
+};
+}  // namespace best
+
+namespace best {
 /// # `best::encoding`
 ///
 /// A text encoding type. This type usually won't be used on its own; instead,
@@ -95,10 +118,10 @@ concept encoding =
       requires requires(size_t idx, rune r,
                         best::span<const typename E::code>& input,
                         best::span<typename E::code>& output) {
-        { e.is_boundary(input, idx) } -> std::convertible_to<bool>;
-        { e.encode(&output, r) } -> std::convertible_to<bool>;
-        { e.decode(&input) } -> std::convertible_to<best::option<rune>>;
-        { e.undecode(&input) } -> std::convertible_to<best::option<rune>>;
+        { e.is_boundary(input, idx) } -> same<bool>;
+        { e.encode(&output, r) } -> same<result<void, encoding_error>>;
+        { e.decode(&input) } -> same<result<rune, encoding_error>>;
+        { e.undecode(&input) } -> same<result<rune, encoding_error>>;
       };
     };
 
@@ -128,20 +151,33 @@ constexpr const auto& encoding_of(const string_type auto& string) {
   return BestEncoding(best::types<decltype(string)>, string);
 }
 
+/// # `best::encoding_type<S>`
+///
+/// Extracts the encoding type out of some string type.
+template <string_type S>
+using encoding_type =
+    std::remove_cvref_t<decltype(best::encoding_of(std::declval<S>()))>;
+
 /// # `best::same_encoding()`
 ///
 /// Returns whether two string values have the same encoding. This verifies that
 /// their encodings compare as equal.
 constexpr bool same_encoding(const string_type auto& lhs,
                              const string_type auto& rhs) {
-  using E1 = std::remove_cvref_t<decltype(best::encoding_of(lhs))>;
-  using E2 = std::remove_cvref_t<decltype(best::encoding_of(rhs))>;
-
-  if constexpr (best::equatable<E1, E2>) {
+  if constexpr (best::equatable<encoding_type<decltype(lhs)>,
+                                encoding_type<decltype(rhs)>>) {
     return best::encoding_of(lhs) == best::encoding_of(rhs);
   }
 
   return false;
+}
+
+/// # `best::same_encoding_code()`
+///
+/// Returns whether two string types have the same code unit type.
+template <string_type S1, string_type S2>
+constexpr bool same_encoding_code() {
+  return best::same<code<encoding_type<S1>>, code<encoding_type<S2>>>;
 }
 
 /// # `best::rune`
@@ -149,8 +185,8 @@ constexpr bool same_encoding(const string_type auto& lhs,
 /// A Unicode scalar value, called a "rune" in the p9 tradition.
 ///
 /// this rune corresponds to a valid Unicode scalar value, which may
-/// potentially be an unpaired surrogate. This is to allow encodings that allow
-/// unpaired surrogates, such as WTF-8, to produce best::runes.
+/// potentially be an unpaired surrogate. This is to allow encodings that
+/// allow unpaired surrogates, such as WTF-8, to produce best::runes.
 class rune final {
  private:
   static constexpr bool is_unicode(uint32_t value) { return value < 0x11'0000; }
@@ -225,7 +261,7 @@ class rune final {
   /// Returns the number of code units needed to encode this rune. Returns
   /// `best::none` if this rune is not encodable with `E`.
   template <encoding E = utf8>
-  constexpr best::option<size_t> size(const E& = {}) const;
+  constexpr best::result<size_t, encoding_error> size(const E& = {}) const;
 
   /// # `rune::is_boundary()`
   ///
@@ -241,16 +277,16 @@ class rune final {
   ///
   /// Performs a single indivisible encoding operation.
   ///
-  /// Returns the part of `output` written to. If `output` is passed by pointer
-  /// rather than by value, it is automatically advanced.
+  /// Returns the part of `output` written to. If `output` is passed by
+  /// pointer rather than by value, it is automatically advanced.
   ///
   /// Returns `best::none` on failure; in this case, `output` is not advanced.
   template <encoding E = utf8>
-  constexpr best::option<best::span<code<E>>> encode(
+  constexpr best::result<best::span<code<E>>, encoding_error> encode(
       best::span<code<E>>* output, const E& = {}) const;
   template <encoding E = utf8>
-  constexpr best::option<best::span<code<E>>> encode(best::span<code<E>> output,
-                                                     const E& enc = {}) const {
+  constexpr best::result<best::span<code<E>>, encoding_error> encode(
+      best::span<code<E>> output, const E& enc = {}) const {
     return encode(&output, enc);
   }
 
@@ -263,11 +299,11 @@ class rune final {
   ///
   /// Returns `best::none` on failure; in this case, `input` is not advanced.
   template <encoding E = utf8>
-  constexpr static best::option<rune> decode(best::span<const code<E>>* input,
-                                             const E& enc = {});
+  constexpr static best::result<rune, encoding_error> decode(
+      best::span<const code<E>>* input, const E& enc = {});
   template <encoding E = utf8>
-  constexpr static best::option<rune> decode(best::span<const code<E>> input,
-                                             const E& enc = {}) {
+  constexpr static best::result<rune, encoding_error> decode(
+      best::span<const code<E>> input, const E& enc = {}) {
     return decode(&input, enc);
   }
 
@@ -280,11 +316,11 @@ class rune final {
   ///
   /// Returns `best::none` on failure; in this case, `input` is not advanced.
   template <encoding E = utf8>
-  constexpr static best::option<rune> undecode(best::span<const code<E>>* input,
-                                               const E& enc = {});
+  constexpr static best::result<rune, encoding_error> undecode(
+      best::span<const code<E>>* input, const E& enc = {});
   template <encoding E = utf8>
-  constexpr static best::option<rune> undecode(best::span<const code<E>> input,
-                                               const E& enc = {}) {
+  constexpr static best::result<rune, encoding_error> undecode(
+      best::span<const code<E>> input, const E& enc = {}) {
     return undecode(&input, enc);
   }
 
@@ -293,10 +329,12 @@ class rune final {
   /// An iterator over some encoded span that yields runes. The span need not
   /// be well-encoded: if encoding errors are encountered, then either:
   ///
-  /// 1. If the encoding is synchronizing, yields one `rune::replacement()` for
+  /// 1. If the encoding is synchronizing, yields one `rune::replacement()`
+  /// for
   ///    each bad code unit.
   ///
-  /// 2. If the encoding is not synchronizing, yields one `rune::replacement()`
+  /// 2. If the encoding is not synchronizing, yields one
+  /// `rune::replacement()`
   ///    and halts further iteration.
   template <encoding>
   struct iter;
@@ -308,8 +346,8 @@ class rune final {
 
   /// # `rune::from_digit()`
   ///
-  /// Returns the appropriate character to represent `num` in the given `radix`
-  /// (i.e., base). Crashes if `radix > 36`.
+  /// Returns the appropriate character to represent `num` in the given
+  /// `radix` (i.e., base). Crashes if `radix > 36`.
   constexpr static best::option<rune> from_digit(uint32_t num,
                                                  uint32_t radix = 10);
 
@@ -423,10 +461,7 @@ class rune final {
   /// Tempoaray hack until BestFmt.
   template <typename Os>
   friend Os& operator<<(Os& os, rune r) {
-    char encoded[5] = {};
-    best::utf_internal::encode8(encoded, r);
-
-    return os << encoded << "/" << std::hex << r.to_int();
+    return os << std::hex << r.to_int();
   }
 
   // best::rune has a niche representation.
@@ -498,7 +533,7 @@ struct rune::iter final {
       return *this;
     }
 
-    next_ = decode(&codes_, *enc_);
+    next_ = decode(&codes_, *enc_).ok();
     if (next_) return *this;
 
     next_ = rune::replacement();
@@ -540,41 +575,43 @@ constexpr best::option<rune> rune::from_int_allow_surrogates(int32_t value) {
 }
 
 template <encoding E>
-constexpr best::option<size_t> rune::size(const E& enc) const {
+constexpr best::result<size_t, encoding_error> rune::size(const E& enc) const {
   code<E> codes[E::About.max_codes_per_rune];
   return encode(codes, enc).map([](auto sp) { return sp.size(); });
 }
 
 template <encoding E>
-constexpr best::option<best::span<code<E>>> rune::encode(
+constexpr best::result<best::span<code<E>>, encoding_error> rune::encode(
     best::span<code<E>>* output, const E& enc) const {
-  auto out0 = *output;
-  if (enc.encode(output, *this)) {
-    size_t written = out0.size() - output->size();
-    return out0[{.count = written}];
-  }
-
-  *output = out0;
-  return best::none;
+  auto orig = *output;
+  return enc.encode(output, *this)
+      .map([&] {
+        size_t written = orig.size() - output->size();
+        return orig[{.count = written}];
+      })
+      .map_err([&](auto e) {
+        *output = orig;
+        return e;
+      });
 }
 
 template <encoding E>
-constexpr best::option<rune> rune::decode(best::span<const code<E>>* input,
-                                          const E& enc) {
-  auto in0 = *input;
-  if (auto encoded = enc.decode(input)) return encoded;
-
-  *input = in0;
-  return best::none;
+constexpr best::result<rune, encoding_error> rune::decode(
+    best::span<const code<E>>* input, const E& enc) {
+  auto orig = *input;
+  return enc.decode(input).map_err([&](auto e) {
+    *input = orig;
+    return e;
+  });
 }
 template <encoding E>
-constexpr best::option<rune> rune::undecode(best::span<const code<E>>* input,
-                                            const E& enc) {
-  auto in0 = *input;
-  if (auto encoded = enc.undecode(input)) return encoded;
-
-  *input = in0;
-  return best::none;
+constexpr best::result<rune, encoding_error> rune::undecode(
+    best::span<const code<E>>* input, const E& enc) {
+  auto orig = *input;
+  return enc.undecode(input).map_err([&](auto e) {
+    *input = orig;
+    return e;
+  });
 }
 
 constexpr best::option<rune> rune::from_digit(uint32_t num, uint32_t radix) {

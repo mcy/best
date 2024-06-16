@@ -239,6 +239,14 @@ class object_ptr final {
       *const_cast<std::remove_const_t<pointee>*>(raw()) = (args, ...);
     }
   }
+  template <typename... Args>
+  BEST_INLINE_SYNTHETIC constexpr void construct_in_place(
+      best::row_forward<Args...> args) const
+    requires best::constructible<T, Args...>
+  {
+    args.row.apply(
+        [&](auto&&... args) { construct_in_place(BEST_FWD(args)...); });
+  }
 
   /// # `object_ptr::construct_in_place(niche)`
   ///
@@ -295,6 +303,13 @@ class object_ptr final {
     } else {
       construct_in_place(BEST_FWD(args)...);
     }
+  }
+  template <typename... Args>
+  BEST_INLINE_SYNTHETIC constexpr void assign(
+      best::row_forward<Args...> args) const
+    requires best::constructible<T, Args...>
+  {
+    args.row.apply([&](auto&&... args) { assign(BEST_FWD(args)...); });
   }
 
   /// # `object_ptr::copy_from()`

@@ -22,6 +22,7 @@ struct utf8 final {
       .max_codes_per_rune = 4,
       .is_self_syncing = true,
       .is_lexicographic = true,
+      .is_universal = true,
   };
 
   static constexpr bool is_boundary(best::span<const char> input, size_t idx) {
@@ -30,28 +31,29 @@ struct utf8 final {
     });
   }
 
-  static constexpr bool encode(best::span<char>* output, rune rune) {
-    if (auto result = best::utf_internal::encode8(*output, rune)) {
-      *output = (*output)[{.start = *result}];
-      return true;
-    }
-    return false;
+  static constexpr best::result<void, encoding_error> encode(
+      best::span<char>* output, rune rune) {
+    auto result = best::utf_internal::encode8(*output, rune);
+    BEST_GUARD(result);
+
+    *output = (*output)[{.start = *result}];
+    return best::ok();
   }
 
-  static constexpr best::option<rune> decode(best::span<const char>* input) {
-    if (auto result = best::utf_internal::decode8(*input)) {
-      *input = (*input)[{.start = result->first}];
-      return rune::from_int(result->second);
-    }
-    return best::none;
+  static constexpr best::result<rune, encoding_error> decode(
+      best::span<const char>* input) {
+    auto result = best::utf_internal::decode8(*input);
+    BEST_GUARD(result);
+    *input = (*input)[{.start = result->first}];
+    return rune::from_int(result->second).ok_or(encoding_error::Invalid);
   }
 
-  static constexpr best::option<rune> undecode(best::span<const char>* input) {
-    if (auto result = best::utf_internal::undecode8(*input)) {
-      *input = (*input)[{.end = input->size() - result->first}];
-      return rune::from_int(result->second);
-    }
-    return best::none;
+  static constexpr best::result<rune, encoding_error> undecode(
+      best::span<const char>* input) {
+    auto result = best::utf_internal::undecode8(*input);
+    BEST_GUARD(result);
+    *input = (*input)[{.end = input->size() - result->first}];
+    return rune::from_int(result->second).ok_or(encoding_error::Invalid);
   }
 
   constexpr bool operator==(const utf8&) const = default;
@@ -69,30 +71,35 @@ struct wtf8 final {
       .max_codes_per_rune = 4,
       .is_self_syncing = true,
       .is_lexicographic = true,
+      .is_universal = true,
+      .allows_surrogates = true,
   };
 
   static constexpr bool is_boundary(best::span<const char> input, size_t idx) {
     return utf8::is_boundary(input, idx);
   }
 
-  static constexpr bool encode(best::span<char>* output, rune rune) {
+  static constexpr best::result<void, encoding_error> encode(
+      best::span<char>* output, rune rune) {
     return utf8::encode(output, rune);
   }
 
-  static constexpr best::option<rune> decode(best::span<const char>* input) {
-    if (auto result = best::utf_internal::decode8(*input)) {
-      *input = (*input)[{.start = result->first}];
-      return rune::from_int_allow_surrogates(result->second);
-    }
-    return best::none;
+  static constexpr best::result<rune, encoding_error> decode(
+      best::span<const char>* input) {
+    auto result = best::utf_internal::decode8(*input);
+    BEST_GUARD(result);
+    *input = (*input)[{.start = result->first}];
+    return rune::from_int_allow_surrogates(result->second)
+        .ok_or(encoding_error::Invalid);
   }
 
-  static constexpr best::option<rune> undecode(best::span<const char>* input) {
-    if (auto result = best::utf_internal::undecode8(*input)) {
-      *input = (*input)[{.end = input->size() - result->first}];
-      return rune::from_int_allow_surrogates(result->second);
-    }
-    return best::none;
+  static constexpr best::result<rune, encoding_error> undecode(
+      best::span<const char>* input) {
+    auto result = best::utf_internal::undecode8(*input);
+    BEST_GUARD(result);
+    *input = (*input)[{.end = input->size() - result->first}];
+    return rune::from_int_allow_surrogates(result->second)
+        .ok_or(encoding_error::Invalid);
   }
 
   constexpr bool operator==(const wtf8&) const = default;
@@ -106,6 +113,7 @@ struct utf16 final {
   static constexpr best::encoding_about About{
       .max_codes_per_rune = 2,
       .is_self_syncing = true,
+      .is_universal = true,
   };
 
   static constexpr bool is_boundary(best::span<const char16_t> input,
@@ -118,30 +126,30 @@ struct utf16 final {
                .has_value([](rune r) { return !r.is_low_surrogate(); });
   }
 
-  static constexpr bool encode(best::span<char16_t>* output, rune rune) {
-    if (auto result = best::utf_internal::encode16(*output, rune)) {
-      *output = (*output)[{.start = *result}];
-      return true;
-    }
-    return false;
+  static constexpr best::result<void, encoding_error> encode(
+      best::span<char16_t>* output, rune rune) {
+    auto result = best::utf_internal::encode16(*output, rune);
+    BEST_GUARD(result);
+
+    *output = (*output)[{.start = *result}];
+    return best::ok();
   }
 
-  static constexpr best::option<rune> decode(
+  static constexpr best::result<rune, encoding_error> decode(
       best::span<const char16_t>* input) {
-    if (auto result = best::utf_internal::decode16(*input)) {
-      *input = (*input)[{.start = result->first}];
-      return rune::from_int(result->second);
-    }
-    return best::none;
+    auto result = best::utf_internal::decode16(*input);
+    BEST_GUARD(result);
+
+    *input = (*input)[{.start = result->first}];
+    return rune::from_int(result->second).ok_or(encoding_error::Invalid);
   }
 
-  static constexpr best::option<rune> undecode(
+  static constexpr best::result<rune, encoding_error> undecode(
       best::span<const char16_t>* input) {
-    if (auto result = best::utf_internal::undecode16(*input)) {
-      *input = (*input)[{.end = input->size() - result->first}];
-      return rune::from_int(result->second);
-    }
-    return best::none;
+    auto result = best::utf_internal::undecode16(*input);
+    BEST_GUARD(result);
+    *input = (*input)[{.end = input->size() - result->first}];
+    return rune::from_int(result->second).ok_or(encoding_error::Invalid);
   }
 
   bool operator==(const utf16&) const = default;
@@ -156,6 +164,7 @@ struct utf32 final {
       .max_codes_per_rune = 1,
       .is_self_syncing = true,
       .is_lexicographic = true,
+      .is_universal = true,
   };
 
   static constexpr bool is_boundary(best::span<const char32_t> input,
@@ -163,32 +172,34 @@ struct utf32 final {
     return idx <= input.size();
   }
 
-  static constexpr bool encode(best::span<char32_t>* output, rune rune) {
-    if (auto next = output->take_first(1)) {
-      (*next)[0] = rune;
-      return true;
-    }
-    return false;
+  static constexpr best::result<void, encoding_error> encode(
+      best::span<char32_t>* output, rune rune) {
+    auto next = output->take_first(1).ok_or(encoding_error::OutOfBounds);
+    BEST_GUARD(next);
+
+    (*next)[0] = rune;
+    return best::ok();
   }
 
-  static constexpr best::option<rune> decode(
+  static constexpr best::result<rune, encoding_error> decode(
       best::span<const char32_t>* input) {
-    if (auto next = input->take_first(1)) {
-      return rune::from_int((*next)[0]);
-    }
-    return best::none;
+    auto next = input->take_first(1).ok_or(encoding_error::OutOfBounds);
+    return rune::from_int((*next)[0]).ok_or(encoding_error::Invalid);
   }
 
-  static constexpr best::option<rune> undecode(
+  static constexpr best::result<rune, encoding_error> undecode(
       best::span<const char32_t>* input) {
-    if (auto next = input->take_last(1)) {
-      return rune::from_int((*next)[0]);
-    }
-    return best::none;
+    auto next = input->take_last(1).ok_or(encoding_error::OutOfBounds);
+    return rune::from_int((*next)[0]).ok_or(encoding_error::Invalid);
   }
 
   constexpr bool operator==(const utf32&) const = default;
 };
+
+static_assert(encoding<utf8>);
+static_assert(encoding<wtf8>);
+static_assert(encoding<utf16>);
+static_assert(encoding<utf32>);
 
 constexpr const utf8& BestEncoding(auto, const std::string&) {
   return best::val<utf8{}>::value;

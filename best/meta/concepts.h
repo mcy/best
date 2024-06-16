@@ -19,6 +19,11 @@ concept same =
     (std::same_as<Ts, typename best::tlist<Ts...>::template type<0, void>> &&
      ...);
 
+/// Helper for making a type dependent on another type.
+template <typename T, typename... Deps>
+using dependent =
+    std::conditional_t<sizeof(best::tlist<Deps...>) == 0, void, T>;
+
 /// "Tames" a function by removing cvref-qualifiers.
 ///
 /// In other words, it converts an abominable function type into its equivalent

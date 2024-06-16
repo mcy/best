@@ -22,6 +22,14 @@ cc_library(
 )
 
 cc_library(
+  name = "guard",
+  hdrs = ["guard.h"],
+  deps = [
+    ":tlist",
+  ]
+)
+
+cc_library(
   name = "init",
   hdrs = [
     "init.h",

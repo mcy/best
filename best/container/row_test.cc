@@ -22,4 +22,11 @@ best::test Nums = [](auto& t) {
   t.expect_eq(x0.apply([](auto... x) { return (0 + ... + x); }), 44.5);
 };
 
+best::test Fwd = [](auto& t) {
+  float x;
+  best::row<int, const float&, bool> x0{42, x, true};
+
+  static_assert(best::same<decltype(std::move(x0).forward()),
+                           best::row_forward<int&&, const float&, bool&&>>);
+};
 }  // namespace best::row_test

@@ -157,8 +157,10 @@ inline constexpr std::strong_ordering addr_cmp(const volatile void *a,
 /// to `call`.
 template <typename... TParams>
 constexpr auto call(auto &&...args)
-    -> decltype(ops_internal::call<TParams...>(BEST_FWD(args)...)) {
-  return ops_internal::call<TParams...>(BEST_FWD(args)...);
+    -> decltype(ops_internal::call(ops_internal::tlist<TParams...>{},
+                                   BEST_FWD(args)...)) {
+  return ops_internal::call(ops_internal::tlist<TParams...>{},
+                            BEST_FWD(args)...);
 }
 
 /// Returns true if a particular call to best::call is possible.
@@ -171,7 +173,8 @@ constexpr auto call(auto &&...args)
 /// Arguments after the function signature are explicit template parameters for
 /// operator().
 template <typename F, typename Signature, typename... TParams>
-concept callable = ops_internal::can_call<F, TParams...>((Signature *)nullptr);
+concept callable = ops_internal::can_call<F>(ops_internal::tlist<TParams...>{},
+                                             (Signature *)nullptr);
 
 /// Returns the result of calling F with a single argument.
 ///

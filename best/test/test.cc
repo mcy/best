@@ -28,6 +28,7 @@ best::str symbol_name(const void* ptr, best::location loc) {
   }
 }
 
+static_assert(best::rune::validate("\N{ESCAPE}[0m"));
 inline constexpr best::str Reset = "\N{ESCAPE}[0m";
 inline constexpr best::str Bold = "\N{ESCAPE}[1m";
 inline constexpr best::str Red = "\N{ESCAPE}[31m";

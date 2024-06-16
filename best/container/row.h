@@ -3,6 +3,7 @@
 
 #include <compare>
 
+#include "best/base/fwd.h"
 #include "best/container/internal/row.h"
 #include "best/container/object.h"
 #include "best/meta/concepts.h"
@@ -160,6 +161,17 @@ class row final
   constexpr decltype(auto) apply(auto&& f) const&&;
   constexpr decltype(auto) apply(auto&& f) &&;
 
+  /// # `row::forward()`
+  ///
+  /// Constructs a corresponding `best::row_forward()` for this row. The
+  /// elements of the resulting forwarded row will be the result of calling
+  /// `get()`: references, except if an element is of void type, a best::empty
+  /// value instead.
+  constexpr auto forward() const&;
+  constexpr auto forward() &;
+  constexpr auto forward() const&&;
+  constexpr auto forward() &&;
+
   // TODO: BestFmt
   template <typename Os>
   friend Os& operator<<(Os& os, const row& row) {
@@ -211,9 +223,52 @@ class row final
 template <typename... Elems>
 row(Elems&&...) -> row<Elems...>;
 
+/// # `best::row_forward`
+///
+/// A wrapper over a `best::row<>` that will instruct the various "in place
+/// constructor" constructors throughout `best` to construct using the elements
+/// of the wrapped row.
+template <typename... Elems>
+struct row_forward final {
+  best::row<Elems...> row;
+
+  template <typename T>
+  constexpr operator T() && {
+    return std::move(row).apply(
+        [](auto&&... args) { return T(BEST_FWD(args)...); });
+  }
+};
+
 /// --- IMPLEMENTATION DETAILS BELOW ---
 
-namespace row_internal {}  // namespace row_internal
+template <typename... A>
+constexpr auto row<A...>::forward() const& {
+  return apply([](auto&&... args) {
+    return row_forward<decltype(args)...>{
+        row<decltype(args)...>(BEST_FWD(args)...)};
+  });
+}
+template <typename... A>
+constexpr auto row<A...>::forward() & {
+  return apply([](auto&&... args) {
+    return row_forward<decltype(args)...>{
+        row<decltype(args)...>(BEST_FWD(args)...)};
+  });
+}
+template <typename... A>
+constexpr auto row<A...>::forward() const&& {
+  return moved().apply([](auto&&... args) {
+    return row_forward<decltype(args)...>{
+        row<decltype(args)...>(BEST_FWD(args)...)};
+  });
+}
+template <typename... A>
+constexpr auto row<A...>::forward() && {
+  return moved().apply([](auto&&... args) {
+    return row_forward<decltype(args)...>{
+        row<decltype(args)...>(BEST_FWD(args)...)};
+  });
+}
 
 template <typename... A>
 template <size_t n>
@@ -280,46 +335,37 @@ constexpr row<A...>::rref<n> row<A...>::at(best::index_t<n> idx) && {
 template <typename... A>
 template <size_t n>
 constexpr decltype(auto) row<A...>::get(best::index_t<n> idx) const& {
-  using T = type<n>;
-  if constexpr (best::void_type<T>) {
+  if constexpr (best::void_type<type<n>>) {
     return best::empty{};
   } else {
-    using B = best::ebo<best::object<T>, T, n>;
-    return *static_cast<const B&>(*this).get();
+    return at(idx);
   }
 }
 template <typename... A>
 template <size_t n>
 constexpr decltype(auto) row<A...>::get(best::index_t<n> idx) & {
-  using T = type<n>;
-  if constexpr (best::void_type<T>) {
+  if constexpr (best::void_type<type<n>>) {
     return best::empty{};
   } else {
-    using B = best::ebo<best::object<T>, T, n>;
-    return *static_cast<const B&>(*this).get();
+    return at(idx);
   }
 }
 template <typename... A>
 template <size_t n>
 constexpr decltype(auto) row<A...>::get(best::index_t<n> idx) const&& {
-  using T = type<n>;
-  if constexpr (best::void_type<T>) {
+  if constexpr (best::void_type<type<n>>) {
     return best::empty{};
   } else {
-    using B = best::ebo<best::object<T>, T, n>;
-    return static_cast<best::as_rref<const T>>(
-        *static_cast<const B&>(*this).get());
+    return moved().at(idx);
   }
 }
 template <typename... A>
 template <size_t n>
 constexpr decltype(auto) row<A...>::get(best::index_t<n> idx) && {
-  using T = type<n>;
-  if constexpr (best::void_type<T>) {
+  if constexpr (best::void_type<type<n>>) {
     return best::empty{};
   } else {
-    using B = best::ebo<best::object<T>, T, n>;
-    return static_cast<best::as_rref<T>>(*static_cast<B&>(*this).get());
+    return moved().at(idx);
   }
 }
 

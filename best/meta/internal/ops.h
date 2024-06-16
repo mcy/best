@@ -5,6 +5,7 @@
 
 #include <concepts>
 #include <type_traits>
+#include <utility>
 
 #include "best/base/hint.h"
 #include "best/base/port.h"
@@ -120,67 +121,66 @@ BEST_INLINE_SYNTHETIC constexpr auto run(tag<op::Index>, auto&& func,
   return BEST_FWD(func)[BEST_FWD(arg)];
 }
 
-template <typename... Args, typename Class, typename F>
-BEST_INLINE_SYNTHETIC constexpr auto call(F Class::*member, auto&& self,
-                                          auto&&... args)
+template <typename...>
+struct tlist {};
+
+template <typename Class, typename F>
+BEST_INLINE_SYNTHETIC constexpr auto call(tlist<>, F Class::*member,
+                                          auto&& self, auto&&... args)
     -> decltype((self.*member)(BEST_FWD(args)...))
-  requires(std::is_function_v<F> && sizeof...(Args) == 0)
+  requires std::is_function_v<F>
 {
   return (BEST_FWD(self).*member)(BEST_FWD(args)...);
 }
-template <typename... Args, typename Class, typename F>
-BEST_INLINE_SYNTHETIC constexpr auto call(F Class::*member, auto* self,
+template <typename Class, typename F>
+BEST_INLINE_SYNTHETIC constexpr auto call(tlist<>, F Class::*member, auto* self,
                                           auto&&... args)
     -> decltype((self->*member)(BEST_FWD(args)...))
-  requires(std::is_function_v<F> && sizeof...(Args) == 0)
+  requires std::is_function_v<F>
 {
   return (self->*member)(BEST_FWD(args)...);
 }
 
-template <typename... Args, typename Class, typename R>
-BEST_INLINE_SYNTHETIC constexpr auto call(R Class::*member, auto&& self)
-    -> decltype(self.*member)
-  requires(!std::is_function_v<R> && sizeof...(Args) == 0)
+template <typename Class, typename R>
+BEST_INLINE_SYNTHETIC constexpr auto call(tlist<>, R Class::*member,
+                                          auto&& self) -> decltype(self.*member)
+  requires(!std::is_function_v<R>)
 {
   return BEST_FWD(self).*member;
 }
-template <typename... Args, typename Class, typename R>
-BEST_INLINE_SYNTHETIC constexpr auto call(R Class::*member, auto* self)
+template <typename Class, typename R>
+BEST_INLINE_SYNTHETIC constexpr auto call(tlist<>, R Class::*member, auto* self)
     -> decltype(self->*member)
-  requires(!std::is_function_v<R> && sizeof...(Args) == 0)
+  requires(!std::is_function_v<R>)
 {
   return self->*member;
 }
 
-template <typename... Args>
-BEST_INLINE_SYNTHETIC constexpr auto call(auto&& func, auto&&... args)
-    -> decltype(BEST_FWD(func)(BEST_FWD(args)...))
-  requires(sizeof...(Args) == 0)
-{
+BEST_INLINE_SYNTHETIC constexpr auto call(tlist<>, auto&& func, auto&&... args)
+    -> decltype(BEST_FWD(func)(BEST_FWD(args)...)) {
   return BEST_FWD(func)(BEST_FWD(args)...);
 }
 template <typename... Args>
-BEST_INLINE_SYNTHETIC constexpr auto call(auto&& func, auto&&... args)
-    -> decltype(BEST_FWD(func).template operator()<Args...>(
-        BEST_FWD(args)...)) {
+BEST_INLINE_SYNTHETIC constexpr auto call(tlist<Args...>, auto&& func,
+                                          auto&&... args)
+    -> decltype(BEST_FWD(func).template operator()<Args...>(BEST_FWD(args)...))
+  requires(sizeof...(Args) > 0)
+{
   return BEST_FWD(func).template operator()<Args...>(BEST_FWD(args)...);
 }
-template <typename... Args>
-BEST_INLINE_SYNTHETIC constexpr void call()
-  requires(sizeof...(Args) == 0)
-{}
+BEST_INLINE_SYNTHETIC constexpr void call(tlist<>) {}
 
 template <typename F, typename... TParams, typename R, typename... Args>
-constexpr bool can_call(R (*)(Args...)) {
-  if (std::is_void_v<R>) {
-    return requires(F f, Args... args) {
-      { call<TParams...>(f, BEST_FWD(args)...) };
-    };
-  }
-
-  return requires(F f, Args... args) {
-    { call<TParams...>(f, BEST_FWD(args)...) } -> std::convertible_to<R>;
-  };
+constexpr auto can_call(tlist<TParams...>, R (*)(Args...))
+    -> decltype(ops_internal::call<TParams...>(tlist<TParams...>{},
+                                               std::declval<F>(),
+                                               std::declval<Args>()...),
+                false) {
+  return std::is_void_v<R> ||
+         std::convertible_to<decltype(ops_internal::call<TParams...>(
+                                 tlist<TParams...>{}, std::declval<F>(),
+                                 std::declval<Args>()...)),
+                             R>;
 }
 
 }  // namespace best::ops_internal

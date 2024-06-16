@@ -257,6 +257,24 @@ static_assert(!best::moveable<std::unique_ptr<int>, trivially>);
 static_assert(!best::moveable<Stuck, trivially>);
 
 static_assert(best::relocatable<best_fodder::Relocatable, trivially>);
+
+// best::row_forward smoke test.
+static_assert(best::constructible<int, best::row_forward<>>);
+static_assert(best::constructible<int, best::row_forward<int>>);
+static_assert(best::constructible<int, best::row_forward<long>>);
+
+static_assert(best::constructible<int, trivially, best::row_forward<>>);
+static_assert(best::constructible<int, trivially, best::row_forward<int>>);
+static_assert(best::constructible<int, trivially, best::row_forward<long>>);
+
+static_assert(best::constructible<NonTrivialPod, best::row_forward<int, int>>);
+static_assert(
+    best::constructible<NonTrivialPod, best::row_forward<const int&, int>>);
+static_assert(
+    best::constructible<NonTrivialPod, best::row_forward<NonTrivialPod>>);
+static_assert(
+    best::constructible<NonTrivialPod, best::row_forward<const NonTrivialPod>>);
+
 }  // namespace best::init_test
 
 int main() {}
