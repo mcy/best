@@ -10,6 +10,7 @@
 
 #include "best/base/port.h"
 #include "best/meta/concepts.h"
+#include "best/meta/ebo.h"
 #include "best/meta/init.h"
 #include "best/meta/ops.h"
 #include "best/meta/tags.h"
@@ -351,6 +352,14 @@ class object_ptr final {
 #define BEST_OBJECT_PTR_ _private
 };
 
+namespace object_internal {
+template <typename T>
+using wrap = std::conditional_t<
+    best::void_type<T>, best::empty,
+    std::conditional_t<best::object_type<T>, std::remove_cv_t<T>,
+                       best::as_ptr<T>>>;
+}  // namespace object_internal
+
 /// # `best::object<T>`
 ///
 /// An "equivalent" object type for any type, intended primarily for generic
@@ -359,15 +368,15 @@ class object_ptr final {
 /// This type wraps any `T` and reproduces its properties. The wrapped `T` can
 /// be accessed via `operator*` and `operator->`.
 template <typename T>
-class object final {
+class object final : best::ebo<object_internal::wrap<T>, T> {
+ private:
+  using base = best::ebo<object_internal::wrap<T>, T>;
+
  public:
   /// # `object::wrapped_type`
   ///
   /// The representation for the value we're wrapping.
-  using wrapped_type = std::conditional_t<
-      best::void_type<T>, best::empty,
-      std::conditional_t<best::object_type<T>, std::remove_cv_t<T>,
-                         best::as_ptr<T>>>;
+  using wrapped_type = object_internal::wrap<T>;
 
   using type = T;
   using value_type = std::remove_cvref_t<T>;
@@ -406,10 +415,10 @@ class object final {
   template <typename... Args>
   constexpr explicit object(best::in_place_t, Args&&... args)
     requires best::constructible<T, Args&&...> && best::object_type<T>
-      : BEST_OBJECT_INNER_(BEST_FWD(args)...) {}
+      : base(best::in_place, BEST_FWD(args)...) {}
   constexpr explicit object(best::in_place_t, best::niche)
     requires best::ref_type<T>
-      : BEST_OBJECT_INNER_(nullptr) {}
+      : base(best::in_place, nullptr) {}
 
   /// # `object::operator=()`
   ///
@@ -426,10 +435,10 @@ class object final {
   ///
   /// Extracts an `object_ptr<T>` pointing to this object.
   constexpr best::object_ptr<const T> as_ptr() const {
-    return best::object_ptr<const T>(std::addressof(BEST_OBJECT_INNER_));
+    return best::object_ptr<const T>(std::addressof(base::get()));
   }
   constexpr best::object_ptr<T> as_ptr() {
-    return best::object_ptr<T>(std::addressof(BEST_OBJECT_INNER_));
+    return best::object_ptr<T>(std::addressof(base::get()));
   }
 
   /// # `object_ptr::operator*`, `object_ptr::operator->`
@@ -461,11 +470,6 @@ class object final {
       return **this <=> *that;
     }
   }
-
- public:
-  // Public for structural-ness.
-  [[no_unique_address]] wrapped_type BEST_OBJECT_INNER_;
-#define BEST_OBJECT_INNER_ _private
 };
 
 // TODO: eliminate.

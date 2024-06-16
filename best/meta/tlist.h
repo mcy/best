@@ -6,6 +6,7 @@
 #include <compare>
 #include <concepts>
 #include <type_traits>
+#include <utility>
 
 #include "best/container/bounds.h"
 #include "best/meta/internal/tlist.h"
@@ -58,6 +59,14 @@ template <typename... Elems>
 inline constexpr tlist<Elems...> types;
 template <auto... elems>
 inline constexpr vlist<elems...> vals;
+
+template <size_t n>
+inline constexpr auto indices = [] {
+  auto cb = []<size_t... i>(std::index_sequence<i...>) {
+    return best::vals<i...>;
+  };
+  return cb(std::make_index_sequence<n>{});
+}();
 
 /// A type-level type list.
 ///
@@ -166,16 +175,14 @@ class tlist final {
   };
 
   /// Applies `cb` to *every* type in this list at once.
-  template <auto cb>
-  static constexpr decltype(auto) apply()
+  static constexpr decltype(auto) apply(auto cb)
     requires types_callable<decltype(cb)>
   {
     return best::call<Elems...>(cb);
   };
 
   /// Applies `cb` to *every* type's ::value in this list at once.
-  template <auto cb>
-  static constexpr decltype(auto) apply()
+  static constexpr decltype(auto) apply(auto cb)
     requires values_callable<decltype(cb)>
   {
     return best::call(cb, Elems::value...);

@@ -51,6 +51,7 @@ cc_library(
   hdrs = ["object.h"],
   deps = [
     "//best/meta:concepts",
+    "//best/meta:ebo",
   ]
 )
 
@@ -107,6 +108,30 @@ cc_test(
     ":pun",
     "//best/test",
     "//best/test:fodder",
+  ],
+)
+
+cc_library(
+  name = "row",
+  hdrs = [
+    "row.h",
+    "internal/row.h",
+  ],
+  deps = [
+    ":object",
+    "//best/base:port",
+    "//best/meta:tags",
+    "//best/meta:concepts",
+  ],
+)
+
+cc_test(
+  name = "row_test",
+  srcs = ["row_test.cc"],
+  linkopts = ["-rdynamic"],
+  deps = [
+    ":row",
+    "//best/test",
   ],
 )
 
