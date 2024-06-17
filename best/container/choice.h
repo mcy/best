@@ -110,8 +110,9 @@ class choice final {
 
  private:
   template <typename Arg>
-  static constexpr auto convert_from = types.unique_index(
-      []<typename T> { return best::convertible<T, best::as_rref<Arg>>; });
+  static constexpr auto convert_from = types.unique_index([]<typename T> {
+    return !best::void_type<T> && best::convertible<T, best::as_rref<Arg>>;
+  });
 
  public:
   /// # `choice::choice()`
@@ -127,8 +128,7 @@ class choice final {
   /// This will never select a `void` alternative.
   template <typename Arg>
   constexpr choice(Arg&& arg)
-    requires(convert_from<Arg>.has_value() &&
-             !best::void_type<type<*convert_from<Arg>>>)
+    requires(convert_from<Arg>.has_value())
       : choice(best::index<*convert_from<Arg>>, BEST_FWD(arg)) {}
 
   /// # `choice::choice(uninit)`

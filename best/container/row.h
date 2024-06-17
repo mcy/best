@@ -2,6 +2,7 @@
 #define BEST_CONTAINER_ROW_H_
 
 #include <compare>
+#include <type_traits>
 
 #include "best/base/fwd.h"
 #include "best/container/internal/row.h"
@@ -20,6 +21,16 @@
 //! sense.
 
 namespace best {
+/// # `best::is_row`
+///
+/// Whether this is a specialization of `best::row`.
+template <typename T>
+concept is_row = requires {
+  {
+    best::as_deref<T>::types.apply([]<typename... U>() -> best::row<U...> {})
+  } -> best::same<T>;
+};
+
 /// # `best::row`
 ///
 /// A list of heterogenous things. Note that the semantics of `best::row`
@@ -221,18 +232,18 @@ class row final
 };
 
 template <typename... Elems>
-row(Elems&&...) -> row<Elems...>;
+row(Elems&&...) -> row<std::remove_cvref_t<Elems>...>;
 
 /// # `best::row_forward`
 ///
 /// A wrapper over a `best::row<>` that will instruct the various "in place
 /// constructor" constructors throughout `best` to construct using the elements
 /// of the wrapped row.
-template <typename... Elems>
+template <typename... Args>
 struct row_forward final {
-  best::row<Elems...> row;
+  best::row<Args...> row;
 
-  template <typename T>
+  template <best::constructible<Args...> T>
   constexpr operator T() && {
     return std::move(row).apply(
         [](auto&&... args) { return T(BEST_FWD(args)...); });

@@ -1,5 +1,39 @@
 package(default_visibility = ["//visibility:public"])
 
+
+cc_library(
+  name = "bit",
+  hdrs = ["bit.h"],
+  deps = [
+    ":int",
+    ":overflow",
+    "//best/base:fwd",
+    "//best/meta:concepts",
+  ],
+)
+
+cc_test(
+  name = "bit_test",
+  srcs = ["bit_test.cc"],
+  linkopts = ["-rdynamic"],
+  deps = [
+    ":bit",
+    "//best/test",
+  ],
+)
+
+cc_library(
+  name = "conv",
+  hdrs = ["conv.h"],
+  deps = [
+    ":int",
+    ":overflow",
+    "//best/container:result",
+    "//best/meta:guard",
+    "//best/text:rune",
+  ]
+)
+
 cc_library(
   name = "int",
   hdrs = [
@@ -38,27 +72,6 @@ cc_test(
   linkopts = ["-rdynamic"],
   deps = [
     ":overflow",
-    "//best/test",
-  ],
-)
-
-cc_library(
-  name = "bit",
-  hdrs = ["bit.h"],
-  deps = [
-    ":int",
-    ":overflow",
-    "//best/base:fwd",
-    "//best/meta:concepts",
-  ],
-)
-
-cc_test(
-  name = "bit_test",
-  srcs = ["bit_test.cc"],
-  linkopts = ["-rdynamic"],
-  deps = [
-    ":bit",
     "//best/test",
   ],
 )

@@ -737,7 +737,12 @@ best::object_ptr<T> vec<T, max_inline, A>::data() {
 
 template <best::relocatable T, size_t max_inline, best::allocator A>
 size_t vec<T, max_inline, A>::size() const {
-  return on_heap() ? ~size_ : size_ >> (bits_of<size_t> - SizeBytes * 8);
+  if constexpr (max_inline == 0) {
+    // size_ is implicitly always zero if off-heap.
+    return on_heap() ? ~size_ : 0;
+  } else {
+    return on_heap() ? ~size_ : size_ >> (bits_of<size_t> - SizeBytes * 8);
+  }
 }
 template <best::relocatable T, size_t max_inline, best::allocator A>
 void vec<T, max_inline, A>::set_size(unsafe, size_t new_size) {
@@ -749,12 +754,17 @@ void vec<T, max_inline, A>::set_size(unsafe, size_t new_size) {
   if (on_heap()) {
     size_ = ~new_size;
   } else {
-    auto offset = new_size << (bits_of<size_t> - SizeBytes * 8);
-    auto mask = ~size_t{0} << (bits_of<size_t> - SizeBytes * 8);
+    if constexpr (max_inline == 0) {
+      // size_ is implicitly always zero if off-heap, so we don't have to do
+      // anything here.
+    } else {
+      auto offset = new_size << (bits_of<size_t> - SizeBytes * 8);
+      auto mask = ~size_t{0} << (bits_of<size_t> - SizeBytes * 8);
 
-    // TODO(mcyoung): This is a strict aliasing violation...
-    size_ &= ~mask;
-    size_ |= offset;
+      // TODO(mcyoung): This is a strict aliasing violation...
+      size_ &= ~mask;
+      size_ |= offset;
+    }
   }
 }
 

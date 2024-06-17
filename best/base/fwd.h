@@ -58,6 +58,10 @@ class tlist;
 // best/text/rune.h
 class rune;
 
+// best/text/format.h
+struct format_spec;
+class formatter;
+
 // best::text cannot be forward-declared because that depends on
 // best::encoding being defined.
 //

@@ -59,7 +59,7 @@ using strbuf32 = best::textbuf<utf32, best::malloc>;
 /// A `best::text` may not point to invalidly-text data. Constructors from
 /// unauthenticated strings must go through factories that return
 /// `best::optional`.
-template <best::encoding E, best::allocator A>
+template <best::encoding E, best::allocator A = best::malloc>
 class textbuf final {
  public:
   /// # `textbuf::encoding`
@@ -380,9 +380,8 @@ class textbuf final {
 
   /// # `textbuf::push()`.
   ///
-  /// Pushes a rune or string to this vector. Returns `false` if the rune or
-  /// string contains characters that cannot be transcoded to this strings's
-  /// encoding.
+  /// Pushes a rune or string to this vector. Returns `false` if input text
+  /// contains characters that cannot be transcoded to this strings's encoding.
   bool push(rune r) {
     code buf[About.max_codes_per_rune];
     if (auto codes = r.encode(buf, enc())) {
@@ -406,13 +405,54 @@ class textbuf final {
       best::span<code> buf = {buf_.data() + buf_.size(),
                               About.max_codes_per_rune};
       if (auto codes = r.encode(buf, enc())) {
-        buf_.append(*codes);
+        unsafe::in([&](auto u) { buf_.set_size(u, size() + codes->size()); });
         continue;
       }
       truncate(watermark);
       return false;
     }
     return true;
+  }
+
+  /// # `textbuf::push_lossy()`.
+  ///
+  /// Pushes a rune or string to this vector. If the input text contains
+  /// characters that cannot be transcoded into this string's encoding, they
+  /// are replaced with `rune::Replacement`, or if that cannot be encoded, with
+  /// `?`.
+  void push_lossy(rune r) {
+    code buf[About.max_codes_per_rune];
+    if (auto codes = r.encode(buf, enc())) {
+      buf_.append(*codes);
+    } else if (auto codes = rune::Replacement.encode(buf, enc())) {
+      buf_.append(*codes);
+    } else {
+      codes = rune('?').encode(buf, enc());
+      buf_.append(*codes);
+    }
+  }
+  void push_lossy(const string_type auto& that) {
+    rune::iter it(that);
+    if constexpr (best::same_encoding_code<textbuf, decltype(that)>()) {
+      if (best::same_encoding(*this, that)) {
+        buf_.append(it.rest());
+        return;
+      }
+    }
+
+    for (rune r : it) {
+      reserve(About.max_codes_per_rune);
+      best::span<code> buf = {buf_.data() + buf_.size(),
+                              About.max_codes_per_rune};
+      if (auto codes = r.encode(buf, enc())) {
+        unsafe::in([&](auto u) { buf_.set_size(u, size() + codes->size()); });
+      } else if (auto codes = rune::Replacement.encode(buf, enc())) {
+        unsafe::in([&](auto u) { buf_.set_size(u, size() + codes->size()); });
+      } else {
+        codes = rune('?').encode(buf, enc());
+        unsafe::in([&](auto u) { buf_.set_size(u, size() + codes->size()); });
+      }
+    }
   }
 
   /// # `textbuf::clear()`.

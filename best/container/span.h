@@ -793,7 +793,9 @@ constexpr bool span<T, n>::operator==(span<U, m> that) const
 {
   if (size() != that.size()) return false;
   if constexpr (best::byte_comparable<T, U>) {
-    return best::equate_bytes(span<T>(*this), span<U>(that));
+    if (!std::is_constant_evaluated()) {
+      return best::equate_bytes(span<T>(*this), span<U>(that));
+    }
   }
 
   for (size_t i = 0; i < size(); ++i) {
@@ -811,8 +813,10 @@ constexpr auto span<T, n>::operator<=>(span<U, m> that) const
   requires best::comparable<T, U>
 {
   if constexpr (best::byte_comparable<T, U>) {
-    return best::order_type<T, U>(
-        best::compare_bytes(span<T>(*this), span<U>(that)));
+    if (!std::is_constant_evaluated()) {
+      return best::order_type<T, U>(
+          best::compare_bytes(span<T>(*this), span<U>(that)));
+    }
   }
 
   size_t prefix = best::min(size(), that.size());

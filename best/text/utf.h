@@ -184,12 +184,16 @@ struct utf32 final {
   static constexpr best::result<rune, encoding_error> decode(
       best::span<const char32_t>* input) {
     auto next = input->take_first(1).ok_or(encoding_error::OutOfBounds);
+    BEST_GUARD(next);
+
     return rune::from_int((*next)[0]).ok_or(encoding_error::Invalid);
   }
 
   static constexpr best::result<rune, encoding_error> undecode(
       best::span<const char32_t>* input) {
     auto next = input->take_last(1).ok_or(encoding_error::OutOfBounds);
+    BEST_GUARD(next);
+
     return rune::from_int((*next)[0]).ok_or(encoding_error::Invalid);
   }
 

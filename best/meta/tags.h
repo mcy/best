@@ -52,6 +52,15 @@ inline constexpr index_t<n> index;
 /// "uninitialized" value.
 struct uninit_t {};
 inline constexpr uninit_t uninit;
+
+/// # `best::ftadle`
+///
+/// A tag used for ensuring that FTADLE implementations are actually
+/// FTADLEs. With some exceptions, every FTADLE implementation must tolerate
+/// being passed ANY type in an unevaluated context. This also ensures we have
+/// *a* type to pass in that position, so that calling the FTADLE finds
+/// overloads in the best:: namespace, too.
+struct ftadle;
 }  // namespace best
 
 #endif  // BEST_META_TAGS_H_

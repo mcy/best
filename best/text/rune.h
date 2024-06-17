@@ -103,6 +103,7 @@ namespace best {
 ///   reverse decoding agrees with forward decoding.
 /// * Injective. Every rune is encoded as exactly one sequence of one or more
 ///   code units.
+/// * ISO-646 compliant. Every printable ISO 646 character is encodable.
 template <typename E_, typename E = std::remove_cvref_t<E_>>
 concept encoding =
     best::copyable<E> && best::equatable<E> && requires(const E& e) {
@@ -198,7 +199,7 @@ class rune final {
   /// # `rune::replacement()`
   ///
   /// Returns the Unicode replacement character.
-  static constexpr rune replacement() { return 0xfffd; }
+  static const rune Replacement;
 
   /// # `rune::rune()`
   ///
@@ -458,6 +459,12 @@ class rune final {
   /// Returns whether this rune is an ASCII whitespace character.
   constexpr bool is_ascii_space() const;
 
+  /// # `rune::escaped()`
+  ///
+  /// Returns a value that, when formatted, is the value of this rune after
+  /// replacing it with an appropriate C++ escape sequence, if necessary.
+  constexpr auto escaped() const;
+
   /// Tempoaray hack until BestFmt.
   template <typename Os>
   friend Os& operator<<(Os& os, rune r) {
@@ -478,6 +485,8 @@ class rune final {
 
   uint32_t value_;
 };
+
+inline constexpr rune rune::Replacement = 0xfffd;
 
 /// See `rune::iter` above.
 template <encoding E>
@@ -536,7 +545,7 @@ struct rune::iter final {
     next_ = decode(&codes_, *enc_).ok();
     if (next_) return *this;
 
-    next_ = rune::replacement();
+    next_ = Replacement;
     if (E::About.is_self_syncing) {
       codes_ = codes_[{.start = 1}];
     } else {
@@ -653,6 +662,78 @@ constexpr bool rune::is_ascii_space() const {
   }
 }
 
+constexpr auto rune::escaped() const {
+  struct escaped {
+    rune _private;
+  };
+  return escaped{*this};
+}
+
+void BestFmt(auto& fmt, const decltype(rune().escaped())& esc) {
+  switch (esc._private) {
+    case '\'':
+      fmt.write("\\\'");
+      return;
+    case '"':
+      fmt.write("\\\"");
+      return;
+    case '\\':
+      fmt.write("\\\\");
+      return;
+    case '\0':
+      fmt.write("\\0");
+      return;
+    case '\a':
+      fmt.write("\\a");
+      return;
+    case '\b':
+      fmt.write("\\b");
+      return;
+    case '\f':
+      fmt.write("\\f");
+      return;
+    case '\n':
+      fmt.write("\\n");
+      return;
+    case '\r':
+      fmt.write("\\r");
+      return;
+    case '\t':
+      fmt.write("\\t");
+      return;
+    case '\v':
+      fmt.write("\\v");
+      return;
+  }
+
+  if (esc._private.is_ascii_control()) {  // TODO: unicode is_control
+    fmt.format("\\x{:02}", esc._private.to_int());
+  } else if (esc._private == 0x200d) {
+    // Handle the ZWJ explicitly for now, since it appears in some of our tests.
+    fmt.write("\\u200D");
+  } else {
+    fmt.write(esc._private);
+  }
+}
+constexpr void BestFmtQuery(auto& query, decltype(rune().escaped())*) {
+  query.requires_debug = false;
+}
+
+void BestFmt(auto& fmt, rune r) {
+  // TODO: Implement padding.
+  if (fmt.current_spec().method != 'q' && !fmt.current_spec().is_debug) {
+    fmt.write(r);
+    return;
+  }
+
+  // Quoted rune.
+  fmt.format("'{}'", r.escaped());
+}
+constexpr void BestFmtQuery(auto& query, rune*) {
+  query.requires_debug = false;
+  query.supports_width = true;
+  query.methods = "q";
+}
 }  // namespace best
 
 #endif  // BEST_TEXT_RUNE_H_

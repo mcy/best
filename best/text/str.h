@@ -136,6 +136,13 @@ class text final {
                 best::encoding_of(that));
   }
 
+  /// # `text::from_partial()`
+  ///
+  /// Creates a new string by decoding the longest valid prefix of `data`.
+  /// Returns the valid prefix, and the rest of `data`.
+  constexpr static std::pair<text, best::span<const code>> from_partial(
+      best::span<const code> data, encoding enc = {});
+
   /// # `text::from_nul()`
   ///
   /// Creates a new string by parsing it from a NUL-terminated string. It must
@@ -213,6 +220,9 @@ class text final {
   constexpr bool starts_with(const string_type auto& s) const {
     return trim_prefix(s).has_value();
   }
+  constexpr bool starts_with(best::callable<bool(rune)> auto&& p) const {
+    return trim_prefix(p).has_value();
+  }
 
   /// # `text::trim_prefix()`
   ///
@@ -220,6 +230,8 @@ class text final {
   /// with that prefix removed.
   constexpr best::option<text> trim_prefix(rune) const;
   constexpr best::option<text> trim_prefix(const string_type auto&) const;
+  constexpr best::option<text> trim_prefix(
+      best::callable<bool(rune)> auto&&) const;
 
   /// # `text::consume_prefix()`
   ///
@@ -228,12 +240,17 @@ class text final {
   /// and leaves this string unchanged.
   constexpr bool consume_prefix(rune r) {
     auto suffix = trim_prefix(r);
-    if (suffix) *this = suffix;
+    if (suffix) *this = *suffix;
     return suffix.has_value();
   }
   constexpr bool consume_prefix(const string_type auto& s) {
     auto suffix = trim_prefix(s);
-    if (suffix) *this = suffix;
+    if (suffix) *this = *suffix;
+    return suffix.has_value();
+  }
+  constexpr bool consume_prefix(best::callable<bool(rune)> auto&& p) {
+    auto suffix = trim_prefix(BEST_FWD(p));
+    if (suffix) *this = *suffix;
     return suffix.has_value();
   }
 
@@ -242,6 +259,9 @@ class text final {
   /// Whether this string contains a particular substring or rune..
   constexpr bool contains(rune r) const { return !!find(r); }
   constexpr bool contains(const string_type auto& s) const { return !!find(s); }
+  constexpr bool contains(best::callable<bool(rune)> auto&& s) const {
+    return !!find(s);
+  }
 
   /// # `text::find()`
   ///
@@ -386,6 +406,20 @@ constexpr best::option<text<E>> text<E>::from(best::span<const code> data,
 }
 
 template <encoding E>
+constexpr std::pair<text<E>, best::span<const code<E>>> text<E>::from_partial(
+    best::span<const code> data, encoding enc) {
+  auto orig = data;
+  while (!data.is_empty()) {
+    if (!rune::decode(&data, enc)) {
+      return {text{in_place, orig[{.end = orig.size() - data.size()}],
+                   std::move(enc)},
+              data};
+    }
+  }
+  return {text{in_place, orig, std::move(enc)}, {}};
+}
+
+template <encoding E>
 constexpr bool text<E>::is_rune_boundary(size_t idx) const {
   return rune::is_boundary(*this, idx, enc());
 }
@@ -423,10 +457,7 @@ constexpr option<text<E>> text<E>::at(best::bounds range) const {
 
 template <encoding E>
 constexpr option<text<E>> text<E>::trim_prefix(rune r) const {
-  return break_off().then([=](auto x) -> option<text> {
-    if (r == x.first) return x.second;
-    return best::none;
-  });
+  return trim_prefix([=](rune r2) { return r == r2; });
 }
 
 template <encoding E>
@@ -450,6 +481,15 @@ constexpr option<text<E>> text<E>::trim_prefix(
     if (r1 != haystack.next()) return best::none;
   }
   return text{in_place, haystack.rest(), enc()};
+}
+
+template <encoding E>
+constexpr option<text<E>> text<E>::trim_prefix(
+    best::callable<bool(rune)> auto&& r) const {
+  return break_off().then([&](auto x) -> option<text> {
+    if (best::call(BEST_FWD(r), x.first)) return x.second;
+    return best::none;
+  });
 }
 
 template <encoding E>

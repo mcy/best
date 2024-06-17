@@ -21,6 +21,17 @@ cc_test(
 )
 
 cc_library(
+  name = "ascii",
+  hdrs = ["ascii.h"],
+  deps = [
+    ":rune",
+    "//best/container:option",
+    "//best/container:span",
+    "//best/meta:guard",
+  ]
+)
+
+cc_library(
   name = "utf",
   hdrs = [
     "utf.h",
@@ -40,6 +51,42 @@ cc_test(
   linkopts = ["-rdynamic"],
   deps = [
     ":utf",
+    "//best/test",
+  ]
+)
+
+cc_library(
+  name = "format",
+  hdrs = [
+    "format.h",
+    "internal/format_parser.h",
+  ],
+  deps = [
+    ":rune",
+    ":strbuf",
+    "//best/container:option",
+    "//best/container:span",
+    "//best/math:conv",
+    "//best/meta:guard",
+  ]
+)
+
+cc_test(
+  name = "format_parser_test",
+  srcs = ["internal/format_parser_test.cc"],
+  linkopts = ["-rdynamic"],
+  deps = [
+    ":format",
+    "//best/test",
+  ]
+)
+
+cc_test(
+  name = "format_test",
+  srcs = ["format_test.cc"],
+  linkopts = ["-rdynamic"],
+  deps = [
+    ":format",
     "//best/test",
   ]
 )
@@ -68,6 +115,7 @@ cc_library(
   name = "strbuf",
   hdrs = ["strbuf.h"],
   deps = [
+    ":ascii",
     ":str",
     "//best/container:vec",
   ]

@@ -127,4 +127,12 @@ best::test Leaky = [](auto& t) {
   x0.push();
   x2[0] = x0[0];
 };
+
+best::test NoInline = [](auto& t) {
+  best::vec<int, 0> v;
+  v.push(1);
+  v.append({1, 2, 3});
+  t.expect_eq(v.size(), 4);
+  t.expect_eq(v, {1, 1, 2, 3});
+};
 }  // namespace best::vec_test

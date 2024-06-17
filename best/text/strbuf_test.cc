@@ -1,6 +1,7 @@
 #include "best/text/strbuf.h"
 
 #include "best/test/test.h"
+#include "best/text/ascii.h"
 
 namespace best::strbuf_test {
 
@@ -61,6 +62,21 @@ best::test Push = [](auto& t) {
   buf.push(u"... solomon");
   buf.push(u"🧶🐈‍⬛黒猫");
   t.expect_eq(buf, "... solomon🧶🐈‍⬛黒猫");
+};
+
+best::test PushLossy = [](auto& t) {
+  best::textbuf<best::ascii> buf;
+
+  buf.push_lossy("solomon");
+  buf.push_lossy(U'🧶');
+  buf.push_lossy('z');
+  buf.push_lossy(u'猫');
+  t.expect_eq(buf, "solomon?z?");
+
+  buf.clear();
+  buf.push_lossy(u"... solomon");
+  buf.push_lossy(u"🧶🐈‍⬛黒猫");
+  t.expect_eq(buf, "... solomon??????");
 };
 
 best::test Affix = [](auto& t) {
