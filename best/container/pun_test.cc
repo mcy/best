@@ -46,7 +46,7 @@ best::test NoDtor = [](auto& t) {
       t.expect_eq(target, 42);
       target = 0;
     }
-    t.expect_eq(target, 0, "destructor of best::pun variant ran unexpectedly");
+    t.expect(target == 0, "destructor of best::pun variant ran unexpectedly");
   });
 };
 

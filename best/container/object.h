@@ -485,6 +485,19 @@ class object final : best::ebo<object_internal::wrap<T>, T> {
       return **this <=> *that;
     }
   }
+
+  friend void BestFmt(auto& fmt, const object& obj)
+    requires std::is_void_v<T> || requires { fmt.format(*obj); }
+  {
+    if constexpr (best::void_type<T>) {
+      fmt.write("void");
+    } else {
+      fmt.format(*obj);
+    }
+  }
+  friend constexpr void BestFmtQuery(auto& query, object*) {
+    query = query.template of<T>;
+  }
 };
 
 // TODO: eliminate.

@@ -138,6 +138,8 @@ class pun final {
     return std::addressof(impl().get(best::index<n>));
   }
 
+  friend void BestFmt(auto& fmt, const pun& opt) { fmt.write("pun(...)"); }
+
  private:
   constexpr const auto& impl() const { return BEST_PUN_IMPL_; }
   constexpr auto& impl() { return BEST_PUN_IMPL_; }

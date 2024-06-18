@@ -197,6 +197,22 @@ class row final
     return os << ")";
   }
 
+  friend void BestFmt(auto& fmt, const row& row)
+    requires requires(best::object<Elems>... els) { (fmt.format(els), ...); }
+  {
+    auto tup = fmt.tuple();
+    row.apply([&](const auto&... x) { (tup.entry(x), ...); });
+  }
+
+  template <typename Q>
+  friend constexpr void BestFmtQuery(Q& query, row*) {
+    query.supports_width = (query.template of<Elems>.supports_width || ...);
+    query.supports_prec = (query.template of<Elems>.supports_prec || ...);
+    query.uses_method = [](auto r) {
+      return (Q::template of<Elems>.uses_method(r) && ...);
+    };
+  }
+
   // Comparisons.
   template <typename... Us>
   constexpr bool operator==(const row<Us...>& that) const

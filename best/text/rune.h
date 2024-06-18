@@ -463,12 +463,34 @@ class rune final {
   ///
   /// Returns a value that, when formatted, is the value of this rune after
   /// replacing it with an appropriate C++ escape sequence, if necessary.
-  constexpr auto escaped() const;
+
+  constexpr auto escaped() const {
+    struct x {
+      rune _private;
+    };
+    return x{*this};
+  }
 
   /// Tempoaray hack until BestFmt.
   template <typename Os>
   friend Os& operator<<(Os& os, rune r) {
     return os << std::hex << r.to_int();
+  }
+
+  friend void BestFmt(auto& fmt, rune r) {
+    // TODO: Implement padding.
+    if (fmt.current_spec().method != 'q' && !fmt.current_spec().debug) {
+      fmt.write(r);
+      return;
+    }
+
+    // Quoted rune.
+    fmt.format("'{}'", r.escaped());
+  }
+  constexpr friend void BestFmtQuery(auto& query, rune*) {
+    query.requires_debug = false;
+    query.supports_width = true;
+    query.uses_method = [](rune r) { return r == 'q'; };
   }
 
   // best::rune has a niche representation.
@@ -662,13 +684,6 @@ constexpr bool rune::is_ascii_space() const {
   }
 }
 
-constexpr auto rune::escaped() const {
-  struct escaped {
-    rune _private;
-  };
-  return escaped{*this};
-}
-
 void BestFmt(auto& fmt, const decltype(rune().escaped())& esc) {
   switch (esc._private) {
     case '\'':
@@ -717,22 +732,7 @@ void BestFmt(auto& fmt, const decltype(rune().escaped())& esc) {
 }
 constexpr void BestFmtQuery(auto& query, decltype(rune().escaped())*) {
   query.requires_debug = false;
-}
-
-void BestFmt(auto& fmt, rune r) {
-  // TODO: Implement padding.
-  if (fmt.current_spec().method != 'q' && !fmt.current_spec().is_debug) {
-    fmt.write(r);
-    return;
-  }
-
-  // Quoted rune.
-  fmt.format("'{}'", r.escaped());
-}
-constexpr void BestFmtQuery(auto& query, rune*) {
-  query.requires_debug = false;
   query.supports_width = true;
-  query.methods = "q";
 }
 }  // namespace best
 

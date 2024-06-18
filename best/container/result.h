@@ -308,6 +308,40 @@ class [[nodiscard(
     return os;
   }
 
+  friend void BestFmt(auto& fmt, const result& res)
+    requires(std::is_void_v<T> || requires { fmt.format(*res); }) &&
+            (std::is_void_v<E> || requires { fmt.format(*res.error()); })
+  {
+    if (auto v = res.ok()) {
+      if constexpr (best::void_type<T>) {
+        fmt.write("ok(void)");
+      } else {
+        fmt.write("ok(");
+        fmt.format(*v);
+        fmt.write(")");
+      }
+    } else if (auto v = res.err()) {
+      if constexpr (best::void_type<E>) {
+        fmt.write("err(void)");
+      } else {
+        fmt.write("err(");
+        fmt.format(*v);
+        fmt.write(")");
+      }
+    }
+  }
+  template <typename Q>
+  friend constexpr void BestFmtQuery(Q& query, result*) {
+    query.supports_width = query.template of<T>.supports_width ||
+                           query.template of<E>.supports_width;
+    query.supports_prec = query.template of<T>.supports_prec ||
+                          query.template of<E>.supports_prec;
+    query.uses_method = [](auto r) {
+      return (Q::template of<T>.uses_method(r) &&
+              Q::template of<E>.uses_method(r));
+    };
+  }
+
  private:
   template <typename, typename>
   friend class result;

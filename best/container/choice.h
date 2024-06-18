@@ -292,6 +292,27 @@ class choice final {
         });
   }
 
+  friend void BestFmt(auto& fmt, const choice& ch)
+    requires requires(best::object<Alts>... alts) { (fmt.format(alts), ...); }
+  {
+    ch.match(
+        [&]<size_t n>(best::index_t<n>) { fmt.format("choice<{}>(void)", n); },
+        [&](auto idx, const auto& value) {
+          fmt.format("choice<{}>(", idx.value);
+          fmt.format(value);
+          fmt.write(")");
+        });
+  }
+
+  template <typename Q>
+  friend constexpr void BestFmtQuery(Q& query, choice*) {
+    query.supports_width = (query.template of<Alts>.supports_width || ...);
+    query.supports_prec = (query.template of<Alts>.supports_prec || ...);
+    query.uses_method = [](auto r) {
+      return (Q::template of<Alts>.uses_method(r) && ...);
+    };
+  }
+
   // Comparisons.
   template <typename... Us>
   BEST_INLINE_ALWAYS constexpr bool operator==(const choice<Us...>& that) const

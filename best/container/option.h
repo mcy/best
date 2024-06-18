@@ -35,6 +35,7 @@ namespace best {
 /// best::option<int> x = best::none;
 /// ```
 inline constexpr struct none_t {
+  friend void BestFmt(auto& fmt, none_t) { fmt.write("none"); }
 } none;
 
 /// # `best::is_option`
@@ -626,6 +627,25 @@ class option final {
     } else {
       return os << "option(" << *opt << ")";
     }
+  }
+
+  friend void BestFmt(auto& fmt, const option& opt)
+    requires std::is_void_v<T> || requires { fmt.format(*opt); }
+  {
+    if (!opt.has_value()) {
+      fmt.write("none");
+    } else if constexpr (best::void_type<T>) {
+      fmt.write("option(void)");
+    } else {
+      fmt.write("option(");
+      fmt.format(*opt);
+      fmt.write(")");
+    }
+  }
+
+  friend constexpr void BestFmtQuery(auto& query, option*) {
+    query = query.template of<T>;
+    query.requires_debug = true;
   }
 
   // Conversions w/ simple_option.

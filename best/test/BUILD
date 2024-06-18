@@ -20,6 +20,7 @@ cc_library(
   deps = [
     "//best/container:vec",
     "//best/text:str",
+    "//best/text:format",
     "//best/log:location",
   ],
 )

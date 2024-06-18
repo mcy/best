@@ -392,8 +392,13 @@ class textbuf final {
   }
   bool push(const string_type auto& that) {
     rune::iter it(that);
-    if constexpr (best::same_encoding_code<textbuf, decltype(that)>()) {
-      if (best::same_encoding(*this, that)) {
+    return push(it.rest(), best::encoding_of(that));
+  }
+  template <best::encoding E2>
+  bool push(best::span<const best::code<E2>> data, const E2& enc) {
+    rune::iter it(data, enc);
+    if constexpr (best::same<code, best::code<E2>> && best::equatable<E, E2>) {
+      if (this->enc() == enc) {
         buf_.append(it.rest());
         return true;
       }
@@ -404,7 +409,7 @@ class textbuf final {
       reserve(About.max_codes_per_rune);
       best::span<code> buf = {buf_.data() + buf_.size(),
                               About.max_codes_per_rune};
-      if (auto codes = r.encode(buf, enc())) {
+      if (auto codes = r.encode(buf, this->enc())) {
         unsafe::in([&](auto u) { buf_.set_size(u, size() + codes->size()); });
         continue;
       }
@@ -433,8 +438,13 @@ class textbuf final {
   }
   void push_lossy(const string_type auto& that) {
     rune::iter it(that);
-    if constexpr (best::same_encoding_code<textbuf, decltype(that)>()) {
-      if (best::same_encoding(*this, that)) {
+    push_lossy(it.rest(), best::encoding_of(that));
+  }
+  template <best::encoding E2>
+  void push_lossy(best::span<const best::code<E2>> data, const E2& enc) {
+    rune::iter it(data, enc);
+    if constexpr (best::same<code, best::code<E2>> && best::equatable<E, E2>) {
+      if (this->enc() == enc) {
         buf_.append(it.rest());
         return;
       }
@@ -444,12 +454,12 @@ class textbuf final {
       reserve(About.max_codes_per_rune);
       best::span<code> buf = {buf_.data() + buf_.size(),
                               About.max_codes_per_rune};
-      if (auto codes = r.encode(buf, enc())) {
+      if (auto codes = r.encode(buf, this->enc())) {
         unsafe::in([&](auto u) { buf_.set_size(u, size() + codes->size()); });
-      } else if (auto codes = rune::Replacement.encode(buf, enc())) {
+      } else if (auto codes = rune::Replacement.encode(buf, this->enc())) {
         unsafe::in([&](auto u) { buf_.set_size(u, size() + codes->size()); });
       } else {
-        codes = rune('?').encode(buf, enc());
+        codes = rune('?').encode(buf, this->enc());
         unsafe::in([&](auto u) { buf_.set_size(u, size() + codes->size()); });
       }
     }

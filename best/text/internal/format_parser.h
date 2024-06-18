@@ -182,7 +182,7 @@ class templ final {
           if (q.requires_debug && !s.debug) return false;
           if (!q.supports_width && s.width > 0) return false;
           if (!q.supports_prec && s.prec) return false;
-          if (s.method && !q.methods.contains(*s.method)) return false;
+          if (s.method && !q.uses_method(*s.method)) return false;
           return true;
         });
   }
@@ -219,7 +219,7 @@ struct has_fmt_query {
   static void check(...);
 
   static constexpr bool value =
-      !best::void_type<decltype(check(std::declval<T*>()))>;
+      !best::void_type<decltype(check(best::as_ptr<T>()))>;
 };
 }  // namespace best::format_internal
 #endif  // BEST_TEXT_INTERNAL_FORMAT_PARSER_H_

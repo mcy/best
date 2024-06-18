@@ -59,6 +59,7 @@ cc_library(
   name = "format",
   hdrs = [
     "format.h",
+    "internal/format_impls.h",
     "internal/format_parser.h",
   ],
   deps = [

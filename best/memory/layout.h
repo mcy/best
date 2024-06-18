@@ -113,6 +113,12 @@ class layout final {
   /// The alignment requirement, in bytes.  This is always a power of 2.
   constexpr size_t align() const { return align_; };
 
+  friend void BestFmt(auto& fmt, layout ly) {
+    auto rec = fmt.record();
+    rec.field({}, "size", fmt.current_spec(), ly.size());
+    rec.field({}, "align", fmt.current_spec(), ly.align());
+  }
+
  private:
   size_t size_ = 1, align_ = 1;
 };

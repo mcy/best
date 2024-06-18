@@ -65,14 +65,26 @@ class track_location {
   constexpr track_location<void> location() const { return *this; }
 
   // This makes best::track_location into a smart pointer.
-  constexpr std::add_lvalue_reference_t<const T> operator*() const {
+  constexpr std::add_lvalue_reference_t<const T> operator*()
+
+      const
+    requires(!std::is_void_v<T>)
+  {
     return value_;
   }
-  constexpr std::add_lvalue_reference_t<T> operator*() { return value_; }
-  constexpr std::add_pointer_t<const T> operator->() const& {
+  constexpr std::add_lvalue_reference_t<T> operator*()
+    requires(!std::is_void_v<T>)
+  {
+    return value_;
+  }
+  constexpr std::add_pointer_t<const T> operator->() const&
+    requires(!std::is_void_v<T>)
+  {
     return std::addressof(value_);
   }
-  constexpr std::add_pointer_t<const T> operator->() & {
+  constexpr std::add_pointer_t<const T> operator->() &
+    requires(!std::is_void_v<T>)
+  {
     return std::addressof(value_);
   }
   constexpr operator std::add_lvalue_reference_t<const T>() const {
@@ -83,6 +95,16 @@ class track_location {
   constexpr track_location& operator=(const track_location&) = default;
   constexpr track_location(track_location&&) = default;
   constexpr track_location& operator=(track_location&) = default;
+
+  friend void BestFmt(auto& fmt, const track_location& loc)
+    requires std::is_void_v<T> || requires { fmt.format(*loc); }
+  {
+    if constexpr (!std::is_void_v<T>) {
+      fmt.format(*loc);
+      fmt.write(" @ ");
+    }
+    fmt.format("{}:{}", loc.file(), loc.line());
+  }
 
  private:
   template <typename>
