@@ -486,12 +486,6 @@ class textbuf final {
     return t.enc();
   }
 
-  // TODO: BestFmt
-  template <typename Os>
-  friend Os& operator<<(Os& os, textbuf str) {
-    return os << str.as_text();
-  }
-
  private:
   explicit textbuf(best::in_place_t, buf buf, encoding enc)
       : buf_(std::move(buf)), enc_(std::move(enc)) {}

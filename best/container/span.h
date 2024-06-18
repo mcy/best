@@ -676,24 +676,6 @@ class span final {
                               size_t count) const
     requires(!is_const) && is_dynamic;
 
-  // TODO: BestFmt
-  template <typename Os>
-  friend Os& operator<<(Os& os, span sp)
-    requires requires {
-      { os << sp[0] };
-    }
-  {
-    os << "[";
-    bool first = true;
-    for (auto&& value : sp) {
-      if (!std::exchange(first, false)) {
-        os << ", ";
-      }
-      os << value;
-    }
-    return os << "]";
-  }
-
   // All spans are comparable.
   template <object_type U, best::option<size_t> m>
   constexpr bool operator==(best::span<U, m> that) const

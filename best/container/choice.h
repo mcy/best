@@ -128,7 +128,14 @@ class choice final {
   /// This will never select a `void` alternative.
   template <typename Arg>
   constexpr choice(Arg&& arg)
-    requires(convert_from<Arg>.has_value())
+    requires(
+        // XXX: This is a load-bearing pre-check. We do not want to call
+        // convert_from, which executes the whole init_from machinery, if we
+        // would choose another constructor: namely, a copy/move constructor.
+        // This is a common case, and avoiding it improves compile times by at
+        // least a second.
+        !best::same<choice, std::remove_cvref_t<Arg>> &&
+        convert_from<Arg>.has_value())
       : choice(best::index<*convert_from<Arg>>, BEST_FWD(arg)) {}
 
   /// # `choice::choice(uninit)`
@@ -278,18 +285,6 @@ class choice final {
       return best::choice<type<p>...>(best::index<(*inverse)[tag.value]>,
                                       BEST_FWD(value)...);
     });
-  }
-
-  // TODO: BestFmt
-  template <typename Os>
-  friend Os& operator<<(Os& os, choice ch) {
-    return ch.match(
-        [&]<size_t n>(best::index_t<n>) -> Os& {
-          return os << "choice<" << n << ">()";
-        },
-        [&](auto idx, const auto& value) -> Os& {
-          return os << "choice<" << idx.value << ">(" << value << ")";
-        });
   }
 
   friend void BestFmt(auto& fmt, const choice& ch)

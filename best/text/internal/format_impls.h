@@ -96,11 +96,6 @@ void BestFmt(auto& fmt, integer auto value) {
     }
   }
 
-  if (value == 0) {
-    fmt.write("0");
-    return;
-  }
-
   do {
     rune r = *rune::from_digit(value % base, base);
     if (uppercase) r = r.to_ascii_upper();

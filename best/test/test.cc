@@ -3,7 +3,6 @@
 #include <dlfcn.h>
 
 #include <cstdlib>
-#include <iostream>
 
 #include "best/container/vec.h"
 
@@ -15,15 +14,18 @@ best::str symbol_name(const void* ptr, best::location loc) {
   ::Dl_info di;
   if (::dladdr(ptr, &di)) {
     if (di.dli_sname == nullptr) {
-      std::cerr
-          << "could not parse symbol name for test at " << loc
-          << "; you may need to pass -rdynamic as part of your link options\n";
+      best::eprintln(
+          "fatal: could not parse symbol name for test at {:?}\nyou may need "
+          "to pass `-rdynamic` as part of your link options\n",
+          loc);
       std::exit(128);
     }
     return *best::str::from_nul(di.dli_sname);
   } else {
-    std::cerr << "could not parse symbol name for test at " << loc
-              << "; it might not be a global variable?\n";
+    best::eprintln(
+        "fatal: could not parse symbol name for test at {:?}\nit might not be "
+        "a global variable?",
+        loc);
     std::exit(128);
   }
 }
@@ -40,42 +42,39 @@ void test::init() {
 }
 
 bool test::run_all(int argc, char** argv) {
-  std::cout << Bold << "testing:";
+  best::eprint("{}testing:", Bold);
+
   for (int i = 0; i < argc; ++i) {
-    std::cout << " " << argv[i];
+    best::eprint(" {}", argv[i]);
   }
-  std::cout << "\n";
-  std::cout << "executing " << all_tests.size() << " test(s)\n\n";
+  best::eprintln();
+  best::eprintln("executing {} test(s)\n", all_tests.size());
 
   best::vec<best::test*> successes;
   best::vec<best::test*> failures;
   for (auto* test : all_tests) {
-    std::cout << Bold << "[ TEST: " << test->name() << " ]\n" << Reset;
+    best::eprintln("{}[ TEST: {} ]{}", Bold, test->name(), Reset);
     if (!test->run()) {
-      std::cout << Bold << Red << "[ FAIL: " << test->name() << " ]\n" << Reset;
+      best::eprintln("{}{}[ FAIL: {} ]{}", Bold, Red, test->name(), Reset);
       failures.push(test);
     } else {
-      std::cout << Bold << "[ OK: " << test->name() << " ]\n" << Reset;
+      best::eprintln("{}[ Ok: {} ]{}", Bold, test->name(), Reset);
       successes.push(test);
     }
   }
 
-  std::cout << "\n";
-  std::cout << Bold << "[ RESULTS ]\n" << Reset;
+  best::eprintln();
+  best::eprintln("{}[ RESULTS ]{}", Bold, Reset);
   if (!successes.is_empty()) {
-    std::cout << Bold << "passed " << successes.size() << " test(s) \n"
-              << Reset;
-    for (auto* test : successes) {
-      std::cout << " * " << test->name() << "\n" << Reset;
-    }
+    best::eprintln("{}passed {} test(s){}", Bold, successes.size(), Reset);
+    for (auto* test : successes) best::eprintln(" * {}", test->name());
   }
 
   if (!failures.is_empty()) {
-    std::cout << Bold << Red << "failed " << failures.size() << " test(s) \n"
-              << Reset;
-    for (auto* test : failures) {
-      std::cout << Red << " * " << test->name() << "\n" << Reset;
-    }
+    best::eprintln("{}{}failed {} test(s){}", Bold, Red, successes.size(),
+                   Reset);
+    for (auto* test : failures)
+      best::eprintln("{} * {}{}", Red, test->name(), Reset);
   }
 
   return failures.is_empty();

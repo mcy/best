@@ -7,6 +7,7 @@
 
 #include "best/meta/concepts.h"
 #include "best/meta/init.h"
+#include "best/meta/internal/init.h"
 #include "best/meta/tags.h"
 
 //! A helper for the empty base class optimization.
@@ -35,7 +36,10 @@ namespace best {
 /// other potential bases of `MyClass`.
 template <best::object_type T, typename Tag, auto ident = 0,
           bool compressed =
-              std::is_empty_v<T> && best::relocatable<T, trivially>>
+              std::is_empty_v<T> &&
+              // Use our intrinsic instead of the full init.h machinery, because
+              // this type gets hammered by every best::object!
+              best::init_internal::trivially_relocatable<T>>
 class ebo /* not final! */ {
  public:
   /// # `ebo::ebo(...)`

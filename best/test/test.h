@@ -2,7 +2,6 @@
 #define BEST_TEST_TEST_H_
 
 #include <functional>
-#include <iostream>
 
 #include "best/log/location.h"
 #include "best/meta/ops.h"
@@ -66,10 +65,12 @@ class test final {
   /// # `test::fail()`
   ///
   /// Marks this test as failed.
-  void fail(best::str message = "", best::location loc = best::here) {
-    std::cerr << "failed at " << loc << "\n";
-    if (!message.is_empty()) {
-      std::cerr << "  " << message << "\n";
+  template <best::formattable... Args>
+  void fail(best::format_template<Args...> message = "", const Args&... args) {
+    best::eprintln("failed at {:?}", message.where());
+    if (!message.as_str().is_empty()) {
+      best::eprint("=> ");
+      best::eprintln(message, args...);
     }
     failed_ = true;
   }
@@ -84,20 +85,15 @@ class test final {
   /// ```
   /// if (!t.expect(...)) { return; }
   /// ```
-  bool expect(best::track_location<bool> cond) {
-    if (!*cond) {
-      best::eprintln("failed expect() at {:?}", cond.location());
-      failed_ = true;
-    }
-    return cond;
-  }
   template <best::formattable... Args>
-  bool expect(best::track_location<bool> cond,
-              best::format_template<Args...> message, const Args&... args) {
-    if (!*cond) {
-      best::eprintln("failed expect() at {:?}", cond.location());
-      best::eprint("=> ");
-      best::eprintln(message, args...);
+  bool expect(bool cond, best::format_template<Args...> message = "",
+              const Args&... args) {
+    if (!cond) {
+      best::eprintln("failed expect() at {:?}", message.where());
+      if (!message.as_str().is_empty()) {
+        best::eprint("=> ");
+        best::eprintln(message, args...);
+      }
       failed_ = true;
     }
     return cond;
@@ -113,29 +109,41 @@ class test final {
   /// ```
   /// if (!t.expect_eq(...)) { return; }
   /// ```
-  template <typename A, best::equatable<A> B = A>
-  bool expect_eq(const A& a, const B& b, best::location loc = best::here) {
-    return expect_cmp(a == b, a, b, "expect_eq", "equal", loc);
+  template <typename A, best::equatable<A> B = A, best::formattable... Args>
+  bool expect_eq(const A& a, const B& b,
+                 best::format_template<Args...> message = "",
+                 const Args&... args) {
+    return expect_cmp(a == b, a, b, "expect_eq", "equal", message, args...);
   }
-  template <typename A, typename B = A>
-  bool expect_ne(const A& a, const B& b, best::location loc = best::here) {
-    return expect_cmp(a != b, a, b, "expect_ne", "unequal", loc);
+  template <typename A, best::equatable<A> B = A, best::formattable... Args>
+  bool expect_ne(const A& a, const B& b,
+                 best::format_template<Args...> message = "",
+                 const Args&... args) {
+    return expect_cmp(a != b, a, b, "expect_ne", "unequal", message, args...);
   }
-  template <typename A, typename B = A>
-  bool expect_lt(const A& a, const B& b, best::location loc = best::here) {
-    return expect_cmp(a < b, a, b, "expect_lt", "`<`", loc);
+  template <typename A, best::comparable<A> B = A, best::formattable... Args>
+  bool expect_lt(const A& a, const B& b,
+                 best::format_template<Args...> message = "",
+                 const Args&... args) {
+    return expect_cmp(a < b, a, b, "expect_lt", "`<`", message, args...);
   }
-  template <typename A, typename B = A>
-  bool expect_le(const A& a, const B& b, best::location loc = best::here) {
-    return expect_cmp(a <= b, a, b, "expect_le", "`<=`", loc);
+  template <typename A, best::comparable<A> B = A, best::formattable... Args>
+  bool expect_le(const A& a, const B& b,
+                 best::format_template<Args...> message = "",
+                 const Args&... args) {
+    return expect_cmp(a <= b, a, b, "expect_le", "`<=`", message, args...);
   }
-  template <typename A, typename B = A>
-  bool expect_gt(const A& a, const B& b, best::location loc = best::here) {
-    return expect_cmp(a > b, a, b, "expect_gt", "`>`", loc);
+  template <typename A, best::comparable<A> B = A, best::formattable... Args>
+  bool expect_gt(const A& a, const B& b,
+                 best::format_template<Args...> message = "",
+                 const Args&... args) {
+    return expect_cmp(a > b, a, b, "expect_gt", "`>`", message, args...);
   }
-  template <typename A, typename B = A>
-  bool expect_ge(const A& a, const B& b, best::location loc = best::here) {
-    return expect_cmp(a >= b, a, b, "expect_ge", "`>=`", loc);
+  template <typename A, best::comparable<A> B = A, best::formattable... Args>
+  bool expect_ge(const A& a, const B& b,
+                 best::format_template<Args...> message = "",
+                 const Args&... args) {
+    return expect_cmp(a >= b, a, b, "expect_ge", "`>=`", message, args...);
   }
 
   /// # `test::run_all()`.
@@ -152,13 +160,18 @@ class test final {
   void init();
 
   bool expect_cmp(bool cond, auto& a, auto& b, best::str func, best::str cmp,
-                  best::location loc) {
+                  const auto& message, const auto&... args) {
     if (!cond) {
       best::eprintln(
-          "failed {}() at {:?}\nexpected these values to be {}:\n=> {:?}\n=> "
+          "failed {}() at {:?}\nexpected these values to be {}:\n  {:?}\n  "
           "{:?}",
-          func, loc, cmp, best::make_formattable(a), best::make_formattable(b));
+          func, message.where(), cmp, best::make_formattable(a),
+          best::make_formattable(b));
       failed_ = true;
+      if (!message.as_str().is_empty()) {
+        best::eprint("=> ");
+        best::eprintln(message, args...);
+      }
     }
     return cond;
   }

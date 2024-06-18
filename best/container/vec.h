@@ -566,12 +566,6 @@ class vec final {
     return as_span() <=> best::span(range);
   }
 
-  // TODO: BestFmt
-  template <typename Os>
-  friend Os& operator<<(Os& os, const vec& sp) {
-    return os << sp.as_span();
-  }
-
  private:
   template <best::relocatable, size_t, best::allocator>
   friend class vec;

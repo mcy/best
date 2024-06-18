@@ -116,12 +116,6 @@ class track_location {
 
 /// A location, not including a tracked argument.
 using location = track_location<void>;
-
-// TODO: BestFmt
-template <typename Os>
-Os& operator<<(Os& os, best::track_location<void> loc) {
-  return os << loc.file() << ":" << loc.line();
-}
 }  // namespace best
 
 #endif  // BEST_LOG_LOCATION_H_

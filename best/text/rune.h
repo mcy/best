@@ -2,7 +2,6 @@
 #define BEST_TEXT_RUNE_H_
 
 #include <cstddef>
-#include <ios>
 #include <type_traits>
 
 #include "best/base/hint.h"
@@ -251,6 +250,10 @@ class rune final {
   template <encoding E = utf8>
   constexpr static bool validate(best::span<const code<E>> input,
                                  const E& enc = {}) {
+    if constexpr (requires { enc.validate(input); }) {
+      return enc.validate(input);
+    }
+
     while (!input.is_empty()) {
       if (!decode(&input, enc)) return false;
     }
@@ -469,12 +472,6 @@ class rune final {
       rune _private;
     };
     return x{*this};
-  }
-
-  /// Tempoaray hack until BestFmt.
-  template <typename Os>
-  friend Os& operator<<(Os& os, rune r) {
-    return os << std::hex << r.to_int();
   }
 
   friend void BestFmt(auto& fmt, rune r) {

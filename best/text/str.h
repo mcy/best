@@ -347,23 +347,6 @@ class text final {
     return t.enc();
   }
 
-  // TODO: BestFmt
-  template <typename Os>
-  friend Os& operator<<(Os& os, text str) {
-    if constexpr (best::same<encoding, utf8>) {
-      return os << std::string_view(str.data(), str.size());
-    }
-
-    char u8[utf8::About.max_codes_per_rune];
-    for (rune r : str.runes()) {
-      if (auto chars = r.encode(u8, utf8{})) {
-        os << std::string_view(chars->data(), chars->size());
-        continue;
-      }
-    }
-    return os;
-  }
-
  private:
   constexpr explicit text(best::in_place_t, best::span<const code> span,
                           encoding enc)

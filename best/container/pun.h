@@ -2,6 +2,7 @@
 #define BEST_CONTAINER_PUN_H_
 
 #include "best/base/port.h"
+#include "best/base/unsafe.h"
 #include "best/container/internal/pun.h"
 #include "best/container/object.h"
 #include "best/meta/concepts.h"

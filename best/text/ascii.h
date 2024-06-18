@@ -24,7 +24,7 @@ struct ascii final {
   };
 
   static constexpr bool is_boundary(best::span<const char> input, size_t idx) {
-    return input.size() <= idx;
+    return idx <= input.size();
   }
 
   static constexpr best::result<void, encoding_error> encode(
@@ -73,7 +73,7 @@ struct latin1 final {
   };
 
   static constexpr bool is_boundary(best::span<const char> input, size_t idx) {
-    return input.size() <= idx;
+    return idx <= input.size();
   }
 
   static constexpr best::result<void, encoding_error> encode(

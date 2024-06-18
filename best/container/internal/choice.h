@@ -9,8 +9,10 @@
 #include <utility>
 
 #include "best/base/port.h"
+#include "best/container/internal/pun.h"
 #include "best/container/object.h"
 #include "best/container/pun.h"
+#include "best/math/int.h"
 #include "best/meta/concepts.h"
 #include "best/meta/init.h"
 #include "best/meta/ops.h"
@@ -127,14 +129,14 @@ tagged<Ts...> which_storage(best::tlist<Ts...>, best::rank<0>);
 
 template <typename A, typename B>
 niched<A, B> which_storage(best::tlist<A, B>, best::rank<1>)
-  requires(has_niche<A> && (best::void_type<B> || std::is_empty_v<B>) &&
-           best::constructible<B, trivially>) ||
-          (has_niche<B> && (best::void_type<A> || std::is_empty_v<A>) &&
-           best::constructible<A, trivially>);
-
-static_assert(has_niche<int&>);
-static_assert(void_type<void>);
-static_assert(constructible<void, trivially>);
+    // This is a compile-time performance hot-spot: use the compiler intrinsics
+    // directly.
+  requires(has_niche<A> && (best::void_type<B> ||
+                            (std::is_empty_v<B> &&
+                             std::is_trivially_default_constructible_v<B>))) ||
+          (has_niche<B> && (best::void_type<A> ||
+                            (std::is_empty_v<A> &&
+                             std::is_trivially_default_constructible_v<A>)));
 
 template <typename... Ts>
 using storage = decltype(which_storage(types<Ts...>, best::rank<1>{}));
@@ -142,7 +144,7 @@ using storage = decltype(which_storage(types<Ts...>, best::rank<1>{}));
 template <typename... Ts>
 class impl : public storage<Ts...> {
  private:
-  static constexpr auto info = best::init_info<Ts...>;
+  static constexpr auto info = best::pun_internal::info<Ts...>;
 
  public:
   template <size_t n>

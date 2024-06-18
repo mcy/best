@@ -2,27 +2,46 @@
 #define BEST_CONTAINER_INTERNAL_PUN_H_
 
 #include <memory>
+#include <type_traits>
 
 #include "best/base/port.h"
 #include "best/container/object.h"
-#include "best/memory/layout.h"
 #include "best/meta/concepts.h"
-#include "best/meta/init.h"
 #include "best/meta/tags.h"
 
 //! Internal implementation of best::pun.
 
 namespace best::pun_internal {
 struct info_t {
-  const init_info_t& init;
-  best::layout layout;
+  bool trivial_default, trivial_copy, trivial_move, trivial_dtor;
 };
 
+// This does not use init.h because it is a very heavy hitter for compile-times,
+// because every result and option ever instantiate this.
 template <typename... Ts>
-inline constexpr info_t info{
-    .init = init_info<Ts...>,
-    .layout = best::layout::of_union<Ts...>(),
-};
+inline constexpr info_t info = [] {
+  if constexpr ((std::is_trivial_v<Ts> && ...)) {
+    return info_t{true, true, true, true};
+  } else {
+    return info_t{
+        .trivial_default =
+            ((std::is_void_v<Ts> ||
+              std::is_trivially_default_constructible_v<Ts>)&&...),
+        .trivial_copy = ((!std::is_object_v<Ts> ||
+                          (std::is_trivially_copy_constructible_v<Ts> &&
+
+                           std::is_trivially_copy_assignable_v<Ts>)) &&
+                         ...),
+        .trivial_move = ((std::is_void_v<Ts> ||
+                          (std::is_trivially_move_constructible_v<Ts> &&
+
+                           std::is_trivially_move_assignable_v<Ts>)) &&
+                         ...),
+        .trivial_dtor =
+            ((std::is_void_v<Ts> || std::is_trivially_destructible_v<Ts>)&&...),
+    };
+  }
+}();
 
 // A raw union.
 template <const info_t& info, typename... Ts>
@@ -44,21 +63,21 @@ template <const info_t& info, typename H, typename... T>
 union BEST_RELOCATABLE impl<info, H, T...> {
  public:
   // clang-format off
-  constexpr impl() requires (info.init.trivial_default) = default;
-  constexpr impl() requires (!info.init.trivial_default) : t_{} {}
+  constexpr impl() requires (info.trivial_default) = default;
+  constexpr impl() requires (!info.trivial_default) : t_{} {}
 
-  constexpr impl(const impl&) requires (info.init.trivial_copy) = default;
-  constexpr impl& operator=(const impl&) requires (info.init.trivial_copy) = default;
-  constexpr impl(const impl&) requires (!info.init.trivial_copy) {}
-  constexpr impl& operator=(const impl&) requires (!info.init.trivial_copy) { return *this; }
+  constexpr impl(const impl&) requires (info.trivial_copy) = default;
+  constexpr impl& operator=(const impl&) requires (info.trivial_copy) = default;
+  constexpr impl(const impl&) requires (!info.trivial_copy) {}
+  constexpr impl& operator=(const impl&) requires (!info.trivial_copy) { return *this; }
 
-  constexpr impl(impl&&) requires (info.init.trivial_move) = default;
-  constexpr impl& operator=(impl&&) requires (info.init.trivial_move) = default;
-  constexpr impl(impl&&) requires (!info.init.trivial_move) {}
-  constexpr impl& operator=(impl&&) requires (!info.init.trivial_move) { return *this; }
+  constexpr impl(impl&&) requires (info.trivial_move) = default;
+  constexpr impl& operator=(impl&&) requires (info.trivial_move) = default;
+  constexpr impl(impl&&) requires (!info.trivial_move) {}
+  constexpr impl& operator=(impl&&) requires (!info.trivial_move) { return *this; }
 
-  constexpr ~impl() requires (info.init.trivial_dtor) = default;
-  constexpr ~impl() requires (!info.init.trivial_dtor) {}
+  constexpr ~impl() requires (info.trivial_dtor) = default;
+  constexpr ~impl() requires (!info.trivial_dtor) {}
   // clang-format on
 
   BEST_PUSH_GCC_DIAGNOSTIC()

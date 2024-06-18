@@ -613,22 +613,6 @@ class option final {
   }
   // clang-format on
 
-  // TODO: BestFmt
-  template <typename Os>
-  friend Os& operator<<(Os& os, const option& opt)
-    requires best::void_type<T> || requires {
-      { os << *opt };
-    }
-  {
-    if (!opt.has_value()) {
-      return os << "none";
-    } else if constexpr (best::void_type<T>) {
-      return os << "option()";
-    } else {
-      return os << "option(" << *opt << ")";
-    }
-  }
-
   friend void BestFmt(auto& fmt, const option& opt)
     requires std::is_void_v<T> || requires { fmt.format(*opt); }
   {
@@ -817,12 +801,6 @@ class option final {
 template <typename T>
 option(T&&) -> option<std::remove_cvref_t<T>>;
 option(best::none_t) -> option<void>;
-
-// TODO: BestFmt
-template <typename Os>
-Os& operator<<(Os& os, none_t opt) {
-  return os << "none";
-}
 
 inline constexpr best::option<void> VoidOption{best::in_place};
 

@@ -117,13 +117,6 @@ struct format_spec final {
   };
 
   constexpr bool operator==(const format_spec&) const = default;
-
-  friend auto& operator<<(auto& os, const format_spec& spec) {
-    return os << "{" << spec.alt << ", " << spec.debug << ", "
-              << spec.sign_aware_padding << ", " << spec.alignment << ", "
-              << spec.fill << ", " << spec.width << ", " << spec.prec << ", "
-              << spec.method << "}";
-  }
 };
 
 /// # `best::format_template`
@@ -131,6 +124,10 @@ struct format_spec final {
 /// A format template. This is constructable from a string literal. The library
 /// will check that that string is actually a valid formatting template for
 /// a given list of argument types.
+///
+/// This type has two functions: `.as_str()`, which returns the actual string
+/// within, and `.where()`, which returns the location at which this template
+/// was constructed.
 template <typename... Args>
 using format_template =
     best::format_internal::templ<format_spec,
@@ -269,7 +266,7 @@ class formatter::block final {
   void finish() {
     if (!fmt_) return;
     if (uses_indent_ && entries_ > 0) {
-      fmt_->write("\n");
+      fmt_->write(",\n");
     }
     if (uses_indent_) --fmt_->indent_;
     fmt_->write(config_.close);
@@ -300,11 +297,10 @@ class formatter::block final {
   }
 
   void separator() {
-    if (uses_indent_) {
-      entries_ == 0 ? fmt_->write("\n") : fmt_->write(",\n");
-    } else if (entries_ != 0) {
-      fmt_->write(", ");
-    }
+    if (entries_ > 0) fmt_->write(",");
+    if (uses_indent_) fmt_->write("\n");
+    if (!uses_indent_ && entries_ > 0) fmt_->write(" ");
+    ++entries_;
   }
 
   size_t entries_ = 0;
@@ -328,13 +324,13 @@ void format(best::strbuf& out, best::format_template<Args...> templ,
 /// Executes a formatting operation and writes the result to stdout or stderr.
 /// The `ln` functions will also print a newline.
 template <best::formattable... Args>
-void print(best::format_template<Args...> templ, const Args&... args);
+void print(best::format_template<Args...> templ = "", const Args&... args);
 template <best::formattable... Args>
-void println(best::format_template<Args...> templ, const Args&... args);
+void println(best::format_template<Args...> templ = "", const Args&... args);
 template <best::formattable... Args>
-void eprint(best::format_template<Args...> templ, const Args&... args);
+void eprint(best::format_template<Args...> templ = "", const Args&... args);
 template <best::formattable... Args>
-void eprintln(best::format_template<Args...> templ, const Args&... args);
+void eprintln(best::format_template<Args...> templ = "", const Args&... args);
 
 /// # `best::make_formattable()`
 ///
@@ -353,7 +349,7 @@ struct make_formattable {
     const char* bytes = reinterpret_cast<const char*>(std::addressof(x.value));
     fmt.format("unprintable {}-byte value: `", sizeof(T));
     for (size_t i = 0; i < sizeof(T); ++i) {
-      fmt.format("{:02x}", bytes[i]);
+      fmt.format("{:02x}", uint8_t(bytes[i]));
     }
     fmt.write("`");
   }
@@ -372,6 +368,7 @@ inline void formatter::write(rune r) {
 
   out_->push_lossy(r);
   bytes_written += out_->size() - prev;
+  at_new_line_ = r == '\n';
 }
 
 void formatter::write(const best::string_type auto& string) {
@@ -379,27 +376,28 @@ void formatter::write(const best::string_type auto& string) {
   if (indent_ == 0) {
     out_->push_lossy(string);
     bytes_written += out_->size() - prev;
+    return;
   }
 
   rune::iter runes(string);
+  auto data = runes.rest();
   const auto& enc = best::encoding_of(string);
-  auto curr = runes.rest();
+  size_t idx = 0;
+  size_t watermark = 0;
   for (rune r : runes) {
-    if (r == '\n') {
-      if (runes.rest().size() < curr.size()) {
-        update_indent();
-        out_->push_lossy(curr[{.end = runes.rest().size() - curr.size()}], enc);
-        curr = runes.rest();
-      }
-
-      out_->push_lossy('\n');
-      at_new_line_ = true;
-      continue;
+    idx += r.size(enc).ok().value_or(1);
+    if (r != '\n') continue;
+    if (idx != watermark + 1) {
+      update_indent();
+      out_->push_lossy(data[{.start = watermark, .end = idx - 1}], enc);
     }
+    watermark = idx;
+    out_->push_lossy("\n");
+    at_new_line_ = true;
   }
-  if (!curr.is_empty()) {
+  if (watermark != data.size()) {
     update_indent();
-    out_->push_lossy(curr, enc);
+    out_->push_lossy(data[{.start = watermark}], enc);
   }
 }
 
@@ -413,28 +411,39 @@ inline formatter::block formatter::record(best::str title) {
   return {{.title = title, .open = "{", .close = "}"}, this};
 }
 
-template <best::formattable... Args>
-void formatter::format(best::format_template<Args...> fmt, const Args&... arg) {
-  std::array<best::row<const void*,
-                       void (*)(formatter&, const format_spec&, const void*)>,
-             sizeof...(Args)>
-      vtable = {{{
-          std::addressof(arg),
-          [](formatter& f, const format_spec& s, const void* v) {
-            f.format(s, *reinterpret_cast<const Args*>(v));
-          },
-      }...}};
+namespace format_internal {
+// Custom function-ref type to minimize instantiation cost of format().
+struct vptr {
+  const void* data;
+  void (*fn)(formatter&, const format_spec&, const void*);
+  template <typename Arg>
+  static void erased(formatter& f, const format_spec& s, const void* v) {
+    f.format(s, *reinterpret_cast<const Arg*>(v));
+  }
+};
 
+inline void format_impl(formatter& fmt, best::str templ, vptr* vtable) {
   format_internal::visit_template(
-      fmt.template_,
+      templ.data(), templ.size(),
       [&](best::str chunk) {
-        out_->push(chunk);
+        fmt.write(chunk);
         return true;
       },
       [&](size_t idx, const auto& spec) {
-        vtable[idx][best::index<1>](*this, spec, vtable[idx][best::index<0>]);
+        vtable[idx].fn(fmt, spec, vtable[idx].data);
         return true;
       });
+}
+
+}  // namespace format_internal
+
+template <best::formattable... Args>
+void formatter::format(best::format_template<Args...> fmt, const Args&... arg) {
+  format_internal::vptr vtable[] = {{
+      std::addressof(arg),
+      format_internal::vptr::erased<Args>,
+  }...};
+  format_internal::format_impl(*this, fmt.as_str(), vtable);
 }
 
 template <best::formattable... Args>

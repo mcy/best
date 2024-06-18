@@ -174,7 +174,7 @@ class [[nodiscard(
   constexpr best::option<ok_ref> ok() &;
   constexpr best::option<ok_crref> ok() const&&;
   constexpr best::option<ok_rref> ok() &&;
-  constexpr explicit operator bool() const { return ok().has_value(); }
+  constexpr explicit operator bool() const { return impl().which() == 0; }
 
   /// # `result::ok()`
   ///
@@ -191,10 +191,12 @@ class [[nodiscard(
   /// operators. These internally simply defer to `*ok()`.
   ///
   // TODO: nicer formatting once we have BestFmt.
-  constexpr ok_cref operator*() const& { return *ok(); }
-  constexpr ok_ref operator*() & { return *ok(); }
-  constexpr ok_crref operator*() const&& { return moved().ok(); }
-  constexpr ok_rref operator*() && { return *moved().ok(); }
+  constexpr ok_cref operator*() const& { return impl()[best::index<0>]; }
+  constexpr ok_ref operator*() & { return impl()[best::index<0>]; }
+  constexpr ok_crref operator*() const&& {
+    return moved().impl()[best::index<0>];
+  }
+  constexpr ok_rref operator*() && { return moved().impl()[best::index<0>]; }
   constexpr ok_cptr operator->() const {
     return *ok(), impl().as_ptr(index<0>);
   }
@@ -281,31 +283,6 @@ class [[nodiscard(
   }
   BEST_INLINE_SYNTHETIC constexpr bool operator<=>(best::err<> u) const {
     return operator<=>(best::result<T, void>(u));
-  }
-
-  // TODO: BestFmt
-  template <typename Os>
-  friend Os& operator<<(Os& os, const result& r)
-    requires requires {
-      { os << r.ok() };
-    } && requires {
-      { os << r.err() };
-    }
-  {
-    if (auto v = r.ok()) {
-      if constexpr (best::void_type<T>) {
-        return os << "ok()";
-      } else {
-        return os << "ok(" << *v << ")";
-      }
-    } else if (auto v = r.err()) {
-      if constexpr (best::void_type<E>) {
-        return os << "err()";
-      } else {
-        return os << "err(" << *v << ")";
-      }
-    }
-    return os;
   }
 
   friend void BestFmt(auto& fmt, const result& res)

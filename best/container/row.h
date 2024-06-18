@@ -183,20 +183,6 @@ class row final
   constexpr auto forward() const&&;
   constexpr auto forward() &&;
 
-  // TODO: BestFmt
-  template <typename Os>
-  friend Os& operator<<(Os& os, const row& row) {
-    os << "(";
-    bool first = true;
-    row.indices.apply([&]<typename... I> {
-      (void)((std::exchange(first, false)
-                  ? os << row.get(best::index<I::value>)
-                  : os << ", " << row.get(best::index<I::value>)),
-             ...);
-    });
-    return os << ")";
-  }
-
   friend void BestFmt(auto& fmt, const row& row)
     requires requires(best::object<Elems>... els) { (fmt.format(els), ...); }
   {

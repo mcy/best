@@ -47,9 +47,14 @@ struct niche final {};
 ///
 /// Whether T is a type with a niche.
 template <typename T>
-concept has_niche = best::ref_type<T> || (best::object_type<T> &&
-                                          best::constructible<T, best::niche> &&
-                                          best::equatable<T, best::niche>);
+concept has_niche =
+    best::ref_type<T> ||
+    (best::object_type<T> &&
+     // NOTE: This is a performance hotspot, so we use skip the init.h
+     // machinery.
+     // best::constructible<T, best::niche> && best::equatable<T, best::niche>
+     std::is_constructible_v<T, niche> &&
+     requires(const T& x, niche n) { x == n; });
 
 /// # `best::object_ptr<T>`
 ///
@@ -368,11 +373,15 @@ class object_ptr final {
 };
 
 namespace object_internal {
+template <best::void_type T>
+best::empty* wrap_impl();
+template <best::object_type T>
+T* wrap_impl();
 template <typename T>
-using wrap = std::conditional_t<
-    best::void_type<T>, best::empty,
-    std::conditional_t<best::object_type<T>, std::remove_cv_t<T>,
-                       best::as_ptr<T>>>;
+best::as_ptr<T>* wrap_impl();
+
+template <typename T>
+using wrap = std::remove_pointer_t<decltype(wrap_impl<T>())>;
 }  // namespace object_internal
 
 /// # `best::object<T>`

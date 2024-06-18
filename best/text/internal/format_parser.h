@@ -2,11 +2,35 @@
 #define BEST_TEXT_INTERNAL_FORMAT_PARSER_H_
 
 #include "best/base/fwd.h"
-#include "best/math/conv.h"
 #include "best/meta/ops.h"
 #include "best/text/str.h"
 
 namespace best::format_internal {
+constexpr size_t find(const char* data, size_t len, auto cb) {
+  for (size_t i = 0; i < len; ++i) {
+    if (cb(data[i])) return i;
+  }
+  return -1;
+}
+
+constexpr bool consume_prefix(const char*& data, size_t& len, char needle) {
+  if (len != 0 && data[0] == needle) {
+    ++data;
+    --len;
+    return true;
+  }
+  return false;
+}
+
+constexpr bool consume_prefix(const char*& data, size_t& len, auto cb) {
+  if (len != 0 && cb(data[0])) {
+    ++data;
+    --len;
+    return true;
+  }
+  return false;
+}
+
 /// # `format_internal::visit_template()`
 ///
 /// Parses a formatting template, calling the given callbacks to print a literal
@@ -14,29 +38,45 @@ namespace best::format_internal {
 ///
 /// Each callback can return a bool to signal error; the parser returns a
 /// `false` if parsing, printing, or interpolation failed.
-template <typename spec = best::format_spec>
-constexpr bool visit_template(
-    best::str templ, best::callable<bool(best::str)> auto&& print,
-    best::callable<bool(size_t, const spec&)> auto&& interpolate) {
+template <typename spec = best::format_spec, typename Print,
+          typename Interpolate>
+constexpr bool visit_template(const char* data, size_t len, Print print,
+                              Interpolate interpolate) {
+  constexpr bool HavePrint = !best::same<Print, std::nullptr_t>;
+
+  // As nice as best::str is, it's extremely slow in the constexpr evaluator.
+  // As such, we need to avoid expensive operations like "bounds checks" and
+  // "rune decoding".
+  //
+  // We don't need a lot of operations available, thankfully.
+
   size_t idx = 0;
-  while (!templ.is_empty()) {
+  while (len > 0) {
     // Skip to the next '{'.
-    auto brace = templ.find([](rune r) { return r == '{' || r == '}'; });
+    auto brace = find(data, len, [](char r) { return r == '{' || r == '}'; });
 
     // Print everything up to the brace.
-    if (brace != 0 &&
-        !best::call(print, templ[{.end = brace.value_or(templ.size())}])) {
-      return false;
+    if constexpr (HavePrint) {
+      if (brace != 0) {
+        auto bytes = best::span(data, brace == -1 ? len : brace);
+        // The caller is assumed to have given us an actually UTF-8 string, not
+        // just a random latin1 string.
+        auto to_print = unsafe::in([&](auto u) { return best::str(u, bytes); });
+        if (!best::call(print, to_print)) return false;
+      }
     }
-    if (!brace) return true;
+    if (brace == -1) return true;
 
-    auto what = templ[{.start = *brace, .count = 1}];
-    templ = templ[{.start = *brace + 1}];
+    auto what = data[brace];
+    data += brace + 1;
+    len -= brace + 1;
 
-    if (what == "}") {
+    if (what == '}') {
       // If this is immediately followed by another }, it is a literal.
-      if (templ.consume_prefix("}")) {
-        if (!best::call(print, best::str("}"))) return false;
+      if (consume_prefix(data, len, '}')) {
+        if constexpr (HavePrint) {
+          if (!best::call(print, best::str("}"))) return false;
+        }
         continue;
       }
       // Any other result is an error.
@@ -44,8 +84,10 @@ constexpr bool visit_template(
     }
 
     // If this is immediately followed by another {, it is a literal.
-    if (templ.consume_prefix("{")) {
-      if (!best::call(print, best::str("{"))) return false;
+    if (consume_prefix(data, len, '{')) {
+      if constexpr (HavePrint) {
+        if (!best::call(print, best::str("{"))) return false;
+      }
       continue;
     }
 
@@ -55,53 +97,68 @@ constexpr bool visit_template(
     spec args{};
 
     // This is a fast-path for `{}`.
-    if (templ.consume_prefix('}')) {
+    if (consume_prefix(data, len, '}')) {
       if (!best::call(interpolate, idx++, args)) return false;
       continue;
     }
 
-    auto parse_int = [](best::str& s) -> best::option<uint32_t> {
+    // This is a fast-path for `{:?}`
+    if (len >= 3 && data[0] == ':' && data[1] == '?' && data[2] == '}') {
+      data += 3;
+      len -= 3;
+      args.debug = true;
+      if (!best::call(interpolate, idx++, args)) return false;
+      continue;
+    }
+
+    auto atoi = [&]() -> uint32_t {
       // Parse digits for an explicit index.
-      auto idx = s.find([](rune r) { return !r.is_ascii_digit(); });
+      auto count = find(data, len, [](char c) { return c < '0' || c > '9'; });
       // We should find a non-digit rune, because otherwise this is an invalid
       // string.
-      if (!idx) best::none;
+      if (count == -1) -1;
 
-      auto parsed = best::atoi<uint32_t>(s[{.end = *idx}]);
-      if (!parsed) return best::none;
-      s = s[{.start = *idx}];
-      return *parsed;
+      uint32_t result = 0;
+      for (size_t i = 0; i < count; ++i) {
+        result *= 10;
+        result += data[i] - '0';
+      }
+      data += count;
+      len -= count;
+      return result;
     };
 
     size_t cur_idx;
-    if (templ.consume_prefix(':')) {
+    if (consume_prefix(data, len, ':')) {
       cur_idx = idx++;
     } else {
       // Parse digits for an explicit index.
-      auto parsed = parse_int(templ);
-      if (!parsed) return false;
-      cur_idx = *parsed;
+      cur_idx = atoi();
+      if (cur_idx == -1) return false;
 
       // The next rune must be either ':' or '}'. If it's ':' we consume it.
-      if (!templ.consume_prefix(':')) {
-        if (!templ.consume_prefix('}')) return false;
+      if (!consume_prefix(data, len, ':')) {
+        if (!consume_prefix(data, len, '}')) return false;
         if (!best::call(interpolate, cur_idx, args)) return false;
         continue;
       }
     }
-    if (templ.is_empty()) return false;
+    if (len == 0) return false;
 
-    best::option<typename spec::align> align;
-    auto parse_align = [&](rune r) {
+    bool have_align = false;
+    auto parse_align = [&](char r) {
       switch (r) {
         case '<':
-          align = spec::Left;
+          args.alignment = spec::Left;
+          have_align = true;
           return true;
         case '^':
-          align = spec::Center;
+          args.alignment = spec::Center;
+          have_align = true;
           return true;
         case '>':
-          align = spec::Right;
+          args.alignment = spec::Right;
+          have_align = true;
           return true;
         default:
           return false;
@@ -110,53 +167,52 @@ constexpr bool visit_template(
 
     // Next we need to parse the fill. Check if the rune immediately after the
     // first is is one of <, ^, >. If not, check the first rune. This is order
-    // is required to correctly handle specs like `{:>>}`.
-    auto [next, rest] = *templ.break_off();
-    if (rest.consume_prefix(parse_align)) {
-      args.fill = next;
-      args.alignment = *align;
-      templ = rest;
-    } else if (templ.consume_prefix(parse_align)) {
-      args.alignment = *align;
-      templ = rest;
+    // is required to correctly handle specs like `{:>>}`
+
+    ++data, --len;  // Skip a byte.
+    if (consume_prefix(data, len, parse_align)) {
+      args.fill = *rune::from_int(data[-2]);
+    } else {
+      --data, ++len;
+      // Undo the skip from the previous operation.
+      consume_prefix(data, len, parse_align);
     }
 
     // Parse for '#' and '0'.
-    if (templ.consume_prefix('#')) args.alt = true;
-    if (templ.consume_prefix('0')) args.sign_aware_padding = true;
+    if (consume_prefix(data, len, '#')) args.alt = true;
+    if (consume_prefix(data, len, '0')) args.sign_aware_padding = true;
+    if (len == 0) return false;
 
     // Now, try parsing a width.
-    if (templ.starts_with(&rune::is_ascii_digit)) {
-      auto parsed = parse_int(templ);
+    if (data[0] >= '0' && data[0] <= '9') {
+      args.width = atoi();
       // Width must be positive.
-      if (parsed < 1u) return false;
-      args.width = *parsed;
+      if (args.width == 0 || args.width == -1) return false;
     } else {
       // Using the alignment or '0' flags requires specifying a width.
-      if (align || args.sign_aware_padding) return false;
+      if (have_align || args.sign_aware_padding) return false;
     }
 
     // And then a precision.
-    if (templ.consume_prefix('.')) {
-      auto parsed = parse_int(templ);
-      if (!parsed) return false;
-      args.prec = *parsed;
+    if (consume_prefix(data, len, '.')) {
+      args.prec = atoi();
+      if (args.prec == -1) return false;
     }
+    if (len == 0) return false;
 
     // Finally, we can parse the method. This should be any alphabetic ASCII
     // rune.
-    if (templ.is_empty()) return false;
-    auto [method, rest2] = *templ.break_off();
-    if (method.is_ascii_alpha()) {
-      args.method = method;
-      templ = rest2;
+    if ((data[0] >= 'a' && data[0] <= 'z') ||
+        (data[0] >= 'A' && data[0] <= 'Z')) {
+      args.method = *rune::from_int(data[0]);
+      ++data, --len;  // Skip a byte.
     }
 
     // And optionally the debug flag.
-    if (templ.consume_prefix('?')) args.debug = true;
+    if (consume_prefix(data, len, '?')) args.debug = true;
 
     // We should hit a '}' here unconditionally. Then, interpolate.
-    if (!templ.consume_prefix('}')) return false;
+    if (!consume_prefix(data, len, '}')) return false;
     if (!best::call(interpolate, cur_idx, args)) return false;
   }
 
@@ -165,17 +221,13 @@ constexpr bool visit_template(
 
 template <typename spec, typename... Args>
 class templ final {
- public:
+ private:
   static constexpr std::array<typename spec::query, sizeof...(Args)> Queries{
       spec::query::template of<Args>...};
 
   static constexpr bool validate(best::span<const char> templ) {
-    auto str = unsafe::in([&](auto u) {
-      return best::str(u, best::span(templ.data(), templ.size() - 1));
-    });
     return format_internal::visit_template<spec>(
-        str, [](auto) { return true; },
-        [&](size_t n, const spec& s) {
+        templ.data(), templ.size() - 1, nullptr, [&](size_t n, const spec& s) {
           if (n > Queries.size()) return false;
           auto& q = Queries[n];
 
@@ -189,16 +241,20 @@ class templ final {
 
  public:
   template <size_t n>
-  constexpr templ(const char (&chars)[n]) BEST_IS_VALID_LITERAL(chars, utf8{})
-      BEST_ENABLE_IF(validate(chars),
-                     "invalid format string (better diagnostics NYI)") {
-    unsafe::in(
-        [&](auto u) { template_ = best::str(u, best::span(chars, n - 1)); });
-  }
+  constexpr templ(const char (&chars)[n], best::location loc = best::here)
+      BEST_IS_VALID_LITERAL(chars, utf8{})
+          BEST_ENABLE_IF(validate(chars),
+                         "invalid format string (better diagnostics NYI)")
+      : template_(unsafe::in(
+            [&](auto u) { return best::str(u, best::span(chars, n - 1)); })),
+        loc_(loc) {}
+
+  constexpr best::str as_str() const { return template_; }
+  constexpr best::location where() const { return loc_; }
 
  private:
-  friend best::formatter;
   best::str template_;
+  best::location loc_;
 };
 
 // Can't seem to use requires {} for this. Unclear if this is a Clang bug, or
