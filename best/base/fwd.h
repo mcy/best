@@ -51,6 +51,9 @@ class pun;
 template <typename>
 class track_location;
 
+// best/meta/tags.h
+struct empty;
+
 // best/meta/tlist.h
 template <typename...>
 class tlist;

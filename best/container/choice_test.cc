@@ -38,25 +38,24 @@ best::test Convert = [](auto& t) {
 
 best::test Accessors = [](auto& t) {
   best::choice<int, int> x0(best::index<0>, 42);
+  unsafe u("test");
 
-  unsafe::in([&](auto u) {
-    t.expect_eq(x0[best::index<0>], 42);
-    t.expect_eq(x0.at(best::index<0>), 42);
-    t.expect_eq(x0.at(u, best::index<0>), 42);
-    t.expect_eq(*x0.as_ptr(best::index<0>), 42);
+  t.expect_eq(x0[best::index<0>], 42);
+  t.expect_eq(x0.at(best::index<0>), 42);
+  t.expect_eq(x0.at(u, best::index<0>), 42);
+  t.expect_eq(*x0.as_ptr(best::index<0>), 42);
 
-    x0[best::index<0>]++;
-    t.expect_eq(x0[best::index<0>], 43);
-    x0.at(best::index<0>).value()++;
-    t.expect_eq(x0[best::index<0>], 44);
-    x0.at(u, best::index<0>)++;
-    t.expect_eq(x0[best::index<0>], 45);
-    (*x0.at(best::index<0>))++;
-    t.expect_eq(x0[best::index<0>], 46);
+  x0[best::index<0>]++;
+  t.expect_eq(x0[best::index<0>], 43);
+  x0.at(best::index<0>).value()++;
+  t.expect_eq(x0[best::index<0>], 44);
+  x0.at(u, best::index<0>)++;
+  t.expect_eq(x0[best::index<0>], 45);
+  (*x0.at(best::index<0>))++;
+  t.expect_eq(x0[best::index<0>], 46);
 
-    t.expect_eq(x0.at(best::index<1>), best::none);
-    t.expect_eq(x0.as_ptr(best::index<1>), nullptr);
-  });
+  t.expect_eq(x0.at(best::index<1>), best::none);
+  t.expect_eq(x0.as_ptr(best::index<1>), nullptr);
 };
 
 best::test Leaky = [](auto& t) {

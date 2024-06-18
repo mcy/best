@@ -432,9 +432,7 @@ class span final {
   ///
   /// Extracts a single element. If the requested index is out-of-bounds,
   /// Undefined Behavior.
-  constexpr best::option<T&> at(unsafe, size_t idx) const {
-    return data()[idx];
-  }
+  constexpr T& at(unsafe, size_t idx) const { return data()[idx]; }
 
   /// # `span::at(unsafe, {.start = ...})`
   ///
@@ -609,12 +607,11 @@ class span final {
       return;
     }
 
-    unsafe::in([&](auto u) {
-      size_t to_copy = best::min(size(), src.size());
-      for (size_t i = 0; i < to_copy; ++i) {
-        at(u, i) = src.at(u, i);
-      }
-    });
+    unsafe u("already performed a bounds check in the loop latch");
+    size_t to_copy = best::min(size(), src.size());
+    for (size_t i = 0; i < to_copy; ++i) {
+      at(u, i) = src.at(u, i);
+    }
   }
 
   /// # `span::emplace_from()`

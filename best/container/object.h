@@ -4,7 +4,6 @@
 #include <stddef.h>
 
 #include <compare>
-#include <concepts>
 #include <memory>
 #include <type_traits>
 
@@ -508,19 +507,6 @@ class object final : best::ebo<object_internal::wrap<T>, T> {
     query = query.template of<T>;
   }
 };
-
-// TODO: eliminate.
-template <typename F, typename... Args>
-BEST_INLINE_SYNTHETIC constexpr decltype(auto) invoke(F&& f, Args&&... args)
-  requires std::invocable<F, Args...>
-{
-  if constexpr (best::void_type<std::invoke_result_t<F, Args...>>) {
-    std::invoke(BEST_FWD(f), BEST_FWD(args)...);
-    return best::empty{};
-  } else {
-    return std::invoke(BEST_FWD(f), BEST_FWD(args)...);
-  }
-}
 }  // namespace best
 
 #endif  // BEST_CONTAINER_OBJECT_H_

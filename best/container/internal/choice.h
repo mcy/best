@@ -97,9 +97,11 @@ class niched {
       : non_empty_(best::index<0>, BEST_FWD(args)...) {}
 
   constexpr size_t tag() const {
-    return unsafe::in([&](auto u) {
-             return non_empty_.object(u, index<0>);
-           }).is_niche()
+    return non_empty_
+                   .object(unsafe("the non-empty variant is always engaged,"
+                                  "except when after destructor runs"),
+                           index<0>)
+                   .is_niche()
                ? Empty
                : NonEmpty;
   }
@@ -221,9 +223,8 @@ class impl : public storage<Ts...> {
     if (which == tag()) {
       if constexpr (best::object_type<type<which>> &&
                     best::assignable<type<which>, Args&&...>) {
-        unsafe::in([&](auto u) {
-          return get(u, best::index<which>);
-        }).assign(BEST_FWD(args)...);
+        get(unsafe{"checked tag() before this"}, best::index<which>)
+            .assign(BEST_FWD(args)...);
         return;
       }
     }
@@ -325,15 +326,16 @@ class impl : public storage<Ts...> {
           return best::call(BEST_FWD(callback), static_cast<Empty>(arg));
         }
       } else {
-        return unsafe::in([&](auto u) -> decltype(auto) {
-          if constexpr (best::callable<F, void(I, Type)>) {
-            return best::call(BEST_FWD(callback), tag,
-                              static_cast<Type>(*self.get(u, tag)));
-          } else {
-            return best::call(BEST_FWD(callback),
-                              static_cast<Type>(*self.get(u, tag)));
-          }
-        });
+        unsafe u(
+            "this function is only called after"
+            "checking tag() via the jump table.");
+        if constexpr (best::callable<F, void(I, Type)>) {
+          return best::call(BEST_FWD(callback), tag,
+                            static_cast<Type>(*self.get(u, tag)));
+        } else {
+          return best::call(BEST_FWD(callback),
+                            static_cast<Type>(*self.get(u, tag)));
+        }
       }
     };
   }

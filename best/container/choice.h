@@ -202,15 +202,15 @@ class choice final {
   /// `which() != n`.
   template <size_t n>
   constexpr cptr<n> as_ptr(best::index_t<n> i = {}) const {
-    return unsafe::in([&](auto u) {
-      return which() != n ? nullptr : impl().template ptr<n>(u);
-    });
+    return which() == n ? impl().template ptr<n>(
+                              unsafe("which() is checked right before this"))
+                        : nullptr;
   }
   template <size_t n>
   constexpr ptr<n> as_ptr(best::index_t<n> i = {}) {
-    return unsafe::in([&](auto u) {
-      return which() != n ? nullptr : impl().template ptr<n>(u);
-    });
+    return which() == n ? impl().template ptr<n>(
+                              unsafe("which() is checked right before this"))
+                        : nullptr;
   }
 
   /// # `choice::emplace()`
@@ -378,33 +378,29 @@ template <typename... A>
 template <size_t n>
 constexpr choice<A...>::cref<n> choice<A...>::operator[](
     best::index_t<n> idx) const& {
-  return unsafe::in([&](auto u) -> decltype(auto) {
-    return check_ok(idx.value), impl().deref(u, idx);
-  });
+  check_ok(idx.value);
+  return impl().deref(unsafe{"check_ok() called before this"}, idx);
 }
 template <typename... A>
 template <size_t n>
 constexpr choice<A...>::ref<n> choice<A...>::operator[](
     best::index_t<n> idx) & {
-  return unsafe::in([&](auto u) -> decltype(auto) {
-    return check_ok(idx.value), impl().deref(u, idx);
-  });
+  check_ok(idx.value);
+  return impl().deref(unsafe{"check_ok() called before this"}, idx);
 }
 template <typename... A>
 template <size_t n>
 constexpr choice<A...>::crref<n> choice<A...>::operator[](
     best::index_t<n> idx) const&& {
-  return unsafe::in([&](auto u) -> decltype(auto) {
-    return check_ok(idx.value), impl().move(u, idx);
-  });
+  check_ok(idx.value);
+  return impl().move(unsafe{"check_ok() called before this"}, idx);
 }
 template <typename... A>
 template <size_t n>
 constexpr choice<A...>::rref<n> choice<A...>::operator[](
     best::index_t<n> idx) && {
-  return unsafe::in([&](auto u) -> decltype(auto) {
-    return check_ok(idx.value), impl().move(u, idx);
-  });
+  check_ok(idx.value);
+  return impl().move(unsafe{"check_ok() called before this"}, idx);
 }
 
 template <typename... A>
@@ -412,9 +408,8 @@ template <size_t n>
 constexpr best::option<typename choice<A...>::template cref<n>>
 choice<A...>::at(best::index_t<n> i) const& {
   if (which() != n) return {};
-
-  return unsafe::in([&](auto u) -> decltype(auto) {
-    return best::invoke([&]() -> decltype(auto) { return impl().deref(u, i); });
+  return best::call_devoid([&]() -> decltype(auto) {
+    return impl().deref(unsafe{"checked which() before this"}, i);
   });
 }
 template <typename... A>
@@ -422,9 +417,8 @@ template <size_t n>
 constexpr best::option<typename choice<A...>::template ref<n>> choice<A...>::at(
     best::index_t<n> i) & {
   if (which() != n) return {};
-
-  return unsafe::in([&](auto u) -> decltype(auto) {
-    return best::invoke([&]() -> decltype(auto) { return impl().deref(u, i); });
+  return best::call_devoid([&]() -> decltype(auto) {
+    return impl().deref(unsafe{"checked which() before this"}, i);
   });
 }
 template <typename... A>
@@ -432,20 +426,18 @@ template <size_t n>
 constexpr best::option<typename choice<A...>::template crref<n>>
 choice<A...>::at(best::index_t<n> i) const&& {
   if (which() != n) return {};
-
-  return best::option<crref<n>>(unsafe::in([&](auto u) -> decltype(auto) {
-    return best::invoke([&]() -> decltype(auto) { return impl().move(u, i); });
-  }));
+  return best::call_devoid([&]() -> decltype(auto) {
+    return impl().move(unsafe{"checked which() before this"}, i);
+  });
 }
 template <typename... A>
 template <size_t n>
 constexpr best::option<typename choice<A...>::template rref<n>>
 choice<A...>::at(best::index_t<n> i) && {
   if (which() != n) return {};
-
-  return best::option<rref<n>>(unsafe::in([&](auto u) -> decltype(auto) {
-    return best::invoke([&]() -> decltype(auto) { return impl().move(u, i); });
-  }));
+  return best::call_devoid([&]() -> decltype(auto) {
+    return impl().move(unsafe{"checked which() before this"}, i);
+  });
 }
 
 template <typename... A>

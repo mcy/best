@@ -812,25 +812,19 @@ class span;
 
 template <typename T>
 constexpr option<T>::cref option<T>::value(best::location loc) const& {
-  return unsafe::in(
-      [&](auto u) -> decltype(auto) { return check_ok(loc), value(u); });
+  return check_ok(loc), value(unsafe("check_ok() called before this"));
 }
 template <typename T>
 constexpr option<T>::ref option<T>::value(best::location loc) & {
-  return unsafe::in(
-      [&](auto u) -> decltype(auto) { return check_ok(loc), value(u); });
+  return check_ok(loc), value(unsafe("check_ok() called before this"));
 }
 template <typename T>
 constexpr option<T>::crref option<T>::value(best::location loc) const&& {
-  return unsafe::in([&](auto u) -> decltype(auto) {
-    return check_ok(loc), moved().value(u);
-  });
+  return check_ok(loc), moved().value(unsafe("check_ok() called before this"));
 }
 template <typename T>
 constexpr option<T>::rref option<T>::value(best::location loc) && {
-  return unsafe::in([&](auto u) -> decltype(auto) {
-    return check_ok(loc), moved().value(u);
-  });
+  return check_ok(loc), moved().value(unsafe("check_ok() called before this"));
 }
 
 template <typename T>

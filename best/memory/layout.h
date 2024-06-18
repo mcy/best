@@ -57,7 +57,8 @@ class layout final {
   /// with that of `T` if `T` is an object type.
   template <typename T>
   constexpr static layout of() {
-    return unsafe::in(best::ctor<layout>, size_of<T>, align_of<T>);
+    return layout(unsafe("manifest from calling size_of and align_of"),
+                  size_of<T>, align_of<T>);
   }
 
   /// # `layout::array<T>()`
@@ -74,7 +75,8 @@ class layout final {
           "attempted to allocate more than max_of<size_t>/2 bytes");
     }
 
-    return unsafe::in(best::ctor<layout>, sz, align_of<T>);
+    return layout(unsafe("manifest from the bounds check above and align_of"),
+                  sz, align_of<T>);
   }
 
   /// # `layout::of_struct<...>()`
@@ -85,8 +87,9 @@ class layout final {
   /// types produces the layout of `char`.
   template <typename... Members>
   constexpr static layout of_struct() {
-    return unsafe::in(best::ctor<layout>, layout_internal::size_of<Members...>,
-                      layout_internal::align_of<Members...>);
+    return layout(unsafe("manifest from calling size_of and align_of"),
+                  layout_internal::size_of<Members...>,
+                  layout_internal::align_of<Members...>);
   }
 
   /// # `layout::of_union<...>()`
@@ -98,9 +101,9 @@ class layout final {
   /// the layout of `char`.
   template <typename... Members>
   constexpr static layout of_union() {
-    return unsafe::in(best::ctor<layout>,
-                      layout_internal::size_of_union<Members...>,
-                      layout_internal::align_of<Members...>);
+    return layout(unsafe("manifest from calling size_of and align_of"),
+                  layout_internal::size_of_union<Members...>,
+                  layout_internal::align_of<Members...>);
   }
 
   /// # `layout::size()`.

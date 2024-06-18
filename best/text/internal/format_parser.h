@@ -61,7 +61,7 @@ constexpr bool visit_template(const char* data, size_t len, Print print,
         auto bytes = best::span(data, brace == -1 ? len : brace);
         // The caller is assumed to have given us an actually UTF-8 string, not
         // just a random latin1 string.
-        auto to_print = unsafe::in([&](auto u) { return best::str(u, bytes); });
+        auto to_print = best::str(unsafe("templ<> checks this for us"), bytes);
         if (!best::call(print, to_print)) return false;
       }
     }
@@ -245,8 +245,8 @@ class templ final {
       BEST_IS_VALID_LITERAL(chars, utf8{})
           BEST_ENABLE_IF(validate(chars),
                          "invalid format string (better diagnostics NYI)")
-      : template_(unsafe::in(
-            [&](auto u) { return best::str(u, best::span(chars, n - 1)); })),
+      : template_(unsafe("checked by BEST_IS_VALID_LITERAL()"),
+                  best::span(chars, n - 1)),
         loc_(loc) {}
 
   constexpr best::str as_str() const { return template_; }

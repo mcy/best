@@ -231,7 +231,8 @@ class textbuf final {
   /// Returns the span of code units that backs this string. This is also
   /// an implicit conversion.
   text as_text() const {
-    return unsafe::in([&](auto u) { return text(u, buf_.as_span(), enc()); });
+    return text(unsafe("buf_ is always validly encoded"), buf_.as_span(),
+                enc());
   }
   operator text() const { return as_text(); }
 
@@ -410,7 +411,8 @@ class textbuf final {
       best::span<code> buf = {buf_.data() + buf_.size(),
                               About.max_codes_per_rune};
       if (auto codes = r.encode(buf, this->enc())) {
-        unsafe::in([&](auto u) { buf_.set_size(u, size() + codes->size()); });
+        buf_.set_size(unsafe("we just wrote this much data in encode()"),
+                      size() + codes->size());
         continue;
       }
       truncate(watermark);
@@ -454,13 +456,15 @@ class textbuf final {
       reserve(About.max_codes_per_rune);
       best::span<code> buf = {buf_.data() + buf_.size(),
                               About.max_codes_per_rune};
+
+      unsafe u("we just wrote this much data in encode()");
       if (auto codes = r.encode(buf, this->enc())) {
-        unsafe::in([&](auto u) { buf_.set_size(u, size() + codes->size()); });
+        buf_.set_size(u, size() + codes->size());
       } else if (auto codes = rune::Replacement.encode(buf, this->enc())) {
-        unsafe::in([&](auto u) { buf_.set_size(u, size() + codes->size()); });
+        buf_.set_size(u, size() + codes->size());
       } else {
         codes = rune('?').encode(buf, this->enc());
-        unsafe::in([&](auto u) { buf_.set_size(u, size() + codes->size()); });
+        buf_.set_size(u, size() + codes->size());
       }
     }
   }
