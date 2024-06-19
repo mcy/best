@@ -74,8 +74,8 @@ cc_test(
 )
 
 cc_library(
-  name = "ebo",
-  hdrs = ["ebo.h"],
+  name = "empty",
+  hdrs = ["empty.h"],
   deps = [
     ":init",
   ]

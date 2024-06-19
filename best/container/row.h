@@ -5,7 +5,7 @@
 #include "best/base/ord.h"
 #include "best/container/internal/row.h"
 #include "best/container/object.h"
-#include "best/meta/ebo.h"
+#include "best/meta/empty.h"
 #include "best/meta/init.h"
 #include "best/meta/tags.h"
 #include "best/meta/tlist.h"

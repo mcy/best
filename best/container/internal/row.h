@@ -2,7 +2,7 @@
 #define BEST_CONTAINER_INTERNAL_ROW_H_
 
 #include "best/container/object.h"
-#include "best/meta/ebo.h"
+#include "best/meta/empty.h"
 #include "best/meta/tlist.h"
 
 namespace best::row_internal {

@@ -1,10 +1,9 @@
 #ifndef BEST_CONTAINER_INTERNAL_PUN_H_
 #define BEST_CONTAINER_INTERNAL_PUN_H_
 
-#include <type_traits>
-
 #include "best/base/port.h"
 #include "best/container/object.h"
+#include "best/meta/init.h"
 #include "best/meta/tags.h"
 
 //! Internal implementation of best::pun.
@@ -17,29 +16,12 @@ struct info_t {
 // This does not use init.h because it is a very heavy hitter for compile-times,
 // because every result and option ever instantiate this.
 template <typename... Ts>
-inline constexpr info_t info = [] {
-  if constexpr ((std::is_trivial_v<Ts> && ...)) {
-    return info_t{true, true, true, true};
-  } else {
-    return info_t{
-        .trivial_default =
-            ((best::is_void<Ts> ||
-              std::is_trivially_default_constructible_v<Ts>)&&...),
-        .trivial_copy = ((!best::is_object<Ts> ||
-                          (std::is_trivially_copy_constructible_v<Ts> &&
-
-                           std::is_trivially_copy_assignable_v<Ts>)) &&
-                         ...),
-        .trivial_move = ((best::is_void<Ts> ||
-                          (std::is_trivially_move_constructible_v<Ts> &&
-
-                           std::is_trivially_move_assignable_v<Ts>)) &&
-                         ...),
-        .trivial_dtor =
-            ((best::is_void<Ts> || std::is_trivially_destructible_v<Ts>)&&...),
-    };
-  }
-}();
+inline constexpr info_t info = {
+    .trivial_default = (best::constructible<Ts, trivially> && ...),
+    .trivial_copy = (best::copyable<Ts, trivially> && ...),
+    .trivial_move = (best::moveable<Ts, trivially> && ...),
+    .trivial_dtor = (best::destructible<Ts, trivially> && ...),
+};
 
 // A raw union.
 template <const info_t& info, typename... Ts>

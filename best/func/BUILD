@@ -8,6 +8,7 @@ cc_library(
   ],
   deps = [
     "//best/base:port",
+    "//best/meta:empty",
     "//best/meta:init",
   ],
 )

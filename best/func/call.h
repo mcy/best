@@ -6,7 +6,7 @@
 #include "best/base/fwd.h"
 #include "best/base/hint.h"
 #include "best/func/internal/call.h"
-#include "best/meta/tags.h"
+#include "best/meta/empty.h"
 #include "best/meta/taxonomy.h"
 
 //! Highly generic function-calling functions.

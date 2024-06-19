@@ -10,6 +10,7 @@
 #include "best/container/pun.h"
 #include "best/math/int.h"
 #include "best/meta/init.h"
+#include "best/meta/internal/init.h"
 #include "best/meta/tags.h"
 
 //! Internal implementation of best::choice.
@@ -113,14 +114,10 @@ tagged<Ts...> which_storage(best::tlist<Ts...>, best::rank<0>);
 
 template <typename A, typename B>
 niched<A, B> which_storage(best::tlist<A, B>, best::rank<1>)
-    // This is a compile-time performance hot-spot: use the compiler intrinsics
-    // directly.
-  requires(has_niche<A> && (best::is_void<B> ||
-                            (std::is_empty_v<B> &&
-                             std::is_trivially_default_constructible_v<B>))) ||
-          (has_niche<B> && (best::is_void<A> ||
-                            (std::is_empty_v<A> &&
-                             std::is_trivially_default_constructible_v<A>)));
+  requires(has_niche<A> && best::is_empty<B> &&
+           best::constructible<B, trivially>) ||
+          (has_niche<B> && best::is_empty<A> &&
+           best::constructible<A, trivially>);
 
 template <typename... Ts>
 using storage = decltype(which_storage(types<Ts...>, best::rank<1>{}));

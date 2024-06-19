@@ -3,22 +3,13 @@
 
 #include <stddef.h>
 
-#include <compare>
-
 //! Commonly-used tag types.
 //!
 //! These overlap with some of the ones from the STL; where possible,
 //! they are aliases!
 ///
 /// See https://abseil.io/tips/198 to get to know tag types better.
-
 namespace best {
-/// An empty type with minimal dependencies.
-struct empty {
-  constexpr bool operator==(const empty& that) const = default;
-  constexpr std::strong_ordering operator<=>(const empty& that) const = default;
-};
-
 /// A helper for ranked overloading. See https://abseil.io/tips/229.
 template <size_t n>
 struct rank : rank<n - 1> {};

@@ -8,7 +8,7 @@
 
 #include "best/base/ord.h"
 #include "best/base/port.h"
-#include "best/meta/ebo.h"
+#include "best/meta/empty.h"
 #include "best/meta/init.h"
 #include "best/meta/tags.h"
 #include "best/meta/traits.h"
@@ -46,13 +46,8 @@ struct niche final {};
 /// Whether T is a type with a niche.
 template <typename T>
 concept has_niche =
-    best::is_ref<T> ||
-    (best::is_object<T> &&
-     // NOTE: This is a performance hotspot, so we use skip the init.h
-     // machinery.
-     // best::constructible<T, best::niche> && best::equatable<T, best::niche>
-     std::is_constructible_v<T, niche> &&
-     requires(const T& x, niche n) { x == n; });
+    best::is_ref<T> || (best::is_object<T> && best::constructible<T, niche> &&
+                        best::equatable<T, best::niche>);
 
 /// # `best::object_ptr<T>`
 ///

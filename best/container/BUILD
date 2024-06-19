@@ -50,7 +50,7 @@ cc_library(
   hdrs = ["object.h"],
   deps = [
     "//best/base:ord",
-    "//best/meta:ebo",
+    "//best/meta:empty",
   ]
 )
 
