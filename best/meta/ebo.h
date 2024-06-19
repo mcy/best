@@ -5,7 +5,7 @@
 
 #include <type_traits>
 
-#include "best/meta/concepts.h"
+#include "best/meta/taxonomy.h"
 #include "best/meta/init.h"
 #include "best/meta/internal/init.h"
 #include "best/meta/tags.h"
@@ -34,7 +34,7 @@ namespace best {
 ///
 /// Doing a CTRP-type here ensures that this base is reasonably unique among
 /// other potential bases of `MyClass`.
-template <best::object_type T, typename Tag, auto ident = 0,
+template <best::is_object T, typename Tag, auto ident = 0,
           bool compressed =
               std::is_empty_v<T> &&
               // Use our intrinsic instead of the full init.h machinery, because
@@ -65,7 +65,7 @@ class ebo /* not final! */ {
 #define BEST_EBO_VALUE_ _private
 };
 
-template <best::object_type T, typename Tag, auto ident>
+template <best::is_object T, typename Tag, auto ident>
 class ebo<T, Tag, ident, true> /* not final! */ {
  public:
   constexpr ebo(best::in_place_t, auto&&... args) {

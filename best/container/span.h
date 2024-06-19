@@ -14,7 +14,6 @@
 #include "best/log/location.h"
 #include "best/math/overflow.h"
 #include "best/memory/bytes.h"
-#include "best/meta/concepts.h"
 #include "best/meta/init.h"
 #include "best/meta/ops.h"
 #include "best/meta/tags.h"
@@ -36,7 +35,7 @@ namespace best {
 /// This is defined as a type that enables calls to std::data and std::size().
 template <typename T>
 concept contiguous = requires(T&& t) {
-  { *std::data(t) } -> best::ref_type;
+  { *std::data(t) } -> best::is_ref;
   { std::size(t) } -> std::convertible_to<size_t>;
 };
 
@@ -118,7 +117,7 @@ inline constexpr best::option<size_t> span_extent =
 ///
 /// Unfortunately, it is not possible to make `best::span<T>` work when `T` is
 /// not an object type.
-template <best::object_type T,
+template <best::is_object T,
           // NOTE: This default is in the fwd decl in option.h.
           best::option<size_t> n /* = best::none */>
 class span final {
@@ -219,7 +218,7 @@ class span final {
         extent.value_or() == best::static_size<Range>.value_or()))
       span(Range&& range,  //
            best::location loc = best::here)
-    requires best::qualifies_to<best::as_deref<decltype(*std::data(range))>,
+    requires best::qualifies_to<best::unref<decltype(*std::data(range))>,
                                 T> &&
              (is_dynamic || best::static_size<Range>.is_empty() ||
               extent == best::static_size<Range>)
@@ -674,7 +673,7 @@ class span final {
     requires(!is_const) && is_dynamic;
 
   // All spans are comparable.
-  template <object_type U, best::option<size_t> m>
+  template <best::is_object U, best::option<size_t> m>
   constexpr bool operator==(best::span<U, m> that) const
     requires best::equatable<T, U>;
   template <contiguous R>
@@ -684,7 +683,7 @@ class span final {
     return *this == best::span(range);
   }
 
-  template <object_type U, best::option<size_t> m>
+  template <best::is_object U, best::option<size_t> m>
   constexpr auto operator<=>(best::span<U, m> that) const
     requires best::comparable<T, U>;
   template <contiguous R>
@@ -720,7 +719,7 @@ span(R&& r) -> span<std::remove_reference_t<decltype(*std::data(r))>,
 /******************************************************************************/
 
 namespace best {
-template <best::object_type T, best::option<size_t> n>
+template <best::is_object T, best::option<size_t> n>
 struct span<T, n>::iter final {
   constexpr iter() = default;
 
@@ -771,8 +770,8 @@ inline constexpr size_t BestStaticSize(auto, std::array<T, n>*) {
   return n;
 }
 
-template <object_type T, best::option<size_t> n>
-template <object_type U, best::option<size_t> m>
+template <best::is_object T, best::option<size_t> n>
+template <best::is_object U, best::option<size_t> m>
 constexpr bool span<T, n>::operator==(span<U, m> that) const
   requires best::equatable<T, U>
 {
@@ -792,8 +791,8 @@ constexpr bool span<T, n>::operator==(span<U, m> that) const
   return true;
 }
 
-template <object_type T, best::option<size_t> n>
-template <object_type U, best::option<size_t> m>
+template <best::is_object T, best::option<size_t> n>
+template <best::is_object U, best::option<size_t> m>
 constexpr auto span<T, n>::operator<=>(span<U, m> that) const
   requires best::comparable<T, U>
 {
@@ -814,7 +813,7 @@ constexpr auto span<T, n>::operator<=>(span<U, m> that) const
   return best::order_type<T, U>(size() <=> that.size());
 }
 
-template <object_type T, option<size_t> n>
+template <best::is_object T, option<size_t> n>
 constexpr void span<T, n>::shift_within(unsafe u, size_t dst, size_t src,
                                         size_t count) const
   requires(!is_const) && is_dynamic

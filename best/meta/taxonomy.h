@@ -1,0 +1,186 @@
+#ifndef BEST_META_TAXONOMY_H_
+#define BEST_META_TAXONOMY_H_
+
+#include <type_traits>
+
+#include "best/base/hint.h"
+#include "best/meta/internal/abominable.h"
+#include "best/meta/internal/quals.h"
+
+//! Concepts for identifying and destructuring basic C++ types.
+//!
+//! Other headers may define `is_*<T>` concepts for identifying `best`'s generic
+//! container types.
+
+namespace best {
+/// # `best::is_void`
+///
+/// A void type, i.e. cv-qualified void.
+template <typename T>
+concept is_void = std::is_void_v<T>;
+
+/// # `best::is_const`
+///
+/// Whether this is a `const`-qualified object or void type.
+template <typename T>
+concept is_const = std::is_const_v<T>;
+
+/// # `best::unqual`
+///
+/// If `T` is cv-qualified, removes the qualifiers.
+template <typename T>
+using unqual = std::remove_cv_t<T>;
+
+/// # `best::qualcopy<Dst, Src>
+///
+/// Copies any top-level cv-qualification from `Src` onto `Dst`. If `Dst` is
+/// not an object or void type, this does nothing.
+template <typename Dst, typename Src>
+using qualcopy = best::quals_internal::quals<Dst, Src>::copied;
+
+/// # `best::qualifies_to<From, To>`
+///
+/// Returns whether you can build the type `To` by adding qualifiers to `From`.
+template <typename From, typename To>
+concept qualifies_to = std::is_same_v<From, To> ||           //
+                       std::is_same_v<const From, To> ||     //
+                       std::is_same_v<volatile From, To> ||  //
+                       std::is_same_v<const volatile From, To>;
+
+/// # `best::is_object`
+///
+/// An object type: anything that is not a reference, function, or void.
+template <typename T>
+concept is_object = std::is_object_v<T>;
+
+/// # `best::is_func`
+///
+/// A function type. This includes "abominable function" types that cannot form
+/// function pointers, such as `int (int) const`.
+template <typename T>
+concept is_func = std::is_function_v<T>;
+
+/// # `best::is_tame_func`
+///
+/// A tame function type. These are function types `F` such that `F*` is
+/// well-formed; they lack ref and cv qualifiers.
+template <typename T>
+concept is_tame_func = is_func<T> && requires { (T*){}; };
+
+/// # `best::is_abominable`
+///
+/// An abominable function type, i.e., a function type with qualifiers.
+template <typename T>
+concept is_abominable = is_func<T> && !requires { (T*){}; };
+
+/// # `best::tame<T>`
+///
+/// If `T` is an abominable function, returns its "tame" counterpart. Otherwise,
+/// returns `T`.
+template <typename T>
+using tame = abominable_internal::tame<T>::type;
+
+/// # `best::ref_kind`
+///
+/// A kind of reference, for use in type traits.
+enum class ref_kind : uint8_t {
+  Lvalue = 0,  // T&
+  Rvalue = 1,  // T&&
+};
+
+/// # `best::is_lref`
+///
+/// An lvalue reference type.
+template <typename T>
+concept is_lref = std::is_lvalue_reference_v<T>;
+
+/// # `best::is_rref`
+///
+/// An rvalue reference type.
+template <typename T>
+concept is_rref = std::is_rvalue_reference_v<T>;
+
+/// # `best::is_ref`
+///
+/// A reference type, selectable based on the `kind` parameter. Not specifying
+/// it makes this concept recognize both kinds of references.
+template <typename T, ref_kind kind = ref_kind(-1)>
+concept is_ref = (kind != ref_kind::Rvalue && is_lref<T>) ||
+                 (kind != ref_kind::Lvalue && is_rref<T>);
+
+/// # `best::as_ref<T>
+///
+/// If `T` is an object or tame function type, returns an (lvalue) reference to
+/// it. If `T` is an lvalue reference or void, returns `T`. If `T` is an rvalue
+/// reference, returns `best::unref<T>&&`.
+///
+/// Currently, abominable functions are left unmodified. This may change in the
+/// future.
+template <typename T>
+using as_ref = std::add_lvalue_reference_t<T>;
+
+/// # `best::as_rref<T>
+///
+/// If `T` is an object or tame function type, returns an rvalue reference to
+/// it. If `T` is an reference or void, returns `T`.
+///
+/// Currently, abominable functions are left unmodified. This may change in the
+/// future.
+template <typename T>
+using as_rref = std::add_rvalue_reference_t<T>;
+
+/// # `best::refcopy<Dst, Src>
+///
+///
+/// If `Src` is a reference type, the kind of reference, and cv-qualification,
+/// are copied to `Dst`, as if by the appropriate call to `as_ref<>` or
+/// `as_rref<>`.
+template <typename Dst, typename Src>
+using refcopy = best::quals_internal::refs<Dst, Src>::copied;
+
+/// # `best::unref<T>`
+///
+/// If `T` is an object or function reference, returns its referent; otherwise,
+/// returns `T`.
+template <typename T>
+using unref = std::remove_reference_t<T>;
+
+/// # `best::as_auto<T>`
+///
+/// Performs `auto` deduction: if `T` is a reference and/or is cv-qualified,
+/// the reference and qualification is removed.
+template <typename T>
+using as_auto = std::remove_cvref_t<T>;
+
+/// # `best::move()`
+///
+/// Identical to `std::move()` but avoids pulling in the `<utility>` header.
+BEST_INLINE_SYNTHETIC constexpr decltype(auto) move(auto&& x) {
+  return static_cast<best::unref<decltype(x)>&&>(x);
+}
+
+/// # `best::is_ptr`
+///
+/// Whether this is a pointer type.
+template <typename T>
+concept is_ptr = std::is_pointer_v<T>;
+
+/// # `best::as_ptr<T>`
+///
+/// If `T` is an object, void, or tame function type, returns a pointer to it.
+/// If `T` is an abominable function, it returns `best::tame<F>*`. If `T` is
+/// a reference type, it returns `best::unref<T>*`.
+///
+/// The returned type is *always* a pointer.
+template <typename T>
+using as_ptr = std::add_pointer_t<best::tame<T>>;
+
+/// # `best::unptr<T>`
+///
+/// If `T` is an object, function, or void pointer, returns its pointee;
+/// otherwise, returns `T`.
+template <typename T>
+using unptr = std::remove_pointer_t<T>;
+}  // namespace best
+
+#endif  // BEST_META_CONCEPTS_H_

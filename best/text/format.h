@@ -5,7 +5,6 @@
 #include <cstdio>
 
 #include "best/container/option.h"
-#include "best/meta/concepts.h"
 #include "best/text/internal/format_parser.h"
 #include "best/text/rune.h"
 #include "best/text/str.h"
@@ -93,7 +92,7 @@ namespace best {
 /// Whether a type can be formatted.
 template <typename T>
 concept formattable =
-    best::void_type<T> ||
+    best::is_void<T> ||
     requires(best::formatter& fmt, const T& value) { BestFmt(fmt, value); };
 
 /// # `best::format_spec`

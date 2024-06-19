@@ -13,7 +13,6 @@
 #include "best/container/object.h"
 #include "best/container/pun.h"
 #include "best/math/int.h"
-#include "best/meta/concepts.h"
 #include "best/meta/init.h"
 #include "best/meta/ops.h"
 #include "best/meta/tags.h"
@@ -133,10 +132,10 @@ template <typename A, typename B>
 niched<A, B> which_storage(best::tlist<A, B>, best::rank<1>)
     // This is a compile-time performance hot-spot: use the compiler intrinsics
     // directly.
-  requires(has_niche<A> && (best::void_type<B> ||
+  requires(has_niche<A> && (best::is_void<B> ||
                             (std::is_empty_v<B> &&
                              std::is_trivially_default_constructible_v<B>))) ||
-          (has_niche<B> && (best::void_type<A> ||
+          (has_niche<B> && (best::is_void<A> ||
                             (std::is_empty_v<A> &&
                              std::is_trivially_default_constructible_v<A>)));
 
@@ -221,7 +220,7 @@ class impl : public storage<Ts...> {
     requires best::init_from<type<which>, by, Args&&...>
   {
     if (which == tag()) {
-      if constexpr (best::object_type<type<which>> &&
+      if constexpr (best::is_object<type<which>> &&
                     best::assignable<type<which>, Args&&...>) {
         get(unsafe{"checked tag() before this"}, best::index<which>)
             .as_ptr()
@@ -316,16 +315,16 @@ class impl : public storage<Ts...> {
   constexpr static auto make_match_arm(auto&& self, F&& callback) {
     return [&]<size_t n>(best::index_t<n> tag) -> decltype(auto) {
       using I = decltype(tag);
-      using Type = best::copy_ref<type<n>, decltype(self)&&>;
+      using Type = best::refcopy<type<n>, decltype(self)&&>;
 
       // This needs to be dependent on tag, even trivially, so that the call
       // of callback(empty) in one of the if statements below uses two-phase
       // lookup.
-      using Empty = best::copy_ref<
+      using Empty = best::refcopy<
           std::conditional_t<sizeof(tag) == 0, best::empty, best::empty>,
           decltype(self)&&>;
 
-      if constexpr (best::void_type<Type>) {
+      if constexpr (best::is_void<Type>) {
         if constexpr (best::callable<F, void(I)>) {
           return best::call(BEST_FWD(callback), tag);
         } else if constexpr (best::callable<F, void()>) {

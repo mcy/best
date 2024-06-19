@@ -8,7 +8,6 @@
 #include <type_traits>
 
 #include "best/base/port.h"
-#include "best/meta/concepts.h"
 #include "best/meta/ebo.h"
 #include "best/meta/init.h"
 #include "best/meta/ops.h"
@@ -47,8 +46,8 @@ struct niche final {};
 /// Whether T is a type with a niche.
 template <typename T>
 concept has_niche =
-    best::ref_type<T> ||
-    (best::object_type<T> &&
+    best::is_ref<T> ||
+    (best::is_object<T> &&
      // NOTE: This is a performance hotspot, so we use skip the init.h
      // machinery.
      // best::constructible<T, best::niche> && best::equatable<T, best::niche>
@@ -65,10 +64,10 @@ concept has_niche =
 /// The mapping is as follows:
 ///
 /// ```text
-/// best::object_type T          -> T*
-/// best::ref_type T             -> const base::as_ptr<T>*
+/// best::is_object T          -> T*
+/// best::is_ref T             -> const base::as_ptr<T>*
 /// best::abominable_func_type T -> const base::as_ptr<T>*
-/// best::void_type T            -> void*
+/// best::is_void T            -> void*
 /// ```
 /// Note the `const` for reference types: this reflects the fact that e.g.
 /// `T& const` is just `T&`.
@@ -86,7 +85,7 @@ class object_ptr final {
   /// # `object_ptr::pointee`.
   ///
   /// The "true" pointee type. Internally, an `object_ptr` stores a `pointee*`.
-  using pointee = std::conditional_t<best::object_type<T> || best::void_type<T>,
+  using pointee = std::conditional_t<best::is_object<T> || best::is_void<T>,
                                      T, const best::as_ptr<T>>;
 
   using cref = best::as_ref<const T>;
@@ -114,7 +113,7 @@ class object_ptr final {
   ///
   /// Wraps a C++ pointer, potentially casting it if necessary.
   template <typename U>
-  constexpr explicit(!best::qualifies_to<U, pointee> && !best::void_type<T>)
+  constexpr explicit(!best::qualifies_to<U, pointee> && !best::is_void<T>)
       object_ptr(U* ptr)
       : BEST_OBJECT_PTR_(ptr) {}
 
@@ -123,7 +122,7 @@ class object_ptr final {
   /// Wraps an `object_ptr` of a different type, potentially casting it if
   /// necessary.
   template <typename U>
-  constexpr explicit(!best::qualifies_to<U, pointee> && !best::void_type<T>)
+  constexpr explicit(!best::qualifies_to<U, pointee> && !best::is_void<T>)
       object_ptr(object_ptr<U> ptr)
       : BEST_OBJECT_PTR_(
             const_cast<std::remove_const_t<typename object_ptr<U>::pointee>*>(
@@ -166,16 +165,16 @@ class object_ptr final {
   /// For example, this will dereference the wrapping pointer of a `T&`, so
   /// if `T = U&`, then `raw = U**` and this dereferences that twice.
   constexpr ref operator*() const {
-    if constexpr (best::object_type<T>) {
+    if constexpr (best::is_object<T>) {
       return *raw();
-    } else if constexpr (best::void_type<T>) {
+    } else if constexpr (best::is_void<T>) {
       return;
     } else {
       return **raw();
     }
   }
   BEST_INLINE_SYNTHETIC constexpr ptr operator->() const {
-    if constexpr (best::object_type<T> || best::void_type<T>) {
+    if constexpr (best::is_object<T> || best::is_void<T>) {
       return raw();
     } else {
       return *raw();
@@ -234,12 +233,12 @@ class object_ptr final {
   BEST_INLINE_SYNTHETIC constexpr void construct_in_place(Args&&... args) const
     requires best::constructible<T, Args&&...>
   {
-    if constexpr (best::object_type<T>) {
+    if constexpr (best::is_object<T>) {
       std::construct_at(raw(), BEST_FWD(args)...);
-    } else if constexpr (best::ref_type<T>) {
+    } else if constexpr (best::is_ref<T>) {
       *const_cast<std::remove_const_t<pointee>*>(raw()) =
           std::addressof(args...);
-    } else if constexpr (best::abominable_func_type<T>) {
+    } else if constexpr (best::is_func<T>) {
       *const_cast<std::remove_const_t<pointee>*>(raw()) = (args, ...);
     }
   }
@@ -259,9 +258,9 @@ class object_ptr final {
   BEST_INLINE_SYNTHETIC constexpr void construct_in_place(niche) const
     requires best::has_niche<T>
   {
-    if constexpr (best::object_type<T>) {
+    if constexpr (best::is_object<T>) {
       std::construct_at(raw(), niche{});
-    } else if constexpr (best::ref_type<T>) {
+    } else if constexpr (best::is_ref<T>) {
       *const_cast<std::remove_const_t<pointee>*>(raw()) = nullptr;
     }
   }
@@ -271,7 +270,7 @@ class object_ptr final {
   /// Whether this value is a niche representation.
   constexpr bool is_niche() const {
     if constexpr (best::has_niche<T>) {
-      if constexpr (best::ref_type<T>) {
+      if constexpr (best::is_ref<T>) {
         return *raw() == nullptr;
       } else {
         return **this == niche{};
@@ -286,7 +285,7 @@ class object_ptr final {
   BEST_INLINE_SYNTHETIC constexpr void destroy_in_place() const
     requires best::destructible<T>
   {
-    if constexpr (best::object_type<T>) {
+    if constexpr (best::is_object<T>) {
       std::destroy_at(raw());
       if (!std::is_constant_evaluated() && best::is_debug()) {
         std::memset(raw(), 0xcd, sizeof(pointee));
@@ -302,7 +301,7 @@ class object_ptr final {
   BEST_INLINE_SYNTHETIC constexpr void assign(Args&&... args) const
     requires best::assignable<T, Args&&...>
   {
-    if constexpr (best::object_type<T>) {
+    if constexpr (best::is_object<T>) {
       **this = (BEST_FWD(args), ...);
     } else {
       construct_in_place(BEST_FWD(args)...);
@@ -324,7 +323,7 @@ class object_ptr final {
                                                  bool is_init) const
     requires best::copyable<T>
   {
-    if constexpr (!best::void_type<T>) {
+    if constexpr (!best::is_void<T>) {
       if (is_init) {
         assign(*that);
       } else {
@@ -340,7 +339,7 @@ class object_ptr final {
                                                  bool is_init) const
     requires best::moveable<T>
   {
-    if constexpr (!best::void_type<T>) {
+    if constexpr (!best::is_void<T>) {
       if (is_init) {
         assign(static_cast<rref>(*that));
       } else {
@@ -362,7 +361,7 @@ class object_ptr final {
   }
 
  private:
-  inline static std::conditional_t<best::void_type<T>, best::empty, pointee>
+  inline static std::conditional_t<best::is_void<T>, best::empty, pointee>
       dangling_;
 
  public:
@@ -372,9 +371,9 @@ class object_ptr final {
 };
 
 namespace object_internal {
-template <best::void_type T>
+template <best::is_void T>
 best::empty* wrap_impl();
-template <best::object_type T>
+template <best::is_object T>
 T* wrap_impl();
 template <typename T>
 best::as_ptr<T>* wrap_impl();
@@ -433,16 +432,16 @@ class object final :
   /// constructor.
   template <typename... Args>
   constexpr explicit object(best::in_place_t, Args&&... args)
-    requires best::constructible<T, Args&&...> && (!best::object_type<T>)
+    requires best::constructible<T, Args&&...> && (!best::is_object<T>)
   {
     as_ptr().construct_in_place(BEST_FWD(args)...);
   }
   template <typename... Args>
   constexpr explicit object(best::in_place_t, Args&&... args)
-    requires best::constructible<T, Args&&...> && best::object_type<T>
+    requires best::constructible<T, Args&&...> && best::is_object<T>
       : base(best::in_place, BEST_FWD(args)...) {}
   constexpr explicit object(best::in_place_t, best::niche)
-    requires best::ref_type<T>
+    requires best::is_ref<T>
       : base(best::in_place, nullptr) {}
 
   /// # `object::operator=()`
@@ -480,7 +479,7 @@ class object final :
   constexpr bool operator==(const object& that) const
     requires best::equatable<T, T>
   {
-    if constexpr (best::void_type<T>) {
+    if constexpr (best::is_void<T>) {
       return true;
     } else {
       return **this == *that;
@@ -489,7 +488,7 @@ class object final :
   constexpr auto operator<=>(const object& that) const
     requires best::comparable<T, T>
   {
-    if constexpr (best::void_type<T>) {
+    if constexpr (best::is_void<T>) {
       return std::strong_ordering::equal;
     } else {
       return **this <=> *that;
@@ -499,7 +498,7 @@ class object final :
   friend void BestFmt(auto& fmt, const object& obj)
     requires std::is_void_v<T> || requires { fmt.format(*obj); }
   {
-    if constexpr (best::void_type<T>) {
+    if constexpr (best::is_void<T>) {
       fmt.write("void");
     } else {
       fmt.format(*obj);

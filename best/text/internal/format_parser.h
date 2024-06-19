@@ -287,7 +287,7 @@ struct has_fmt {
   static void check(...);
 
   static constexpr bool value =
-      !best::void_type<decltype(check(std::declval<const T&>()))>;
+      !best::is_void<decltype(check(std::declval<const T&>()))>;
 };
 template <typename T>
 struct has_fmt_query {
@@ -296,7 +296,7 @@ struct has_fmt_query {
   static void check(...);
 
   static constexpr bool value =
-      !best::void_type<decltype(check(best::as_ptr<T>()))>;
+      !best::is_void<decltype(check(best::as_ptr<T>()))>;
 };
 
 struct unprintable final {

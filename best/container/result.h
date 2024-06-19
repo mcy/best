@@ -98,9 +98,9 @@ class [[nodiscard(
   template <typename U>
   static constexpr bool cannot_init_from =
       ((!best::constructible<T, const U&> && !best::constructible<T, U&&>) ||
-       best::void_type<T>)&&((!best::constructible<E, const U&> &&
+       best::is_void<T>)&&((!best::constructible<E, const U&> &&
                               !best::constructible<E, U&&>) ||
-                             best::void_type<E>);
+                             best::is_void<E>);
 
  public:
   /// Helper type aliases.
@@ -174,16 +174,16 @@ class [[nodiscard(
   /// from `U`.
   template <is_result R>
   constexpr explicit(
-      !best::convertible<T, best::copy_ref<best::ok_type<R>, R&&>> ||
-      !best::convertible<E, best::copy_ref<best::err_type<R>, R&&>>)
+      !best::convertible<T, best::refcopy<best::ok_type<R>, R&&>> ||
+      !best::convertible<E, best::refcopy<best::err_type<R>, R&&>>)
       result(R&& that)
-    requires best::constructible<T, best::copy_ref<best::ok_type<R>, R&&>> &&
-             best::constructible<E, best::copy_ref<best::err_type<R>, R&&>> &&
+    requires best::constructible<T, best::refcopy<best::ok_type<R>, R&&>> &&
+             best::constructible<E, best::refcopy<best::err_type<R>, R&&>> &&
              cannot_init_from<R>;
   template <is_result R>
   constexpr result& operator=(R&& that)
-    requires best::constructible<T, best::copy_ref<best::ok_type<R>, R&&>> &&
-             best::constructible<E, best::copy_ref<best::err_type<R>, R&&>> &&
+    requires best::constructible<T, best::refcopy<best::ok_type<R>, R&&>> &&
+             best::constructible<E, best::refcopy<best::err_type<R>, R&&>> &&
              cannot_init_from<R>;
 
   /// # `result::ok()`
@@ -366,18 +366,18 @@ namespace best {
 template <typename T, typename E>
 template <is_result R>
 constexpr result<T, E>::result(R&& that)
-  requires best::constructible<T, best::copy_ref<best::ok_type<R>, R&&>> &&
-           best::constructible<E, best::copy_ref<best::err_type<R>, R&&>> &&
+  requires best::constructible<T, best::refcopy<best::ok_type<R>, R&&>> &&
+           best::constructible<E, best::refcopy<best::err_type<R>, R&&>> &&
            cannot_init_from<R>
     : BEST_RESULT_IMPL_(best::uninit) {
   if (auto v = BEST_FWD(that).ok()) {
-    if constexpr (best::void_type<best::ok_type<R>>) {
+    if constexpr (best::is_void<best::ok_type<R>>) {
       std::construct_at(&impl(), best::index<0>);
     } else {
       std::construct_at(&impl(), best::index<0>, *std::move(v));
     }
   } else if (auto v = BEST_FWD(that).err()) {
-    if constexpr (best::void_type<best::err_type<R>>) {
+    if constexpr (best::is_void<best::err_type<R>>) {
       std::construct_at(&impl(), best::index<1>);
     } else {
       std::construct_at(&impl(), best::index<1>, *std::move(v));
@@ -392,18 +392,18 @@ constexpr result<T, E>::result(R&& that)
 template <typename T, typename E>
 template <is_result R>
 constexpr result<T, E>& result<T, E>::operator=(R&& that)
-  requires best::constructible<T, best::copy_ref<best::ok_type<R>, R&&>> &&
-           best::constructible<E, best::copy_ref<best::err_type<R>, R&&>> &&
+  requires best::constructible<T, best::refcopy<best::ok_type<R>, R&&>> &&
+           best::constructible<E, best::refcopy<best::err_type<R>, R&&>> &&
            cannot_init_from<R>
 {
   if (auto v = BEST_FWD(that).ok()) {
-    if constexpr (best::void_type<best::ok_type<R>>) {
+    if constexpr (best::is_void<best::ok_type<R>>) {
       *this = best::ok();
     } else {
       *this = best::ok(*std::move(v));
     }
   } else if (auto v = BEST_FWD(that).err()) {
-    if constexpr (best::void_type<best::err_type<R>>) {
+    if constexpr (best::is_void<best::err_type<R>>) {
       *this = best::err();
     } else {
       *this = best::err(*std::move(v));
@@ -538,7 +538,7 @@ constexpr auto result<T, E>::map_err(auto&& f) && {
 
 template <typename T, typename E>
 constexpr auto result<T, E>::then(auto&& f) const& {
-  using U = best::as_deref<best::call_result_with_void<decltype(f), ok_cref>>;
+  using U = best::unref<best::call_result_with_void<decltype(f), ok_cref>>;
   return impl().match(
       [&](best::index_t<0>, auto&&... args) -> U {
         return best::call(BEST_FWD(f), BEST_FWD(args)...);
@@ -549,7 +549,7 @@ constexpr auto result<T, E>::then(auto&& f) const& {
 }
 template <typename T, typename E>
 constexpr auto result<T, E>::then(auto&& f) & {
-  using U = best::as_deref<best::call_result_with_void<decltype(f), ok_ref>>;
+  using U = best::unref<best::call_result_with_void<decltype(f), ok_ref>>;
   return impl().match(
       [&](best::index_t<0>, auto&&... args) -> U {
         return best::call(BEST_FWD(f), BEST_FWD(args)...);
@@ -560,7 +560,7 @@ constexpr auto result<T, E>::then(auto&& f) & {
 }
 template <typename T, typename E>
 constexpr auto result<T, E>::then(auto&& f) const&& {
-  using U = best::as_deref<best::call_result_with_void<decltype(f), ok_crref>>;
+  using U = best::unref<best::call_result_with_void<decltype(f), ok_crref>>;
   return moved().impl().match(
       [&](best::index_t<0>, auto&&... args) -> U {
         return best::call(BEST_FWD(f), BEST_FWD(args)...);
@@ -571,7 +571,7 @@ constexpr auto result<T, E>::then(auto&& f) const&& {
 }
 template <typename T, typename E>
 constexpr auto result<T, E>::then(auto&& f) && {
-  using U = best::as_deref<best::call_result_with_void<decltype(f), ok_rref>>;
+  using U = best::unref<best::call_result_with_void<decltype(f), ok_rref>>;
   return moved().impl().match(
       [&](best::index_t<0>, auto&&... args) -> U {
         return best::call(BEST_FWD(f), BEST_FWD(args)...);

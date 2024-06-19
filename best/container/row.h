@@ -7,7 +7,6 @@
 #include "best/base/fwd.h"
 #include "best/container/internal/row.h"
 #include "best/container/object.h"
-#include "best/meta/concepts.h"
 #include "best/meta/ebo.h"
 #include "best/meta/init.h"
 #include "best/meta/ops.h"
@@ -27,7 +26,7 @@ namespace best {
 template <typename T>
 concept is_row = requires {
   {
-    best::as_deref<T>::types.apply([]<typename... U>() -> best::row<U...> {})
+    best::unref<T>::types.apply([]<typename... U>() -> best::row<U...> {})
   } -> best::same<T>;
 };
 
@@ -400,7 +399,7 @@ row<A...>::object(best::index_t<n> i) && {
 template <typename... A>
 template <size_t n>
 constexpr decltype(auto) row<A...>::get(best::index_t<n> idx) const& {
-  if constexpr (best::void_type<type<n>>) {
+  if constexpr (best::is_void<type<n>>) {
     return best::empty{};
   } else {
     return at(idx);
@@ -409,7 +408,7 @@ constexpr decltype(auto) row<A...>::get(best::index_t<n> idx) const& {
 template <typename... A>
 template <size_t n>
 constexpr decltype(auto) row<A...>::get(best::index_t<n> idx) & {
-  if constexpr (best::void_type<type<n>>) {
+  if constexpr (best::is_void<type<n>>) {
     return best::empty{};
   } else {
     return at(idx);
@@ -418,7 +417,7 @@ constexpr decltype(auto) row<A...>::get(best::index_t<n> idx) & {
 template <typename... A>
 template <size_t n>
 constexpr decltype(auto) row<A...>::get(best::index_t<n> idx) const&& {
-  if constexpr (best::void_type<type<n>>) {
+  if constexpr (best::is_void<type<n>>) {
     return best::empty{};
   } else {
     return moved().at(idx);
@@ -427,7 +426,7 @@ constexpr decltype(auto) row<A...>::get(best::index_t<n> idx) const&& {
 template <typename... A>
 template <size_t n>
 constexpr decltype(auto) row<A...>::get(best::index_t<n> idx) && {
-  if constexpr (best::void_type<type<n>>) {
+  if constexpr (best::is_void<type<n>>) {
     return best::empty{};
   } else {
     return moved().at(idx);

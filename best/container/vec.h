@@ -15,7 +15,6 @@
 #include "best/math/overflow.h"
 #include "best/memory/allocator.h"
 #include "best/memory/layout.h"
-#include "best/meta/concepts.h"
 #include "best/meta/init.h"
 #include "best/meta/ops.h"
 #include "best/meta/tags.h"
@@ -102,7 +101,7 @@ class vec final {
   template <contiguous Range>
   explicit vec(Range&& range)
     requires best::constructible<T, decltype(*std::data(BEST_FWD(range)))> &&
-             (!best::ref_type<T, best::ref_kind::Rvalue>) &&
+             (!best::is_ref<T, best::ref_kind::Rvalue>) &&
              best::constructible<alloc>
       : vec(alloc{}, BEST_FWD(range)) {}
 
@@ -112,7 +111,7 @@ class vec final {
   template <contiguous Range>
   vec(alloc alloc, Range&& range)
     requires best::constructible<T, decltype(*std::data(BEST_FWD(range)))> &&
-             (!best::ref_type<T, best::ref_kind::Rvalue>)
+             (!best::is_ref<T, best::ref_kind::Rvalue>)
   {
     assign(range);
     // TODO: move optimization?
@@ -122,14 +121,14 @@ class vec final {
   ///
   /// Constructs a vector via initializer list.
   vec(std::initializer_list<value_type> range)
-    requires best::constructible<alloc> && best::object_type<T>
+    requires best::constructible<alloc> && best::is_object<T>
       : vec(alloc{}, range) {}
 
   /// # `vec::vec(alloc, {...})`
   ///
   /// Constructs a vector via initializer list, using the given allocator.
   vec(alloc alloc, std::initializer_list<T> range)
-    requires best::object_type<T>
+    requires best::is_object<T>
       : vec(std::move(alloc)) {
     assign(range);
   }
@@ -783,7 +782,7 @@ void vec<T, max_inline, A>::set_size(unsafe, size_t new_size) {
 template <best::relocatable T, size_t max_inline, best::allocator A>
 void vec<T, max_inline, A>::assign(const contiguous auto& that) {
   if (best::addr_eq(this, &that)) return;
-  using Range = best::as_deref<decltype(that)>;
+  using Range = best::unref<decltype(that)>;
   if constexpr (best::is_vec<Range>) {
     if (!that.on_heap() && best::copyable<T, trivially> &&
         best::same<T, typename Range::type> && MaxInline == Range::MaxInline) {

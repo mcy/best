@@ -5,7 +5,8 @@
 
 #include <type_traits>
 
-#include "best/meta/concepts.h"
+#include "best/meta/taxonomy.h"
+#include "best/meta/tlist.h"
 
 //! Concepts for determining when a type can be initialized in a particular
 //! way.
@@ -34,7 +35,7 @@ concept ctor =
     ctor_by_row<T, trivial>(
         args.template map<std::remove_cvref_t>()) ||  // Recurse if this is a
                                                       // row_forward.
-    (best::object_type<T> &&
+    (best::is_object<T> &&
      (trivial
           ? (args == types<void>
                  ? std::is_trivially_default_constructible_v<T>
@@ -47,18 +48,17 @@ concept ctor =
                                      return std::is_constructible_v<T, Args...>;
                                    })))) ||
     //
-    (best::ref_type<T> && args.size() == 1 &&
+    (best::is_ref<T> && args.size() == 1 &&
      // References can only be constructed from references.
-     best::ref_type<_0> &&
+     best::is_ref<_0> &&
      // Rvalue references cannot be constructed from lvalue references.
-     !(best::ref_type<T, ref_kind::Rvalue> &&
-       best::ref_type<_0, ref_kind::Lvalue>)&&args.size() == 1 &&
+     !(best::is_rref<T> && best::is_lref<_0>) && args.size() == 1 &&
      std::is_convertible_v<p0, best::as_ptr<T>>) ||
     //
-    (best::abominable_func_type<T> && args.size() == 1 &&
+    (best::is_abominable<T> && args.size() == 1 &&
      std::is_same_v<p0, std::add_pointer_t<T>>) ||
     //
-    (best::void_type<T> && args.size() <= 1);
+    (best::is_void<T> && args.size() <= 1);
 
 template <typename T, bool trivial, typename... Args>
 constexpr bool ctor_by_row(best::tlist<best::row_forward<Args...>>) {
@@ -78,7 +78,7 @@ concept assign =
     assign_by_row<T, trivial>(
         args.template map<std::remove_cvref_t>()) ||  // Recurse if this is a
                                                       // row_forward.
-    ((best::object_type<T>
+    ((best::is_object<T>
           ? args.size() == 1 &&
                 (trivial ? std::is_trivially_assignable_v<best::as_ref<T>, _0>
                          : std::is_assignable_v<best::as_ref<T>, _0>)

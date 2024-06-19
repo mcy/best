@@ -7,7 +7,6 @@
 #include "best/container/internal/choice.h"
 #include "best/log/internal/crash.h"
 #include "best/log/location.h"
-#include "best/meta/concepts.h"
 #include "best/meta/init.h"
 #include "best/meta/ops.h"
 #include "best/meta/tags.h"
@@ -111,7 +110,7 @@ class choice final {
  private:
   template <typename Arg>
   static constexpr auto convert_from = types.unique_index([]<typename T> {
-    return !best::void_type<T> && best::convertible<T, best::as_rref<Arg>>;
+    return !best::is_void<T> && best::convertible<T, best::as_rref<Arg>>;
   });
 
  public:

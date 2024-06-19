@@ -11,13 +11,13 @@
 //! Include this file if you need to sort.
 
 namespace best {
-template <best::object_type T, best::option<size_t> n>
+template <best::is_object T, best::option<size_t> n>
 void span<T, n>::sort() const
   requires best::comparable<T> && (!is_const)
 {
   std::sort(data().raw(), data().raw() + size());
 }
-template <best::object_type T, best::option<size_t> n>
+template <best::is_object T, best::option<size_t> n>
 void span<T, n>::sort(best::callable<void(const T&)> auto&& get_key) const
   requires(!is_const)
 {
@@ -25,7 +25,7 @@ void span<T, n>::sort(best::callable<void(const T&)> auto&& get_key) const
     return best::call(BEST_FWD(get_key), a) < best::call(BEST_FWD(get_key), b);
   });
 }
-template <best::object_type T, best::option<size_t> n>
+template <best::is_object T, best::option<size_t> n>
 void span<T, n>::sort(
     best::callable<std::partial_ordering(const T&, const T&)> auto&& get_key)
     const
@@ -35,13 +35,13 @@ void span<T, n>::sort(
     return best::call(BEST_FWD(get_key), a, b) < 0;
   });
 }
-template <best::object_type T, best::option<size_t> n>
+template <best::is_object T, best::option<size_t> n>
 void span<T, n>::stable_sort() const
   requires best::comparable<T> && (!is_const)
 {
   std::stable_sort(data().raw(), data().raw() + size());
 }
-template <best::object_type T, best::option<size_t> n>
+template <best::is_object T, best::option<size_t> n>
 void span<T, n>::stable_sort(
     best::callable<void(const T&)> auto&& get_key) const
   requires(!is_const)
@@ -50,7 +50,7 @@ void span<T, n>::stable_sort(
     return best::call(BEST_FWD(get_key), a) < best::call(BEST_FWD(get_key), b);
   });
 }
-template <best::object_type T, best::option<size_t> n>
+template <best::is_object T, best::option<size_t> n>
 void span<T, n>::stable_sort(
     best::callable<std::partial_ordering(const T&, const T&)> auto&& get_key)
     const

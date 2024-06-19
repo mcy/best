@@ -11,6 +11,7 @@
 #include "best/container/bounds.h"
 #include "best/meta/internal/tlist.h"
 #include "best/meta/ops.h"
+#include "best/meta/traits.h"
 
 //! Type-level list types.
 //!
@@ -36,19 +37,10 @@ struct val {
 template <typename T>
 using extract_trait = T::type;
 
-/// A type trait: any type with an alias member named `type`.
-template <typename T>
-concept type_trait = requires { typename T::type; };
-
 /// A value trait: any type with a static data member named `value`.
 ///
 /// If R is specified explicitly, this requires a specific type for the member.
-template <typename T, typename R = tlist_internal::secret>
-concept value_trait = (std::same_as<R, tlist_internal::secret> ? requires {
-  { T::value };
-} : requires {
-  { T::value } -> std::same_as<R>;
-});
+
 
 /// A "value list", interpreted as a type list of the canonical value trait.
 template <auto... elems>
@@ -67,6 +59,13 @@ inline constexpr auto indices = [] {
   };
   return cb(std::make_index_sequence<n>{});
 }();
+
+
+/// Variadic version of std::is_same/std::same_as.
+template <typename... Ts>
+concept same =
+    (std::same_as<Ts, typename best::tlist<Ts...>::template type<0, void>> &&
+     ...);
 
 /// A type-level type list.
 ///

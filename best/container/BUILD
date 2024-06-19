@@ -30,7 +30,6 @@ cc_library(
     ":pun",
     "//best/base:port",
     "//best/meta:tags",
-    "//best/meta:concepts",
     "//best/log/internal:crash",
   ],
 )
@@ -50,7 +49,6 @@ cc_library(
   name = "object",
   hdrs = ["object.h"],
   deps = [
-    "//best/meta:concepts",
     "//best/meta:ebo",
   ]
 )
@@ -145,7 +143,6 @@ cc_library(
     ":object",
     "//best/base:port",
     "//best/meta:tags",
-    "//best/meta:concepts",
   ],
 )
 
@@ -194,7 +191,6 @@ cc_library(
     "//best/memory:allocator",
     "//best/memory:bytes",
     "//best/memory:layout",
-    "//best/meta:concepts",
     "//best/meta:init",
     "//best/meta:tags",
   ],
