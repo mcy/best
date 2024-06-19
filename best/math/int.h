@@ -24,11 +24,10 @@ namespace best {
 /// Any primitive integer type.
 /// This explicitly excludes `bool` and non-`char` character types.
 template <typename T>
-concept integer =
-    std::is_integral_v<T> && !best::same<best::unqual<T>, bool> &&
-    !best::same<best::unqual<T>, wchar_t> &&
-    !best::same<best::unqual<T>, char16_t> &&
-    !best::same<best::unqual<T>, char32_t>;
+concept integer = std::is_integral_v<T> && !best::same<best::unqual<T>, bool> &&
+                  !best::same<best::unqual<T>, wchar_t> &&
+                  !best::same<best::unqual<T>, char16_t> &&
+                  !best::same<best::unqual<T>, char32_t>;
 
 /// # `best::bits_of<T>`
 ///

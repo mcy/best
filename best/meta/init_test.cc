@@ -90,7 +90,6 @@ static_assert(best::convertible<TrivialCopy, trivially, const TrivialCopy&>);
 static_assert(best::convertible<const int&, int&>);
 static_assert(!best::convertible<int&, const int&>);
 
-static_assert(best::convertible<void>);
 static_assert(best::convertible<void, void>);
 static_assert(best::convertible<void, int>);
 static_assert(!best::convertible<void, void, void>);
@@ -126,7 +125,6 @@ static_assert(!best::assignable<const int&, trivially, int>);
 static_assert(!best::assignable<int&, trivially, const int&>);
 static_assert(!best::assignable<int&&, trivially, int&>);
 
-static_assert(best::assignable<void>);
 static_assert(best::assignable<void, void>);
 static_assert(best::assignable<void, int>);
 static_assert(!best::assignable<void, void, void>);

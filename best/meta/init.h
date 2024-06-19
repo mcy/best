@@ -31,8 +31,7 @@ class trivially;
 /// any type, including void.
 template <typename T, typename... Args>
 concept constructible =
-    init_internal::ctor<T, (types<trivially> <= types<Args...>),
-                        types<Args...>.template trim_prefix(types<trivially>)>;
+    requires { init_internal::ctor<T>(init_internal::tag<Args>{}...); };
 
 /// Same as constructible, but moreover requires for object types that
 /// initialization be possible by implicit conversion.
@@ -41,12 +40,10 @@ concept constructible =
 /// potential issues with binding to temporaries.
 template <typename T, typename... Args>
 concept convertible =
-    best::constructible<T, Args...> && !std::is_rvalue_reference_v<T> &&
-    (!std::is_object_v<T> ||
-     std::is_convertible_v<
-         typename decltype(types<Args...>.template trim_prefix(
-             types<trivially>))::template type<0, void>,
-         T>);
+    requires { init_internal::conv<T>(init_internal::tag<Args>{}...); };
+
+template <typename From, typename To>
+concept converts_to = convertible<To, From>;
 
 /// Whether T is copy-constructible.
 template <typename T, typename... Args>
@@ -74,9 +71,7 @@ concept copy_constructible =
 /// base::constructible.
 template <typename T, typename... Args>
 concept assignable =
-    init_internal::assign<T, (types<trivially> <= types<Args...>),
-                          types<Args...>.template trim_prefix(
-                              types<trivially>)>;
+    requires { init_internal::assign<T>(init_internal::tag<Args>{}...); };
 
 /// Whether T is copy-assignable.
 template <typename T, typename... Args>
@@ -114,7 +109,7 @@ concept copyable =
 template <typename T, typename... Args>
 concept relocatable = init_internal::only_trivial<Args...> &&  //
                       (!std::is_object_v<T> ||                 //
-                       (types<trivially> <= types<Args...>
+                       (init_internal::is_trivial<Args...>
                             ? init_internal::trivially_relocatable<T>
                             : moveable<T>));
 
@@ -128,7 +123,7 @@ template <typename T, typename... Args>
 concept destructible =
     init_internal::only_trivial<Args...> &&  //
     (!std::is_object_v<T> ||
-     (types<trivially> <= types<Args...> ? std::is_trivially_destructible_v<T>
+     (init_internal::is_trivial<Args...> ? std::is_trivially_destructible_v<T>
                                          : std::is_destructible_v<T>));
 
 /// Struct that groups most of the above information, along with some other

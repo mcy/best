@@ -41,7 +41,6 @@ using extract_trait = T::type;
 ///
 /// If R is specified explicitly, this requires a specific type for the member.
 
-
 /// A "value list", interpreted as a type list of the canonical value trait.
 template <auto... elems>
 using vlist = tlist<val<elems>...>;
@@ -59,7 +58,6 @@ inline constexpr auto indices = [] {
   };
   return cb(std::make_index_sequence<n>{});
 }();
-
 
 /// Variadic version of std::is_same/std::same_as.
 template <typename... Ts>

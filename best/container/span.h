@@ -218,8 +218,7 @@ class span final {
         extent.value_or() == best::static_size<Range>.value_or()))
       span(Range&& range,  //
            best::location loc = best::here)
-    requires best::qualifies_to<best::unref<decltype(*std::data(range))>,
-                                T> &&
+    requires best::qualifies_to<best::unref<decltype(*std::data(range))>, T> &&
              (is_dynamic || best::static_size<Range>.is_empty() ||
               extent == best::static_size<Range>)
       : span(std::data(range), std::size(range), loc) {}

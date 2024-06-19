@@ -3,6 +3,7 @@
 
 #include "best/container/object.h"
 #include "best/meta/ebo.h"
+#include "best/meta/tlist.h"
 
 namespace best::row_internal {
 template <typename, typename...>

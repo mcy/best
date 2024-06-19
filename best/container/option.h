@@ -174,16 +174,14 @@ class option final {
   constexpr explicit(
       !best::convertible<T, best::refcopy<best::option_type<U>, U&&>>)
       option(U&& that)
-    requires best::constructible<T,
-                                 best::refcopy<best::option_type<U>, U&&>> &&
+    requires best::constructible<T, best::refcopy<best::option_type<U>, U&&>> &&
              cannot_init_from<U>
       : option() {
     *this = BEST_FWD(that);
   }
   template <is_option U>
   constexpr option& operator=(U&& that)
-    requires best::constructible<T,
-                                 best::refcopy<best::option_type<U>, U&&>> &&
+    requires best::constructible<T, best::refcopy<best::option_type<U>, U&&>> &&
              cannot_init_from<U>
   {
     if (that.has_value()) {

@@ -44,9 +44,9 @@ using select = traits_internal::select<cond, A, B>::type;
 ///
 /// Selects one of two type traits depending on a boolean condition, and
 /// extracts the result. This is useful for delaying materialization of an
-/// illegal construction if it would not be selected. 
+/// illegal construction if it would not be selected.
 template <bool cond, best::type_trait A, type_trait B>
 using select_trait = traits_internal::select<cond, A, B>::type::type;
 }  // namespace best
 
-#endif  // BEST_META_CONCEPTS_H_
+#endif  // BEST_META_TRAITS_H_

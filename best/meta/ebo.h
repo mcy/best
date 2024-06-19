@@ -5,10 +5,10 @@
 
 #include <type_traits>
 
-#include "best/meta/taxonomy.h"
 #include "best/meta/init.h"
 #include "best/meta/internal/init.h"
 #include "best/meta/tags.h"
+#include "best/meta/taxonomy.h"
 
 //! A helper for the empty base class optimization.
 

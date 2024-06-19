@@ -4,7 +4,6 @@
 #include <algorithm>
 
 #include "best/container/span.h"
-#include "best/meta/concepts.h"
 
 //! Implementations for best::span::sort and friends.
 //!

@@ -85,8 +85,8 @@ class object_ptr final {
   /// # `object_ptr::pointee`.
   ///
   /// The "true" pointee type. Internally, an `object_ptr` stores a `pointee*`.
-  using pointee = std::conditional_t<best::is_object<T> || best::is_void<T>,
-                                     T, const best::as_ptr<T>>;
+  using pointee = std::conditional_t<best::is_object<T> || best::is_void<T>, T,
+                                     const best::as_ptr<T>>;
 
   using cref = best::as_ref<const T>;
   using ref = best::as_ref<T>;
