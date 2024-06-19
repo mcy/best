@@ -228,10 +228,8 @@ static_assert(encoding<utf8>);
 static_assert(encoding<wtf8>);
 static_assert(encoding<utf16>);
 
-constexpr const utf8& BestEncoding(auto, const std::string&) {
-  return best::val<utf8{}>::value;
-}
-constexpr const utf8& BestEncoding(auto, const std::string_view&) {
+constexpr const utf8& BestEncoding(
+    auto, const utf_internal::is_std_string<char> auto&) {
   return best::val<utf8{}>::value;
 }
 template <size_t n>
@@ -239,10 +237,8 @@ constexpr const utf8& BestEncoding(auto, const char (&)[n]) {
   return best::val<utf8{}>::value;
 }
 
-constexpr const utf16& BestEncoding(auto, const std::u16string&) {
-  return best::val<utf16{}>::value;
-}
-constexpr const utf16& BestEncoding(auto, const std::u16string_view&) {
+constexpr const utf16& BestEncoding(
+    auto, const utf_internal::is_std_string<char16_t> auto&) {
   return best::val<utf16{}>::value;
 }
 template <size_t n>
@@ -250,10 +246,8 @@ constexpr const utf16& BestEncoding(auto, const char16_t (&)[n]) {
   return best::val<utf16{}>::value;
 }
 
-constexpr const utf32& BestEncoding(auto, const std::u32string&) {
-  return best::val<utf32{}>::value;
-}
-constexpr const utf32& BestEncoding(auto, const std::u32string_view&) {
+constexpr const utf32& BestEncoding(
+    auto, const utf_internal::is_std_string<char32_t> auto&) {
   return best::val<utf32{}>::value;
 }
 template <size_t n>

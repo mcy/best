@@ -19,7 +19,7 @@
 //! the UTF-8/16/32 specializations of the above.
 
 namespace best {
-template <best::encoding>
+template <typename>
 class text;
 
 /// # `best::str`
@@ -65,7 +65,7 @@ using str32 = best::text<utf32>;
 /// A `best::text` may not point to invalidly-text data. Constructors from
 /// unauthenticated strings must go through factories that return
 /// `best::optional`.
-template <best::encoding E>
+template <typename E>  // Not best::encoding so we can forward-declare it.
 class text final {
  public:
   /// # `text::encoding`
@@ -377,7 +377,7 @@ class text final {
 /******************************************************************************/
 
 namespace best {
-template <encoding E>
+template <typename E>
 constexpr best::option<text<E>> text<E>::from(best::span<const code> data,
                                               encoding enc) {
   if (!rune::validate(data, enc)) {
@@ -387,7 +387,7 @@ constexpr best::option<text<E>> text<E>::from(best::span<const code> data,
   return text(best::in_place, data, std::move(enc));
 }
 
-template <encoding E>
+template <typename E>
 constexpr best::row<text<E>, best::span<const code<E>>> text<E>::from_partial(
     best::span<const code> data, encoding enc) {
   auto orig = data;
@@ -401,12 +401,12 @@ constexpr best::row<text<E>, best::span<const code<E>>> text<E>::from_partial(
   return {text{in_place, orig, std::move(enc)}, {}};
 }
 
-template <encoding E>
+template <typename E>
 constexpr bool text<E>::is_rune_boundary(size_t idx) const {
   return rune::is_boundary(*this, idx, enc());
 }
 
-template <encoding E>
+template <typename E>
 constexpr text<E> text<E>::operator[](best::bounds::with_location range) const {
   // First, perform a bounds check.
   auto chunk = span_[range];
@@ -425,7 +425,7 @@ constexpr text<E> text<E>::operator[](best::bounds::with_location range) const {
   return text{in_place, chunk, enc()};
 }
 
-template <encoding E>
+template <typename E>
 constexpr option<text<E>> text<E>::at(best::bounds range) const {
   auto chunk = span_.at(range);
   if (!chunk) return best::none;
@@ -437,12 +437,12 @@ constexpr option<text<E>> text<E>::at(best::bounds range) const {
   return text{in_place, *chunk, enc()};
 }
 
-template <encoding E>
+template <typename E>
 constexpr option<text<E>> text<E>::trim_prefix(rune r) const {
   return trim_prefix([=](rune r2) { return r == r2; });
 }
 
-template <encoding E>
+template <typename E>
 constexpr option<text<E>> text<E>::trim_prefix(
     const string_type auto& str) const {
   rune::iter needle(str);
@@ -465,7 +465,7 @@ constexpr option<text<E>> text<E>::trim_prefix(
   return text{in_place, haystack.rest(), enc()};
 }
 
-template <encoding E>
+template <typename E>
 constexpr option<text<E>> text<E>::trim_prefix(
     best::callable<bool(rune)> auto&& r) const {
   return break_off().then([&](auto x) -> option<text> {
@@ -474,7 +474,7 @@ constexpr option<text<E>> text<E>::trim_prefix(
   });
 }
 
-template <encoding E>
+template <typename E>
 constexpr best::option<best::row<text<E>, text<E>>> text<E>::split_on(
     rune r1) const {
   if (can_memmem(*this)) {
@@ -493,7 +493,7 @@ constexpr best::option<best::row<text<E>, text<E>>> text<E>::split_on(
   return split_on([=](rune r2) { return r1 == r2; });
 }
 
-template <encoding E>
+template <typename E>
 constexpr best::option<best::row<text<E>, text<E>>> text<E>::split_on(
     const string_type auto& str) const {
   rune::iter haystack_start(*this);
@@ -530,7 +530,7 @@ constexpr best::option<best::row<text<E>, text<E>>> text<E>::split_on(
   }};
 }
 
-template <encoding E>
+template <typename E>
 constexpr best::option<best::row<text<E>, text<E>>> text<E>::split_on(
     best::callable<bool(rune)> auto&& pred) const {
   best::rune::iter iter(*this);
@@ -550,19 +550,19 @@ constexpr best::option<best::row<text<E>, text<E>>> text<E>::split_on(
   return best::none;
 }
 
-template <encoding E>
+template <typename E>
 constexpr bool text<E>::operator==(rune r) const {
   if (is_empty()) return false;
   auto [r2, rest] = *break_off();
   return rest.is_empty() && r == r2;
 }
 
-template <encoding E>
+template <typename E>
 constexpr bool text<E>::operator==(const string_type auto& s) const {
   return trim_prefix(s).has_value(&text::is_empty);
 }
 
-template <encoding E>
+template <typename E>
 constexpr best::ord text<E>::operator<=>(rune r) const {
   if (is_empty()) return best::ord::less;
 
@@ -573,7 +573,7 @@ constexpr best::ord text<E>::operator<=>(rune r) const {
   return 0 <=> rest;
 }
 
-template <encoding E>
+template <typename E>
 constexpr best::ord text<E>::operator<=>(const string_type auto& str) const {
   rune::iter a(*this);
   rune::iter b(str);
@@ -595,7 +595,7 @@ constexpr best::ord text<E>::operator<=>(const string_type auto& str) const {
   }
 }
 
-template <encoding E>
+template <typename E>
 constexpr best::option<best::row<rune, text<E>>> text<E>::break_off() const {
   if (is_empty()) return best::none;
 

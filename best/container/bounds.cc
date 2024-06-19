@@ -1,6 +1,8 @@
 
 #include "best/container/bounds.h"
 
+#include <exception>
+
 #include "best/log/internal/crash.h"
 
 namespace best {

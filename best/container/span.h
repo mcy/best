@@ -32,7 +32,7 @@ namespace best {
 template <typename T>
 concept contiguous = requires(T&& t) {
   { *std::data(t) } -> best::is_ref;
-  { std::size(t) } -> std::convertible_to<size_t>;
+  { std::size(t) } -> best::converts_to<size_t>;
 };
 
 /// # `best::static_size<T>`

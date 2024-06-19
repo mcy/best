@@ -3,7 +3,6 @@
 
 #include <array>
 #include <cstddef>
-#include <type_traits>
 
 #include "best/container/internal/pun.h"
 #include "best/container/object.h"
@@ -287,7 +286,7 @@ class impl : public storage<Ts...> {
       // of callback(empty) in one of the if statements below uses two-phase
       // lookup.
       using Empty = best::refcopy<
-          std::conditional_t<sizeof(tag) == 0, best::empty, best::empty>,
+          best::select<sizeof(tag) == 0, best::empty, best::empty>,
           decltype(self)&&>;
 
       if constexpr (best::is_void<Type>) {

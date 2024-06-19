@@ -235,7 +235,7 @@ class tlist final {
   /// specified.
   template <size_t n, auto default_ = tlist_internal::strict{}>
   static constexpr auto value =
-      type<n, std::conditional_t<
+      type<n, best::select<
                   std::is_same_v<decltype(default_), tlist_internal::strict>,
                   tlist_internal::strict, val<default_>>>::value;
 
@@ -257,8 +257,7 @@ class tlist final {
   /// elements chopped off.
   template <typename Default = tlist_internal::strict>
   static constexpr auto trim_prefix(auto list) {
-    using D =
-        std::conditional_t<std::is_same_v<Default, tlist_internal::strict>,
+    using D = best::select<std::is_same_v<Default, tlist_internal::strict>,
                            tlist, Default>;
     using Out = decltype(list.remove_prefix_from(tlist{}));
     if constexpr (std::is_void_v<Out>) {
@@ -274,8 +273,7 @@ class tlist final {
   /// elements chopped off.
   template <typename Default = tlist_internal::strict>
   static constexpr auto trim_suffix(auto list) {
-    using D =
-        std::conditional_t<std::is_same_v<Default, tlist_internal::strict>,
+    using D = best::select<std::is_same_v<Default, tlist_internal::strict>,
                            tlist, Default>;
     using Out = decltype(list.remove_suffix_from(tlist{}));
     if constexpr (std::is_void_v<Out>) {

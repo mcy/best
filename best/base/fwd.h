@@ -71,12 +71,9 @@ class rune;
 struct format_spec;
 class formatter;
 
-// best::text cannot be forward-declared because that depends on
-// best::encoding being defined.
-//
 // best/text/str.h
-// template <best::encoding>
-// class text;
+template <typename>
+class text;
 
 // best/text/utf.h
 struct utf8;

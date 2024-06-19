@@ -19,7 +19,7 @@ namespace best::crash_internal {
           "error: best::crash_internal::crash() called at %s:%" PRIu32 "\n"
           "       this typically means that <LOGGING LIBRARY TBD> was not linked in\n"
           "error: ",
-          fmt.file().data(), fmt.line());
+          fmt.impl().file_name(), fmt.line());
   // clang-format on
   vfprintf(stderr, *fmt, va);
   fprintf(stderr, "\n");

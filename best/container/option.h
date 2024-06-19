@@ -644,7 +644,7 @@ class option final {
 
   // Conversions w/ simple_option.
  private:
-  using objT = std::conditional_t<best::is_object<T>, T, best::empty>;
+  using objT = best::select<best::is_object<T>, T, best::empty>;
 
  public:
   constexpr option(const container_internal::option<objT>& opt)

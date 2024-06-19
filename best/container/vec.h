@@ -621,10 +621,10 @@ class vec final {
     return total;
   }();
 
-  using padding = std::conditional_t<Padding == 0, best::empty,
-                                     // Can't write char[0] so we make sure that
-                                     // when padding == 0 we get char[1].
-                                     char[Padding + (Padding == 0)]>;
+  using padding = best::select<Padding == 0, best::empty,
+                               // Can't write char[0] so we make sure that
+                               // when padding == 0 we get char[1].
+                               char[Padding + (Padding == 0)]>;
 
   // How big the area where inlined values live is, including the size.
   size_t inlined_region_size() const {

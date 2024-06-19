@@ -5,6 +5,8 @@
 
 #include <type_traits>
 
+#include "best/meta/traits.h"
+
 namespace best::int_internal {
 constexpr size_t widest(auto ints) {
   size_t idx = 0;
@@ -26,7 +28,7 @@ constexpr bool any_unsigned(auto ints) {
 
 template <auto ints, bool u = any_unsigned(ints),
           typename W = decltype(ints)::template type<widest(ints)>>
-std::conditional_t<u, std::make_unsigned_t<W>, W> common();
+best::select<u, std::make_unsigned_t<W>, W> common();
 }  // namespace best::int_internal
 
 #endif  // BEST_MATH_INTERNAL_COMMON_INT_H_

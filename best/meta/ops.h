@@ -3,8 +3,7 @@
 
 #include <stddef.h>
 
-#include <concepts>
-
+#include "best/meta/init.h"
 #include "best/meta/internal/ops.h"
 #include "best/meta/traits.h"
 
@@ -72,10 +71,13 @@ enum class op {
 ///
 /// When args has three or more elements, this will perform a fold of the form
 /// (... op args), if the operation supports folding.
-template <best::op op>  // clang-format off
-constexpr auto operate(auto &&...args) -> decltype(ops_internal::run<best::op>(ops_internal::tag<op>{}, BEST_FWD(args)...)) {
-  return ops_internal::run<best::op>(ops_internal::tag<op>{}, BEST_FWD(args)...);
-}  // clang-format on
+template <best::op op>
+constexpr auto operate(auto &&...args)
+    -> decltype(ops_internal::run<best::op>(ops_internal::tag<op>{},
+                                            BEST_FWD(args)...)) {
+  return ops_internal::run<best::op>(ops_internal::tag<op>{},
+                                     BEST_FWD(args)...);
+}
 
 /// Infers the result type of `best::operate<op>(Args...)`.
 template <best::op op, typename... Args>
@@ -91,7 +93,7 @@ concept has_op = requires(Args &&...args) {
 /// to R.
 template <best::op op, typename R, typename... Args>
 concept has_op_r = requires(Args &&...args) {
-  { best::operate<op>(BEST_FWD(args)...) } -> std::convertible_to<R>;
+  { best::operate<op>(BEST_FWD(args)...) } -> best::converts_to<R>;
 };
 }  // namespace best
 

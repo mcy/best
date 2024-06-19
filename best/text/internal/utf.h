@@ -181,6 +181,16 @@ constexpr best::result<size_t, encoding_error> encode16(
 
   return encoding_error::OutOfBounds;
 }
+
+template <typename S, typename Code>
+concept is_std_string = requires(S s, Code c) {
+  typename S::traits_type;
+  typename S::value_type;
+  requires best::same<Code, typename S::value_type>;
+  s.find_first_of(c);
+  s.find_first_of(s);
+};
+
 }  // namespace best::utf_internal
 
 #endif  // BEST_TEXT_INTERNAL_UTF_H_

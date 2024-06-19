@@ -6,6 +6,7 @@
 #include "best/container/option.h"
 #include "best/container/result.h"
 #include "best/container/span.h"
+#include "best/meta/init.h"
 #include "best/meta/tags.h"
 
 //! Unicode encodings.
@@ -41,7 +42,7 @@ concept encoding =
       typename E::code;
 
       /// Required constants.
-      { E::About } -> std::convertible_to<best::encoding_about>;
+      { E::About } -> best::converts_to<best::encoding_about>;
 
       /// It must provide the following operations. `best::rune` provides
       /// wrappers for them, which specifies what each of these functions must

@@ -191,11 +191,11 @@ BEST_INLINE_ALWAYS constexpr best::common_int<Ints...> max(Ints... args)
 ///
 /// Computes the smallest unsigned integer type that can represent `n`.
 template <uint64_t n>
-using smallest_uint_t = std::conditional_t<  //
+using smallest_uint_t = best::select<  //
     best::int_fits<uint8_t>(n), uint8_t,
-    std::conditional_t<  //
+    best::select<  //
         best::int_fits<uint16_t>(n), uint16_t,
-        std::conditional_t<                         //
+        best::select<                               //
             best::int_fits<uint32_t>(n), uint32_t,  //
             uint64_t>>>;
 }  // namespace best

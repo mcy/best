@@ -367,8 +367,7 @@ class object_ptr final {
   }
 
  private:
-  inline static std::conditional_t<best::is_void<T>, best::empty, pointee>
-      dangling_;
+  inline static best::select<best::is_void<T>, best::empty, pointee> dangling_;
 
  public:
   // Public for structural-ness.
