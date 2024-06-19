@@ -5,7 +5,11 @@
 #include "best/meta/taxonomy.h"
 
 //! Rule-based implementation of constructable/convertible/assignable, using
-//! overload resolution as a reasonably "fast" lookup.
+//! overload resolution as a reasonably fast lookup.
+//!
+//! Clang is usually able to build good lookup structures for doing overload
+//! resolution fast, so this is going to be much faster than letting the
+//! constexpr interpreter do it.
 
 namespace best {
 class trivially final {

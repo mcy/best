@@ -175,9 +175,7 @@ class impl : public storage<Ts...> {
   constexpr impl& operator=(const impl& that)
     requires(!info.trivial_copy)
   {
-    that.match([&](auto tag, auto&... value) {
-      emplace<decltype(tag)::value, best::Assign>(value...);
-    });
+    that.match([&](auto tag, auto&... value) { emplace<tag.value>(value...); });
     return *this;
   }
 
@@ -199,7 +197,7 @@ class impl : public storage<Ts...> {
     requires(!info.trivial_move)
   {
     that.match([&](auto tag, auto&... value) {
-      emplace<decltype(tag)::value, best::init_by::Assign>(std::move(value)...);
+      emplace<tag.value>(std::move(value)...);
     });
     return *this;
   }
@@ -215,10 +213,8 @@ class impl : public storage<Ts...> {
     });
   }
 
-  template <size_t which, best::init_by by, typename... Args>
-  constexpr void emplace(Args&&... args)
-    requires best::init_from<type<which>, by, Args&&...>
-  {
+  template <size_t which, typename... Args>
+  constexpr void emplace(Args&&... args) {
     if (which == tag()) {
       if constexpr (best::is_object<type<which>> &&
                     best::assignable<type<which>, Args&&...>) {

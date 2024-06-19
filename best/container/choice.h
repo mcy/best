@@ -232,10 +232,10 @@ class choice final {
     requires best::constructible<type<n>, Args&&...>
   {
     if constexpr (best::assignable<type<n>, Args&&...>) {
-      impl().template emplace<n, best::Assign>(BEST_FWD(args)...);
+      impl().template emplace<n>(BEST_FWD(args)...);
       return *at(t);
     }
-    impl().template emplace<n, best::Construct>(BEST_FWD(args)...);
+    impl().template emplace<n>(BEST_FWD(args)...);
     return *at(t);
   }
 
