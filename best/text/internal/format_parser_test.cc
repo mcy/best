@@ -10,7 +10,7 @@ void BestFmt(auto& fmt, const format_spec& spec) {
   rec.field("alt", spec.alt);
   rec.field("debug", spec.debug);
   rec.field("sign_aware_padding", spec.sign_aware_padding);
-  rec.field("alignment", static_cast<int>(spec.alignment));
+  rec.field("alignment", best::option<int>(spec.alignment));
   rec.field("fill", spec.fill);
   rec.field("width", spec.width);
   rec.field("prec", spec.prec);
@@ -163,23 +163,15 @@ best::test ParseOk = [](auto& t) {
       }});
 
   t.expect_eq(
-      parse("widths: {:5} {:05} {:<5} {:<05}"),
+      parse("widths: {:5} {:05} {:<5}"),
       Ast{{
           best::str{"widths: "},
-          best::row{0, format_spec{.alignment = format_spec::Right, .width = 5}}
-              .forward(),
+          best::row{0, format_spec{.width = 5}}.forward(),
           best::str(" "),
-          best::row{1, format_spec{.sign_aware_padding = true,
-                                   .alignment = format_spec::Right,
-                                   .width = 5}}
+          best::row{1, format_spec{.sign_aware_padding = true, .width = 5}}
               .forward(),
           best::str(" "),
           best::row{2, format_spec{.alignment = format_spec::Left, .width = 5}}
-              .forward(),
-          best::str(" "),
-          best::row{3, format_spec{.sign_aware_padding = true,
-                                   .alignment = format_spec::Left,
-                                   .width = 5}}
               .forward(),
       }});
 

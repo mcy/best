@@ -112,7 +112,7 @@ constexpr bool visit_template(const char* data, size_t len, Print print,
     }
 
     // This is a fast-path for `{:!}`
-    if (len >= 3 && data[0] == ':' && data[1] == '1' && data[2] == '}') {
+    if (len >= 3 && data[0] == ':' && data[1] == '!' && data[2] == '}') {
       data += 3;
       len -= 3;
       args.pass_through = true;
@@ -304,7 +304,7 @@ struct unprintable final {
   size_t size_;
 };
 
-void BestFmt(auto& fmt, unprintable& x) {
+void BestFmt(auto& fmt, const unprintable& x) {
   fmt.format("unprintable {}-byte value: `", x.size_);
   for (size_t i = 0; i < x.size_; ++i) {
     fmt.format("{:02x}", uint8_t(x.bytes_[i]));

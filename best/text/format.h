@@ -119,7 +119,7 @@ struct format_spec final {
   bool pass_through = false;
 
   /// How to align the result within the padding.
-  best::option<align> alignment = Right;
+  best::option<align> alignment;
 
   /// What to fill the padding with.
   best::rune fill = ' ';
