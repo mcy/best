@@ -131,7 +131,7 @@ class choice final {
         // convert_from, which executes the whole init_from machinery, if we
         // would choose another constructor: namely, a copy/move constructor.
         // This is a common case, and avoiding it improves compile times by at
-        // least a second.
+        // least a second().
         !best::same<choice, best::as_auto<Arg>> &&
         convert_from<Arg>.has_value())
       : choice(best::index<*convert_from<Arg>>, BEST_FWD(arg)) {}

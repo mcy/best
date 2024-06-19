@@ -98,8 +98,8 @@ class option final {
 
   template <typename U>
   static constexpr bool not_forbidden_conversion =
-      (!best::same<best::in_place_t, best::as_auto<U>>) &&  //
-      (!best::same<option, best::as_auto<U>>) &&            //
+      (!best::same<best::in_place_t, best::as_auto<U>>)&&  //
+      (!best::same<option, best::as_auto<U>>)&&            //
       (!best::same<bool, best::unqual<T>>);
 
  public:
@@ -326,7 +326,8 @@ class option final {
   }
   template <typename... Args>
   constexpr best::dependent<value_type, Args...> value_or(Args&&... args) && {
-    return has_value() ? BEST_MOVE(*this).value() : value_type(BEST_FWD(args)...);
+    return has_value() ? BEST_MOVE(*this).value()
+                       : value_type(BEST_FWD(args)...);
   }
 
   /// # `option::value_or([] { ... })`
@@ -340,7 +341,8 @@ class option final {
   constexpr auto value_or(
       best::callable<value_type()> auto&&
           or_else) && -> best::dependent<value_type, decltype(or_else)> {
-    return has_value() ? BEST_MOVE(*this).value() : best::call(BEST_FWD(or_else));
+    return has_value() ? BEST_MOVE(*this).value()
+                       : best::call(BEST_FWD(or_else));
   }
 
   /// # `option::value(unsafe)`.
@@ -352,7 +354,9 @@ class option final {
   constexpr crref value(unsafe u) const&& {
     return BEST_MOVE(*this).impl().at(u, index<1>);
   }
-  constexpr rref value(unsafe u) && { return BEST_MOVE(*this).impl().at(u, index<1>); }
+  constexpr rref value(unsafe u) && {
+    return BEST_MOVE(*this).impl().at(u, index<1>);
+  }
 
   /// # `option::operator*, option::operator->`
   ///
@@ -661,7 +665,8 @@ class option final {
   constexpr operator container_internal::option<objT>() &&
     requires best::is_object<T>
   {
-    return is_empty() ? container_internal::option<objT>() : BEST_MOVE(*this).value();
+    return is_empty() ? container_internal::option<objT>()
+                      : BEST_MOVE(*this).value();
   }
 
   // Comparisons.
@@ -824,11 +829,13 @@ constexpr option<T>::ref option<T>::value(best::location loc) & {
 }
 template <typename T>
 constexpr option<T>::crref option<T>::value(best::location loc) const&& {
-  return check_ok(loc), BEST_MOVE(*this).value(unsafe("check_ok() called before this"));
+  return check_ok(loc),
+         BEST_MOVE(*this).value(unsafe("check_ok() called before this"));
 }
 template <typename T>
 constexpr option<T>::rref option<T>::value(best::location loc) && {
-  return check_ok(loc), BEST_MOVE(*this).value(unsafe("check_ok() called before this"));
+  return check_ok(loc),
+         BEST_MOVE(*this).value(unsafe("check_ok() called before this"));
 }
 
 template <typename T>
@@ -902,17 +909,17 @@ constexpr option<T>& option<T>::inspect(auto&& f) & {
 template <typename T>
 constexpr const option<T>&& option<T>::inspect(auto&& f) const&& {
   BEST_MOVE(*this).impl().match([](best::index_t<0>) {},
-                       [&](best::index_t<1>, auto&&... args) {
-                         best::call(BEST_FWD(f), BEST_FWD(args)...);
-                       });
+                                [&](best::index_t<1>, auto&&... args) {
+                                  best::call(BEST_FWD(f), BEST_FWD(args)...);
+                                });
   return BEST_MOVE(*this);
 }
 template <typename T>
 constexpr option<T>&& option<T>::inspect(auto&& f) && {
   BEST_MOVE(*this).impl().match([](best::index_t<0>) {},
-                       [&](best::index_t<1>, auto&&... args) {
-                         best::call(BEST_FWD(f), BEST_FWD(args)...);
-                       });
+                                [&](best::index_t<1>, auto&&... args) {
+                                  best::call(BEST_FWD(f), BEST_FWD(args)...);
+                                });
   return BEST_MOVE(*this);
 }
 
@@ -935,20 +942,20 @@ constexpr auto option<T>::then(auto&& f) & {
 template <typename T>
 constexpr auto option<T>::then(auto&& f) const&& {
   using U = best::unref<best::call_result<decltype(f), crref>>;
-  return BEST_MOVE(*this).impl().match([](best::index_t<0>) -> U { return best::none; },
-                              [&](best::index_t<1>, auto&&... args) -> U {
-                                return best::call(BEST_FWD(f),
-                                                  BEST_FWD(args)...);
-                              });
+  return BEST_MOVE(*this).impl().match(
+      [](best::index_t<0>) -> U { return best::none; },
+      [&](best::index_t<1>, auto&&... args) -> U {
+        return best::call(BEST_FWD(f), BEST_FWD(args)...);
+      });
 }
 template <typename T>
 constexpr auto option<T>::then(auto&& f) && {
   using U = best::unref<best::call_result<decltype(f), rref>>;
-  return BEST_MOVE(*this).impl().match([](best::index_t<0>) -> U { return best::none; },
-                              [&](best::index_t<1>, auto&&... args) -> U {
-                                return best::call(BEST_FWD(f),
-                                                  BEST_FWD(args)...);
-                              });
+  return BEST_MOVE(*this).impl().match(
+      [](best::index_t<0>) -> U { return best::none; },
+      [&](best::index_t<1>, auto&&... args) -> U {
+        return best::call(BEST_FWD(f), BEST_FWD(args)...);
+      });
 }
 
 constexpr auto BestGuardResidual(auto&&, is_option auto&&) { return none; }

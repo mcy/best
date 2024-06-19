@@ -325,7 +325,7 @@ class textbuf final {
   ///
   /// Splits this string into two on the given index. If the desired split point
   /// is out of bounds, returns `best::none`.
-  best::option<std::pair<text, text>> split_at(size_t n) const {
+  best::option<best::row<text, text>> split_at(size_t n) const {
     return as_text().split_at(n);
   }
 
@@ -334,14 +334,14 @@ class textbuf final {
   /// Splits this string into two on the first occurrence of the given substring
   /// or rune, or when the callback returns true. If the desired split point
   /// is not found, returns `best::none`.
-  best::option<std::pair<text, text>> split_on(rune r) const {
+  best::option<best::row<text, text>> split_on(rune r) const {
     return as_text().split_on(r);
   }
-  best::option<std::pair<text, text>> split_on(
+  best::option<best::row<text, text>> split_on(
       const string_type auto& s) const {
     return as_text().split_on(s);
   }
-  best::option<std::pair<text, text>> split_on(
+  best::option<best::row<text, text>> split_on(
       best::callable<bool(rune)> auto&& p) const {
     return as_text().split_on(p);
   }

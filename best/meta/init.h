@@ -41,8 +41,9 @@ class trivially;
 /// For void types, this is either no arguments, or a single argument of
 /// any type, including void.
 template <typename T, typename... Args>
-concept constructible =
-    requires { init_internal::ctor<T>(init_internal::tag<Args>{}...); };
+concept constructible = requires {
+  init_internal::ctor(init_internal::tag<T>{}, init_internal::tag<Args>{}...);
+};
 
 /// # `best::convertible`
 ///
@@ -52,8 +53,9 @@ concept constructible =
 /// `T&&` cannot be converted to from any type, even `T&&` itself. This is to
 /// avoid potential issues with binding to temporaries.
 template <typename T, typename... Args>
-concept convertible =
-    requires { init_internal::conv<T>(init_internal::tag<Args>{}...); };
+concept convertible = requires {
+  init_internal::conv(init_internal::tag<T>{}, init_internal::tag<Args>{}...);
+};
 
 /// # `best::assignable`
 ///
@@ -66,8 +68,9 @@ concept convertible =
 /// For all other types, this is  `base::constructible` on single types. For
 /// compatibility reasons, void types are assignable from nothing.
 template <typename T, typename... Args>
-concept assignable =
-    requires { init_internal::assign<T>(init_internal::tag<Args>{}...); };
+concept assignable = requires {
+  init_internal::assign(init_internal::tag<T>{}, init_internal::tag<Args>{}...);
+};
 
 /// # `best::converts_to`
 ///

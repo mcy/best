@@ -61,8 +61,10 @@ struct utf8 final {
       best::span<const char>* input) {
     auto result = best::utf_internal::undecode8(*input);
     BEST_GUARD(result);
-    *input = (*input)[{.end = input->size() - result->first}];
-    return rune::from_int(result->second).ok_or(encoding_error::Invalid);
+    auto [bytes, code] = *result;
+
+    *input = (*input)[{.end = input->size() - bytes}];
+    return rune::from_int(code).ok_or(encoding_error::Invalid);
   }
 
   constexpr bool operator==(const utf8&) const = default;
@@ -97,18 +99,20 @@ struct wtf8 final {
       best::span<const char>* input) {
     auto result = best::utf_internal::decode8(*input);
     BEST_GUARD(result);
-    *input = (*input)[{.start = result->first}];
-    return rune::from_int_allow_surrogates(result->second)
-        .ok_or(encoding_error::Invalid);
+    auto [bytes, code] = *result;
+
+    *input = (*input)[{.start = bytes}];
+    return rune::from_int_allow_surrogates(code).ok_or(encoding_error::Invalid);
   }
 
   static constexpr best::result<rune, encoding_error> undecode(
       best::span<const char>* input) {
     auto result = best::utf_internal::undecode8(*input);
     BEST_GUARD(result);
-    *input = (*input)[{.end = input->size() - result->first}];
-    return rune::from_int_allow_surrogates(result->second)
-        .ok_or(encoding_error::Invalid);
+    auto [bytes, code] = *result;
+
+    *input = (*input)[{.end = input->size() - bytes}];
+    return rune::from_int_allow_surrogates(code).ok_or(encoding_error::Invalid);
   }
 
   constexpr bool operator==(const wtf8&) const = default;
@@ -148,17 +152,20 @@ struct utf16 final {
       best::span<const char16_t>* input) {
     auto result = best::utf_internal::decode16(*input);
     BEST_GUARD(result);
+    auto [bytes, code] = *result;
 
-    *input = (*input)[{.start = result->first}];
-    return rune::from_int(result->second).ok_or(encoding_error::Invalid);
+    *input = (*input)[{.start = bytes}];
+    return rune::from_int(code).ok_or(encoding_error::Invalid);
   }
 
   static constexpr best::result<rune, encoding_error> undecode(
       best::span<const char16_t>* input) {
     auto result = best::utf_internal::undecode16(*input);
     BEST_GUARD(result);
-    *input = (*input)[{.end = input->size() - result->first}];
-    return rune::from_int(result->second).ok_or(encoding_error::Invalid);
+    auto [bytes, code] = *result;
+
+    *input = (*input)[{.end = input->size() - bytes}];
+    return rune::from_int(code).ok_or(encoding_error::Invalid);
   }
 
   bool operator==(const utf16&) const = default;

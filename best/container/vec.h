@@ -360,8 +360,7 @@ class vec final {
   void sort(best::callable<void(const T&)> auto&& get_key) {
     as_span().sort(BEST_FWD(get_key));
   }
-  void sort(
-      best::callable<best::partial_ord(const T&, const T&)> auto&& cmp) {
+  void sort(best::callable<best::partial_ord(const T&, const T&)> auto&& cmp) {
     as_span().sort(BEST_FWD(cmp));
   }
 

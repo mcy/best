@@ -75,8 +75,8 @@ template <typename F, typename... Args>
 auto call_result(tag<Args...>)
     -> decltype(call_internal::call(tag<>{}, best::lie<F>, best::lie<Args>...));
 template <typename F, best::is_void V>
-auto call_result(tag<V>) -> decltype(call_internal::call(tag<>{},
-                                                         best::lie<F>));
+auto call_result(tag<V>)
+    -> decltype(call_internal::call(tag<>{}, best::lie<F>));
 }  // namespace best::call_internal
 
 #endif  // BEST_FUNC_INTERNAL_CALL_H_

@@ -156,7 +156,7 @@ class row final
   template <size_t n> constexpr best::object<type<n>>&& object(best::index_t<n> = {}) &&;
   // clang-format on
 
-  /// # `row::at(index<n>)`
+  /// # `row::get(index<n>)`
   ///
   /// Identical to `operator[]` in all ways except that when we would return a
   /// void type , we instead return a `best::empty` values (not a reference).
@@ -167,6 +167,24 @@ class row final
   template <size_t n> constexpr decltype(auto) get(best::index_t<n> = {}) &;
   template <size_t n> constexpr decltype(auto) get(best::index_t<n> = {}) const&&;
   template <size_t n> constexpr decltype(auto) get(best::index_t<n> = {}) &&;
+  // clang-format on
+
+  /// # `row::first()`, `row::second()`, `row::last()`
+  ///
+  /// Gets the first, second, or last value; helper for `std::pair`-like uses.
+  // clang-format off
+  constexpr decltype(auto) first() const& requires (!types.is_empty());
+  constexpr decltype(auto) first() & requires (!types.is_empty());
+  constexpr decltype(auto) first() const&& requires (!types.is_empty());
+  constexpr decltype(auto) first() && requires (!types.is_empty());
+  constexpr decltype(auto) second() const& requires (types.size() >= 2);
+  constexpr decltype(auto) second() & requires (types.size() >= 2);
+  constexpr decltype(auto) second() const&& requires (types.size() >= 2);
+  constexpr decltype(auto) second() && requires (types.size() >= 2);
+  constexpr decltype(auto) last() const& requires (!types.is_empty());
+  constexpr decltype(auto) last() & requires (!types.is_empty());
+  constexpr decltype(auto) last() const&& requires (!types.is_empty());
+  constexpr decltype(auto) last() && requires (!types.is_empty());
   // clang-format on
 
   /// # `row::apply()`
@@ -422,8 +440,71 @@ constexpr decltype(auto) row<A...>::get(best::index_t<n> idx) && {
   }
 }
 
+// XXX: This code tickles a clang-format bug.
 template <typename... A>
-constexpr decltype(auto) row<A...>::apply(auto&& f) const& {
+constexpr decltype(auto) row<A...>::first() const&
+  requires(!types.is_empty())
+{
+  return at(index<0>);
+}
+template <typename... A>
+    constexpr decltype(auto) row<A...>::first() &
+    requires(!types.is_empty()) {
+      return at(index<0>);
+    } template <typename... A>
+    constexpr decltype(auto) row<A...>::first() const&&
+      requires(!types.is_empty())
+{
+  return BEST_MOVE(*this).at(index<0>);
+}
+template <typename... A>
+    constexpr decltype(auto) row<A...>::first() &&
+    requires(!types.is_empty()) {
+      return BEST_MOVE(*this).at(index<0>);
+    } template <typename... A>
+    constexpr decltype(auto) row<A...>::second() const&
+      requires(types.size() >= 2)
+{
+  return at(index<1>);
+}
+template <typename... A>
+    constexpr decltype(auto) row<A...>::second() &
+    requires(types.size() >= 2) {
+      return at(index<1>);
+    } template <typename... A>
+    constexpr decltype(auto) row<A...>::second() const&&
+      requires(types.size() >= 2)
+{
+  return BEST_MOVE(*this).at(index<1>);
+}
+template <typename... A>
+    constexpr decltype(auto) row<A...>::second() &&
+    requires(types.size() >= 2) {
+      return BEST_MOVE(*this).at(index<1>);
+    } template <typename... A>
+    constexpr decltype(auto) row<A...>::last() const&
+      requires(!types.is_empty())
+{
+  return at(index<types.size() - 1>);
+}
+template <typename... A>
+    constexpr decltype(auto) row<A...>::last() &
+    requires(!types.is_empty()) {
+      return at(index<types.size() - 1>);
+    } template <typename... A>
+    constexpr decltype(auto) row<A...>::last() const&&
+      requires(!types.is_empty())
+{
+  return BEST_MOVE(*this).at(index<types.size() - 1>);
+}
+template <typename... A>
+    constexpr decltype(auto) row<A...>::last() &&
+    requires(!types.is_empty()) {
+      return BEST_MOVE(*this).at(index<types.size() - 1>);
+    }
+
+    template <typename... A>
+    constexpr decltype(auto) row<A...>::apply(auto&& f) const& {
   return indices.apply([&]<typename... I>() -> decltype(auto) {
     return best::call(BEST_FWD(f), get(best::index<I::value>)...);
   });

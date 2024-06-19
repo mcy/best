@@ -15,10 +15,24 @@ static_assert(best::constructible<int, int>);
 static_assert(best::constructible<int, long>);
 static_assert(best::constructible<int, void>);
 
+static_assert(best::constructible<int[5]>);
+static_assert(best::constructible<int[5], int[5]>);
+static_assert(best::constructible<int[5], int (&)[5]>);
+static_assert(!best::constructible<int[5], int (*)[5]>);
+static_assert(best::constructible<int[5], long[5]>);
+static_assert(!best::constructible<int[5], int[6]>);
+
 static_assert(best::constructible<int, trivially>);
 static_assert(best::constructible<int, trivially, int>);
 static_assert(best::constructible<int, trivially, long>);
 static_assert(best::constructible<int, trivially, void>);
+
+static_assert(best::constructible<int[5], trivially>);
+static_assert(best::constructible<int[5], trivially, int[5]>);
+static_assert(best::constructible<int[5], trivially, int (&)[5]>);
+static_assert(!best::constructible<int[5], trivially, int (*)[5]>);
+static_assert(best::constructible<int[5], trivially, long[5]>);
+static_assert(!best::constructible<int[5], trivially, int[6]>);
 
 static_assert(!best::constructible<NonTrivialPod, void>);
 static_assert(best::constructible<NonTrivialPod, int, int>);
@@ -99,6 +113,18 @@ static_assert(best::assignable<int, long>);
 static_assert(!best::assignable<int&, int>);
 static_assert(!best::assignable<int>);
 static_assert(!best::assignable<int, int, int>);
+
+static_assert(best::assignable<int[5], int[5]>);
+static_assert(best::assignable<int[5], int (&)[5]>);
+static_assert(!best::assignable<int[5], int (*)[5]>);
+static_assert(best::assignable<int[5], long[5]>);
+static_assert(!best::assignable<int[5], int[6]>);
+
+static_assert(best::assignable<int[5], trivially, int[5]>);
+static_assert(best::assignable<int[5], trivially, int (&)[5]>);
+static_assert(!best::assignable<int[5], trivially, int (*)[5]>);
+static_assert(best::assignable<int[5], trivially, long[5]>);
+static_assert(!best::assignable<int[5], trivially, int[6]>);
 
 static_assert(best::assignable<int, trivially, int>);
 static_assert(best::assignable<int, trivially, long>);

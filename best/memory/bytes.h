@@ -16,9 +16,9 @@ namespace best {
 /// Whether a pair of types' equality is modeled by `memcmp()`.
 template <typename T, typename U = T>
 concept byte_comparable =
-    (std::is_integral_v<T> || std::is_enum_v<T> || std::is_pointer_v<T>) &&
-    (std::is_integral_v<U> || std::is_enum_v<U> || std::is_pointer_v<U>) &&
-    sizeof(T) == sizeof(U);
+    (std::is_integral_v<T> || std::is_enum_v<T> ||
+     std::is_pointer_v<T>)&&(std::is_integral_v<U> || std::is_enum_v<U> ||
+                             std::is_pointer_v<U>)&&sizeof(T) == sizeof(U);
 
 /// # `best::copy_bytes()`
 ///

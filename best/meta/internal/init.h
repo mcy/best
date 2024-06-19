@@ -26,148 +26,225 @@ struct tag {};
 // ========================================================================== //
 
 template <best::is_object T, typename... Args>
-void ctor(tag<Args>...)
+void ctor(tag<T>, tag<Args>...)
   requires std::is_constructible_v<T, Args...>;
 
 template <best::is_object T, typename... Args>
-void ctor(tag<trivially>, tag<Args>...)
+void ctor(tag<T>, tag<trivially>, tag<Args>...)
   requires std::is_trivially_constructible_v<T, Args...>;
 
 template <best::is_object T, best::is_void V>
-void ctor(tag<V>)
+void ctor(tag<T>, tag<V>)
   requires std::is_constructible_v<T>;
 
 template <best::is_object T, best::is_void V>
-void ctor(tag<trivially>, tag<V>)
+void ctor(tag<T>, tag<trivially>, tag<V>)
   requires std::is_trivially_constructible_v<T>;
 
 // -------------------------------------------------------------------------- //
 
+template <best::is_object T, best::is_object U, size_t n>
+void ctor(tag<T[n]>, tag<U[n]>)
+  requires std::is_constructible_v<T, U>;
+
+template <best::is_object T, best::is_object U, size_t n>
+void ctor(tag<T[n]>, tag<trivially>, tag<U[n]>)
+  requires std::is_trivially_constructible_v<T, U>;
+
+template <best::is_object T, best::is_object U, size_t n>
+void ctor(tag<T[n]>, tag<U (&)[n]>)
+  requires std::is_constructible_v<T, U&>;
+
+template <best::is_object T, best::is_object U, size_t n>
+void ctor(tag<T[n]>, tag<trivially>, tag<U (&)[n]>)
+  requires std::is_trivially_constructible_v<T, U&>;
+
+template <best::is_object T, best::is_object U, size_t n>
+void ctor(tag<T[n]>, tag<U (&&)[n]>)
+  requires std::is_constructible_v<T, U&&>;
+
+template <best::is_object T, best::is_object U, size_t n>
+void ctor(tag<T[n]>, tag<trivially>, tag<U (&&)[n]>)
+  requires std::is_trivially_constructible_v<T, U&&>;
+
+// -------------------------------------------------------------------------- //
+
 template <best::is_lref T, best::is_ref R>
-void ctor(tag<R>)
+void ctor(tag<T>, tag<R>)
   requires std::is_convertible_v<best::as_ptr<R>, best::as_ptr<T>>;
 
 template <best::is_lref T, best::is_ref R>
-void ctor(tag<trivially>, tag<R>)
+void ctor(tag<T>, tag<trivially>, tag<R>)
   requires std::is_convertible_v<best::as_ptr<R>, best::as_ptr<T>>;
 
 template <best::is_rref T, best::is_rref R>
-void ctor(tag<R>)
+void ctor(tag<T>, tag<R>)
   requires std::is_convertible_v<best::as_ptr<R>, best::as_ptr<T>>;
 
 template <best::is_rref T, best::is_rref R>
-void ctor(tag<trivially>, tag<R>)
+void ctor(tag<T>, tag<trivially>, tag<R>)
   requires std::is_convertible_v<best::as_ptr<R>, best::as_ptr<T>>;
 
 // -------------------------------------------------------------------------- //
 
 template <best::is_func T, typename F>
-void ctor(tag<F>)
+void ctor(tag<T>, tag<F>)
   requires std::is_convertible_v<F, best::as_ref<T>>;
 
 template <best::is_func T, typename F>
-void ctor(tag<trivially>, tag<F>)
+void ctor(tag<T>, tag<trivially>, tag<F>)
   requires std::is_convertible_v<F, best::as_ref<T>>;
 
 // -------------------------------------------------------------------------- //
 
 template <best::is_void T>
-void ctor();
+void ctor(tag<T>);
 
 template <best::is_void T>
-void ctor(tag<trivially>);
+void ctor(tag<T>, tag<trivially>);
 
 template <best::is_void T, typename U>
-void ctor(tag<U>);
+void ctor(tag<T>, tag<U>);
 
 template <best::is_void T, typename U>
-void ctor(tag<trivially>, tag<U>);
+void ctor(tag<T>, tag<trivially>, tag<U>);
 
 // -------------------------------------------------------------------------- //
 
 template <typename T, typename... Args>
-void ctor(tag<best::row_forward<Args...>>)
-  requires requires { ctor<T>(tag<Args>{}...); };
+void ctor(tag<T>, tag<best::row_forward<Args...>>)
+  requires requires { ctor(tag<T>{}, tag<Args>{}...); };
 
 template <typename T, typename... Args>
-void ctor(tag<trivially>, tag<best::row_forward<Args...>>)
-  requires requires { ctor<T>(tag<trivially>{}, tag<Args>{}...); };
+void ctor(tag<T>, tag<trivially>, tag<best::row_forward<Args...>>)
+  requires requires { ctor(tag<T>{}, tag<trivially>{}, tag<Args>{}...); };
 
 template <typename T, typename... Args>
-void ctor(tag<best::row_forward<Args...>&&>)
-  requires requires { ctor<T>(tag<Args>{}...); };
+void ctor(tag<T>, tag<best::row_forward<Args...>&&>)
+  requires requires { ctor(tag<T>{}, tag<Args>{}...); };
 
 template <typename T, typename... Args>
-void ctor(tag<trivially>, tag<best::row_forward<Args...>&&>)
-  requires requires { ctor<T>(tag<trivially>{}, tag<Args>{}...); };
+void ctor(tag<T>, tag<trivially>, tag<best::row_forward<Args...>&&>)
+  requires requires { ctor(tag<T>{}, tag<trivially>{}, tag<Args>{}...); };
 
 // ========================================================================== //
 
 template <best::is_object T, typename Arg>
-void conv(tag<Arg>)
+void conv(tag<T>, tag<Arg>)
   requires std::is_convertible_v<Arg, T>;
 
 template <best::is_object T, typename Arg>
-void conv(tag<trivially>, tag<Arg>)
+void conv(tag<T>, tag<trivially>, tag<Arg>)
   requires std::is_convertible_v<Arg, T> &&
-           requires { ctor<T>(tag<trivially>{}, tag<Arg>()); };
+           requires { ctor(tag<T>{}, tag<trivially>{}, tag<Arg>()); };
+
+template <best::is_object T, best::is_object U, size_t n>
+void conv(tag<T[n]>, tag<U[n]>)
+  requires std::is_convertible_v<T, U>;
+
+template <best::is_object T, best::is_object U, size_t n>
+void conv(tag<T[n]>, tag<trivially>, tag<U[n]>)
+  requires std::is_convertible_v<T, U> &&
+           requires { ctor(tag<T>{}, tag<trivially>{}, tag<U>()); };
+
+template <best::is_object T, best::is_object U, size_t n>
+void conv(tag<T[n]>, tag<U (&)[n]>)
+  requires std::is_convertible_v<T, U&>;
+
+template <best::is_object T, best::is_object U, size_t n>
+void conv(tag<T[n]>, tag<trivially>, tag<U (&)[n]>)
+  requires std::is_convertible_v<T, U> &&
+           requires { ctor(tag<T>{}, tag<trivially>{}, tag<U>()); };
+
+template <best::is_object T, best::is_object U, size_t n>
+void conv(tag<T[n]>, tag<U (&&)[n]>)
+  requires std::is_convertible_v<T, U&&>;
+
+template <best::is_object T, best::is_object U, size_t n>
+void conv(tag<T[n]>, tag<trivially>, tag<U (&&)[n]>)
+  requires std::is_convertible_v<T, U> &&
+           requires { ctor(tag<T>{}, tag<trivially>{}, tag<U>()); };
 
 template <typename T, typename Arg>
-void conv(tag<Arg>)
+void conv(tag<T>, tag<Arg>)
   requires(!best::is_object<T> && !best::is_rref<T>) &&
-          requires { ctor<T>(tag<Arg>()); };
+          requires { ctor(tag<T>{}, tag<Arg>()); };
 
 template <typename T, typename Arg>
-void conv(tag<trivially>, tag<Arg>)
+void conv(tag<T>, tag<trivially>, tag<Arg>)
   requires(!best::is_object<T> && !best::is_rref<T>) &&
-          requires { ctor<T>(tag<trivially>{}, tag<Arg>()); };
+          requires { ctor(tag<T>{}, tag<trivially>{}, tag<Arg>()); };
 
 // ========================================================================== //
 
 template <best::is_object T, typename Arg>
-void assign(tag<Arg>)
+void assign(tag<T>, tag<Arg>)
   requires std::is_assignable_v<T&, Arg>;
 
 template <best::is_object T, typename Arg>
-void assign(tag<trivially>, tag<Arg>)
+void assign(tag<T>, tag<trivially>, tag<Arg>)
   requires std::is_trivially_assignable_v<T&, Arg>;
 
+template <best::is_object T, best::is_object U, size_t n>
+void assign(tag<T[n]>, tag<U[n]>)
+  requires std::is_assignable_v<T&, U>;
+
+template <best::is_object T, best::is_object U, size_t n>
+void assign(tag<T[n]>, tag<trivially>, tag<U[n]>)
+  requires std::is_trivially_assignable_v<T&, U>;
+
+template <best::is_object T, best::is_object U, size_t n>
+void assign(tag<T[n]>, tag<U (&)[n]>)
+  requires std::is_assignable_v<T&, U&>;
+
+template <best::is_object T, best::is_object U, size_t n>
+void assign(tag<T[n]>, tag<trivially>, tag<U (&)[n]>)
+  requires std::is_trivially_assignable_v<T&, U&>;
+
+template <best::is_object T, best::is_object U, size_t n>
+void assign(tag<T[n]>, tag<U (&&)[n]>)
+  requires std::is_assignable_v<T&, U&&>;
+
+template <best::is_object T, best::is_object U, size_t n>
+void assign(tag<T[n]>, tag<trivially>, tag<U (&&)[n]>)
+  requires std::is_trivially_assignable_v<T&, U&&>;
+
 // -------------------------------------------------------------------------- //
 
 template <typename T, typename Arg>
-void assign(tag<Arg>)
-  requires(!best::is_object<T>) && requires { ctor<T>(tag<Arg>{}); };
+void assign(tag<T>, tag<Arg>)
+  requires(!best::is_object<T>) && requires { ctor(tag<T>{}, tag<Arg>{}); };
 
 template <typename T, typename Arg>
-void assign(tag<trivially>, tag<Arg>)
+void assign(tag<T>, tag<trivially>, tag<Arg>)
   requires(!best::is_object<T>) &&
-          requires { ctor<T>(tag<trivially>{}, tag<Arg>{}); };
+          requires { ctor(tag<T>{}, tag<trivially>{}, tag<Arg>{}); };
 
 // -------------------------------------------------------------------------- //
 
 template <best::is_void T>
-void assign();
+void assign(tag<T>);
 
 template <best::is_void T>
-void assign(tag<trivially>);
+void assign(tag<T>, tag<trivially>);
 
 // -------------------------------------------------------------------------- //
 
 template <typename T, typename... Args>
-void assign(tag<best::row_forward<Args...>>)
-  requires requires { assign<T>(tag<Args>{}...); };
+void assign(tag<T>, tag<best::row_forward<Args...>>)
+  requires requires { assign(tag<T>{}, tag<Args>{}...); };
 
 template <typename T, typename... Args>
-void assign(tag<trivially>, tag<best::row_forward<Args...>>)
-  requires requires { assign<T>(tag<trivially>{}, tag<Args>{}...); };
+void assign(tag<T>, tag<trivially>, tag<best::row_forward<Args...>>)
+  requires requires { assign(tag<T>{}, tag<trivially>{}, tag<Args>{}...); };
 
 template <typename T, typename... Args>
-void assign(tag<best::row_forward<Args...>&&>)
-  requires requires { assign<T>(tag<Args>{}...); };
+void assign(tag<T>, tag<best::row_forward<Args...>&&>)
+  requires requires { assign(tag<T>{}, tag<Args>{}...); };
 
 template <typename T, typename... Args>
-void assign(tag<trivially>, tag<best::row_forward<Args...>&&>)
-  requires requires { assign<T>(tag<trivially>{}, tag<Args>{}...); };
+void assign(tag<T>, tag<trivially>, tag<best::row_forward<Args...>&&>)
+  requires requires { assign(tag<T>{}, tag<trivially>{}, tag<Args>{}...); };
 
 // ========================================================================== //
 

@@ -180,4 +180,4 @@ inline void BestFmt(auto& fmt, best::partial_ord x) {
 }
 }  // namespace best
 
-#endif  // BEST_BASE_UNSAFE_H_
+#endif  // BEST_BASE_ORD_H_

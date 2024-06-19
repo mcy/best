@@ -134,7 +134,7 @@ class text final {
   ///
   /// Creates a new string by decoding the longest valid prefix of `data`.
   /// Returns the valid prefix, and the rest of `data`.
-  constexpr static std::pair<text, best::span<const best::code<E>>>
+  constexpr static best::row<text, best::span<const best::code<E>>>
   from_partial(best::span<const code> data, encoding enc = {});
 
   /// # `text::from_nul()`
@@ -264,21 +264,21 @@ class text final {
   /// If any invalidly text characters are encountered during the search, in
   /// either the haystack or the needle, this function returns `best::none`.
   constexpr best::option<size_t> find(rune r) const {
-    return split_on(r).map([](auto r) { return r.first.size(); });
+    return split_on(r).map([](auto r) { return r.first().size(); });
   }
   constexpr best::option<size_t> find(const string_type auto& s) const {
-    return split_on(s).map([](auto r) { return r.first.size(); });
+    return split_on(s).map([](auto r) { return r.first().size(); });
   }
   constexpr best::option<size_t> find(
       best::callable<bool(rune)> auto&& p) const {
-    return split_on(BEST_FWD(p)).map([](auto r) { return r.first.size(); });
+    return split_on(BEST_FWD(p)).map([](auto r) { return r.first().size(); });
   }
 
   /// # `text::split_at()`
   ///
   /// Splits this string into two on the given index. If the desired split point
   /// is out of bounds, returns `best::none`.
-  constexpr best::option<std::pair<text, text>> split_at(size_t n) const {
+  constexpr best::option<best::row<text, text>> split_at(size_t n) const {
     auto prefix = at({.end = n});
     if (!prefix) return best::none;
     return {{*prefix, operator[]({.start = n})}};
@@ -289,17 +289,17 @@ class text final {
   /// Splits this string into two on the first occurrence of the given substring
   /// or rune, or when the callback returns true. If the desired split point
   /// is not found, returns `best::none`.
-  constexpr best::option<std::pair<text, text>> split_on(rune) const;
-  constexpr best::option<std::pair<text, text>> split_on(
+  constexpr best::option<best::row<text, text>> split_on(rune) const;
+  constexpr best::option<best::row<text, text>> split_on(
       const string_type auto&) const;
-  constexpr best::option<std::pair<text, text>> split_on(
+  constexpr best::option<best::row<text, text>> split_on(
       best::callable<bool(rune)> auto&& p) const;
 
   /// # `text::break_off()`
   ///
   /// Parses the first rune in this string and returns it and a substring with
   /// that rune removed. Returns `best::none` if the string is empty.
-  constexpr best::option<std::pair<rune, text>> break_off() const;
+  constexpr best::option<best::row<rune, text>> break_off() const;
 
   /// # `text::rune_iter`, `text::runes()`.
   ///
@@ -328,8 +328,7 @@ class text final {
 
   constexpr best::ord operator<=>(rune) const;
   constexpr best::ord operator<=>(const string_type auto&) const;
-  constexpr best::ord operator<=>(
-      best::span<const code> span) const {
+  constexpr best::ord operator<=>(best::span<const code> span) const {
     return span_ <=> span;
   }
   constexpr best::ord operator<=>(const code* lit) const {
@@ -389,7 +388,7 @@ constexpr best::option<text<E>> text<E>::from(best::span<const code> data,
 }
 
 template <encoding E>
-constexpr std::pair<text<E>, best::span<const code<E>>> text<E>::from_partial(
+constexpr best::row<text<E>, best::span<const code<E>>> text<E>::from_partial(
     best::span<const code> data, encoding enc) {
   auto orig = data;
   while (!data.is_empty()) {
@@ -470,13 +469,13 @@ template <encoding E>
 constexpr option<text<E>> text<E>::trim_prefix(
     best::callable<bool(rune)> auto&& r) const {
   return break_off().then([&](auto x) -> option<text> {
-    if (best::call(BEST_FWD(r), x.first)) return x.second;
+    if (best::call(BEST_FWD(r), x.first())) return x.second();
     return best::none;
   });
 }
 
 template <encoding E>
-constexpr best::option<std::pair<text<E>, text<E>>> text<E>::split_on(
+constexpr best::option<best::row<text<E>, text<E>>> text<E>::split_on(
     rune r1) const {
   if (can_memmem(*this)) {
     code buf[About.max_codes_per_rune];
@@ -495,7 +494,7 @@ constexpr best::option<std::pair<text<E>, text<E>>> text<E>::split_on(
 }
 
 template <encoding E>
-constexpr best::option<std::pair<text<E>, text<E>>> text<E>::split_on(
+constexpr best::option<best::row<text<E>, text<E>>> text<E>::split_on(
     const string_type auto& str) const {
   rune::iter haystack_start(*this);
   rune::iter needle_start(str);
@@ -532,7 +531,7 @@ constexpr best::option<std::pair<text<E>, text<E>>> text<E>::split_on(
 }
 
 template <encoding E>
-constexpr best::option<std::pair<text<E>, text<E>>> text<E>::split_on(
+constexpr best::option<best::row<text<E>, text<E>>> text<E>::split_on(
     best::callable<bool(rune)> auto&& pred) const {
   best::rune::iter iter(*this);
   size_t prev = 0;
@@ -575,8 +574,7 @@ constexpr best::ord text<E>::operator<=>(rune r) const {
 }
 
 template <encoding E>
-constexpr best::ord text<E>::operator<=>(
-    const string_type auto& str) const {
+constexpr best::ord text<E>::operator<=>(const string_type auto& str) const {
   rune::iter a(*this);
   rune::iter b(str);
 
@@ -598,7 +596,7 @@ constexpr best::ord text<E>::operator<=>(
 }
 
 template <encoding E>
-constexpr best::option<std::pair<rune, text<E>>> text<E>::break_off() const {
+constexpr best::option<best::row<rune, text<E>>> text<E>::break_off() const {
   if (is_empty()) return best::none;
 
   auto suffix = *this;

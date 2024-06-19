@@ -145,63 +145,63 @@ best::test Find16 = [](auto& t) {
 best::test SplitAt = [](auto& t) {
   best::strbuf test = "黒猫";
 
-  t.expect_eq(test.split_at(0), std::pair{"", "黒猫"});
+  t.expect_eq(test.split_at(0), best::row{"", "黒猫"});
   t.expect_eq(test.split_at(1), best::none);
   t.expect_eq(test.split_at(2), best::none);
-  t.expect_eq(test.split_at(3), std::pair{"黒", "猫"});
+  t.expect_eq(test.split_at(3), best::row{"黒", "猫"});
   t.expect_eq(test.split_at(4), best::none);
   t.expect_eq(test.split_at(5), best::none);
-  t.expect_eq(test.split_at(6), std::pair{"黒猫", ""});
+  t.expect_eq(test.split_at(6), best::row{"黒猫", ""});
 
   test = "🐈‍⬛";
 
-  t.expect_eq(test.split_at(0), std::pair{"", "🐈‍⬛"});
+  t.expect_eq(test.split_at(0), best::row{"", "🐈‍⬛"});
   t.expect_eq(test.split_at(1), best::none);
   t.expect_eq(test.split_at(2), best::none);
   t.expect_eq(test.split_at(3), best::none);
-  t.expect_eq(test.split_at(4), std::pair{"🐈", "\u200d⬛"});
+  t.expect_eq(test.split_at(4), best::row{"🐈", "\u200d⬛"});
   t.expect_eq(test.split_at(5), best::none);
   t.expect_eq(test.split_at(6), best::none);
-  t.expect_eq(test.split_at(7), std::pair{"🐈\u200d", "⬛"});
+  t.expect_eq(test.split_at(7), best::row{"🐈\u200d", "⬛"});
   t.expect_eq(test.split_at(8), best::none);
   t.expect_eq(test.split_at(9), best::none);
-  t.expect_eq(test.split_at(10), std::pair{"🐈‍⬛", ""});
+  t.expect_eq(test.split_at(10), best::row{"🐈‍⬛", ""});
 };
 
 best::test SplitAt16 = [](auto& t) {
   best::strbuf16 test = u"黒猫";
 
-  t.expect_eq(test.split_at(0), std::pair{u"", u"黒猫"});
-  t.expect_eq(test.split_at(1), std::pair{u"黒", u"猫"});
-  t.expect_eq(test.split_at(2), std::pair{u"黒猫", u""});
+  t.expect_eq(test.split_at(0), best::row{u"", u"黒猫"});
+  t.expect_eq(test.split_at(1), best::row{u"黒", u"猫"});
+  t.expect_eq(test.split_at(2), best::row{u"黒猫", u""});
 
   test = u"🐈‍⬛";
 
-  t.expect_eq(test.split_at(0), std::pair{u"", u"🐈‍⬛"});
+  t.expect_eq(test.split_at(0), best::row{u"", u"🐈‍⬛"});
   t.expect_eq(test.split_at(1), best::none);
-  t.expect_eq(test.split_at(2), std::pair{u"🐈", u"\u200d⬛"});
-  t.expect_eq(test.split_at(3), std::pair{u"🐈\u200d", u"⬛"});
-  t.expect_eq(test.split_at(4), std::pair{u"🐈‍⬛", u""});
+  t.expect_eq(test.split_at(2), best::row{u"🐈", u"\u200d⬛"});
+  t.expect_eq(test.split_at(3), best::row{u"🐈\u200d", u"⬛"});
+  t.expect_eq(test.split_at(4), best::row{u"🐈‍⬛", u""});
 };
 
 best::test SplitOn = [](auto& t) {
   best::strbuf haystack = "a complicated string. see solomon: 🐈‍⬛";
 
   t.expect_eq(haystack.split_on("solomon"),
-              std::pair{"a complicated string. see ", ": 🐈‍⬛"});
+              best::row{"a complicated string. see ", ": 🐈‍⬛"});
   t.expect_eq(haystack.split_on("daisy"), best::none);
   t.expect_eq(haystack.split_on(u"solomon"),
-              std::pair{"a complicated string. see ", ": 🐈‍⬛"});
+              best::row{"a complicated string. see ", ": 🐈‍⬛"});
   t.expect_eq(haystack.split_on(u"daisy"), best::none);
 
   t.expect_eq(haystack.split_on(U'🐈'),
-              std::pair{"a complicated string. see solomon: ", "\u200d⬛"});
+              best::row{"a complicated string. see solomon: ", "\u200d⬛"});
   t.expect_eq(haystack.split_on('z'), best::none);
   t.expect_eq(haystack.split_on(U'🍣'), best::none);
   t.expect_eq(haystack.split_on(U"🐈‍⬛"),
-              std::pair{"a complicated string. see solomon: ", ""});
+              best::row{"a complicated string. see solomon: ", ""});
 
   t.expect_eq(haystack.split_on(&rune::is_ascii_punct),
-              std::pair{"a complicated string", " see solomon: 🐈‍⬛"});
+              best::row{"a complicated string", " see solomon: 🐈‍⬛"});
 };
 }  // namespace best::strbuf_test

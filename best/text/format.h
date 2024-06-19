@@ -174,7 +174,8 @@ struct format_spec final {
         BestFmtQuery(query, best::as_ptr<T>());
       }
       return query;
-    }();
+    }
+    ();
   };
 
   constexpr bool operator==(const format_spec&) const = default;

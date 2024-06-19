@@ -244,7 +244,8 @@ class span final {
     if (data == nullptr) return {data, 0};
 
     auto ptr = data;
-    while (*ptr++ != T{0});
+    while (*ptr++ != T{0})
+      ;
 
     return best::span(data, ptr - data - 1);
   }
@@ -294,16 +295,16 @@ class span final {
   ///
   /// Returns the first, or first `m`, elements of this span, and the remaining
   /// elements, or `best::none` if there are not enough elements.
-  constexpr best::option<std::pair<T&, span<T, minus<1>>>> split_first() const {
+  constexpr best::option<best::row<T&, span<T, minus<1>>>> split_first() const {
     return split_first(best::index<1>).map([](auto pair) {
-      return std::pair<T&, span<T, minus<1>>>{pair.first[0], pair.second};
+      return best::row<T&, span<T, minus<1>>>{pair.first()[0], pair.second()};
     });
   }
   template <size_t m>
-  constexpr best::option<std::pair<span<T, m>, span<T, minus<m>>>> split_first(
+  constexpr best::option<best::row<span<T, m>, span<T, minus<m>>>> split_first(
       best::index_t<m> = {}) const {
     return at({.end = m}).map(best::ctor<span<T, m>>).map([&](auto ch) {
-      return std::pair{ch, span<T, minus<m>>(operator[]({.start = m}))};
+      return best::row{ch, span<T, minus<m>>(operator[]({.start = m}))};
     });
   }
 
@@ -311,18 +312,18 @@ class span final {
   ///
   /// Returns the last, or last `m`, elements of this span, and the remaining
   /// elements, or `best::none` if there are not enough elements.
-  constexpr best::option<std::pair<T&, span<T, minus<1>>>> split_last() const {
+  constexpr best::option<best::row<T&, span<T, minus<1>>>> split_last() const {
     return split_last(best::index<1>).map([](auto pair) {
-      return std::pair<T&, span<T, minus<1>>>{pair.first[0], pair.second};
+      return best::row<T&, span<T, minus<1>>>{pair.first()[0], pair.second()};
     });
   }
   template <size_t m>
-  constexpr best::option<std::pair<span<T, m>, span<T, minus<m>>>> split_last(
+  constexpr best::option<best::row<span<T, m>, span<T, minus<m>>>> split_last(
       best::index_t<m> = {}) const {
     return at({.start = size() - m})
         .map(best::ctor<span<T, m>>)
         .map([&](auto ch) {
-          return std::pair{
+          return best::row{
               ch,
               span<T, minus<m>>(operator[]({.end = size() - m})),
           };

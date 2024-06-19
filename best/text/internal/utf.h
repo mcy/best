@@ -53,7 +53,7 @@ constexpr bool validate_utf8_fast(const char* data, size_t len) {
   return true;
 }
 
-constexpr best::result<std::pair<size_t, uint32_t>, encoding_error> decode8(
+constexpr best::result<best::row<size_t, uint32_t>, encoding_error> decode8(
     best::span<const char> input) {
   // This function is unfortunately a build-time hot-spot, so we can't use
   // nice helper functions from best::span here.
@@ -87,7 +87,7 @@ constexpr best::result<std::pair<size_t, uint32_t>, encoding_error> decode8(
   return best::ok(bytes, value);
 }
 
-constexpr best::result<std::pair<size_t, uint32_t>, encoding_error> undecode8(
+constexpr best::result<best::row<size_t, uint32_t>, encoding_error> undecode8(
     best::span<const char> input) {
   size_t len = 0;
   for (; len < 4; ++len) {
@@ -102,7 +102,8 @@ constexpr best::result<std::pair<size_t, uint32_t>, encoding_error> undecode8(
   if (len == 4) return encoding_error::Invalid;
 
   auto result = decode8(input[{.start = input.size() - len - 1}]);
-  if (!result || result->first != len) return encoding_error::Invalid;
+  if (!result || result->at(best::index<0>) != len)
+    return encoding_error::Invalid;
   return result;
 }
 
@@ -135,7 +136,7 @@ inline constexpr uint32_t High = 0xd800;
 inline constexpr uint32_t Low = 0xdc00;
 inline constexpr uint32_t Max = 0xe000;
 
-constexpr best::result<std::pair<size_t, uint32_t>, encoding_error> decode16(
+constexpr best::result<best::row<size_t, uint32_t>, encoding_error> decode16(
     best::span<const char16_t> input) {
   auto hi = input.first().ok_or(encoding_error::OutOfBounds);
 
@@ -151,7 +152,7 @@ constexpr best::result<std::pair<size_t, uint32_t>, encoding_error> decode16(
   return best::ok(2, value + 0x10000);
 }
 
-constexpr best::result<std::pair<size_t, uint32_t>, encoding_error> undecode16(
+constexpr best::result<best::row<size_t, uint32_t>, encoding_error> undecode16(
     best::span<const char16_t> input) {
   auto hi = input.first().ok_or(encoding_error::OutOfBounds);
   BEST_GUARD(hi);
@@ -161,7 +162,8 @@ constexpr best::result<std::pair<size_t, uint32_t>, encoding_error> undecode16(
   if (input.size() < len) return encoding_error::OutOfBounds;
 
   auto result = decode16(input[{.start = input.size() - len}]);
-  if (!result || result->first != len) return encoding_error::Invalid;
+  if (!result || result->at(best::index<0>) != len)
+    return encoding_error::Invalid;
   return result;
 }
 

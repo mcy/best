@@ -145,8 +145,7 @@ auto common_impl(best::rank<1>, auto... args) -> decltype(common_ord(args...));
 void common_impl(best::rank<0>, auto...);
 
 template <typename... Ts>
-using common =
-    decltype(common_impl(best::rank<1>{}, best::lie<Ts>...));
+using common = decltype(common_impl(best::rank<1>{}, best::lie<Ts>...));
 
 template <typename Cb>
 class chain final {
@@ -166,4 +165,4 @@ class chain final {
 };
 }  // namespace best::ord_internal
 
-#endif  // BEST_BASE_UNSAFE_H_
+#endif  // BEST_BASE_INTERNAL_ORD_H_

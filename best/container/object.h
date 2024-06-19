@@ -233,7 +233,13 @@ class object_ptr final {
   BEST_INLINE_SYNTHETIC constexpr void construct_in_place(Args&&... args) const
     requires best::constructible<T, Args&&...>
   {
-    if constexpr (best::is_object<T>) {
+    if constexpr (std::is_bounded_array_v<T> && sizeof...(Args) == 1 &&
+                  ((std::extent_v<best::as_auto<Args>> ==
+                    std::extent_v<T>)&&...)) {
+      for (size_t i = 0; i < std::extent_v<T>; ++i) {
+        std::construct_at(best::addr((*raw())[i]), args[i]...);
+      }
+    } else if constexpr (best::is_object<T>) {
       std::construct_at(raw(), BEST_FWD(args)...);
     } else if constexpr (best::is_ref<T>) {
       *const_cast<best::unqual<pointee>*>(raw()) = best::addr(args...);
@@ -300,7 +306,13 @@ class object_ptr final {
   BEST_INLINE_SYNTHETIC constexpr void assign(Args&&... args) const
     requires best::assignable<T, Args&&...>
   {
-    if constexpr (best::is_object<T>) {
+    if constexpr (std::is_bounded_array_v<T> && sizeof...(Args) == 1 &&
+                  ((std::extent_v<best::as_auto<Args>> ==
+                    std::extent_v<T>)&&...)) {
+      for (size_t i = 0; i < std::extent_v<T>; ++i) {
+        (*this)[i] = (args[i], ...);
+      }
+    } else if constexpr (best::is_object<T>) {
       **this = (BEST_FWD(args), ...);
     } else {
       construct_in_place(BEST_FWD(args)...);
@@ -431,13 +443,15 @@ class object final :
   /// constructor.
   template <typename... Args>
   constexpr explicit object(best::in_place_t, Args&&... args)
-    requires best::constructible<T, Args&&...> && (!best::is_object<T>)
+    requires best::constructible<T, Args&&...> &&
+             (!best::is_object<T> || std::is_array_v<T>)
   {
     as_ptr().construct_in_place(BEST_FWD(args)...);
   }
   template <typename... Args>
   constexpr explicit object(best::in_place_t, Args&&... args)
-    requires best::constructible<T, Args&&...> && best::is_object<T>
+    requires best::constructible<T, Args&&...> &&
+             (best::is_object<T> && !std::is_array_v<T>)
       : base(best::in_place, BEST_FWD(args)...) {}
   constexpr explicit object(best::in_place_t, best::niche)
     requires best::is_ref<T>

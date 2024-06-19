@@ -183,8 +183,8 @@ best::test FrontAndBack = [](auto& t) {
   t.expect_eq(empty.last<0>(), empty);
   t.expect_eq(empty.split_first(), best::none);
   t.expect_eq(empty.split_last(), best::none);
-  t.expect_eq(empty.split_first<0>(), std::pair{empty, empty});
-  t.expect_eq(empty.split_last<0>(), std::pair{empty, empty});
+  t.expect_eq(empty.split_first<0>(), best::row{empty, empty});
+  t.expect_eq(empty.split_last<0>(), best::row{empty, empty});
 
   best::vec<int> ints = {1, 2, 3, 4, 5};
   best::span sp = ints;
@@ -193,11 +193,11 @@ best::test FrontAndBack = [](auto& t) {
   t.expect_eq(sp.last(), 5);
   t.expect_eq(sp.first<2>(), best::span{1, 2});
   t.expect_eq(sp.last<2>(), best::span{4, 5});
-  t.expect_eq(sp.split_first(), std::pair{1, sp[{.start = 1}]});
-  t.expect_eq(sp.split_last(), std::pair{5, sp[{.end = 4}]});
+  t.expect_eq(sp.split_first(), best::row{1, sp[{.start = 1}]});
+  t.expect_eq(sp.split_last(), best::row{5, sp[{.end = 4}]});
   t.expect_eq(sp.split_first<2>(),
-              std::pair{best::span{1, 2}, sp[{.start = 2}]});
-  t.expect_eq(sp.split_last<2>(), std::pair{best::span{4, 5}, sp[{.end = 3}]});
+              best::row{best::span{1, 2}, sp[{.start = 2}]});
+  t.expect_eq(sp.split_last<2>(), best::row{best::span{4, 5}, sp[{.end = 3}]});
 
   int ints2[] = {1, 2, 3, 4, 5};
   best::span sp2 = ints2;
@@ -206,11 +206,11 @@ best::test FrontAndBack = [](auto& t) {
   t.expect_eq(sp2.last(), 5);
   t.expect_eq(sp2.first<2>(), best::span{1, 2});
   t.expect_eq(sp2.last<2>(), best::span{4, 5});
-  t.expect_eq(sp2.split_first(), std::pair{1, sp[{.start = 1}]});
-  t.expect_eq(sp2.split_last(), std::pair{5, sp[{.end = 4}]});
+  t.expect_eq(sp2.split_first(), best::row{1, sp[{.start = 1}]});
+  t.expect_eq(sp2.split_last(), best::row{5, sp[{.end = 4}]});
   t.expect_eq(sp2.split_first<2>(),
-              std::pair{best::span{1, 2}, sp[{.start = 2}]});
-  t.expect_eq(sp2.split_last<2>(), std::pair{best::span{4, 5}, sp[{.end = 3}]});
+              best::row{best::span{1, 2}, sp[{.start = 2}]});
+  t.expect_eq(sp2.split_last<2>(), best::row{best::span{4, 5}, sp[{.end = 3}]});
 };
 
 best::test Swap = [](auto& t) {
