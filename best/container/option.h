@@ -846,7 +846,7 @@ constexpr option<T>::rref option<T>::value(best::location loc) && {
 
 template <typename T>
 constexpr auto option<T>::map(auto&& f) const& {
-  using U = best::call_result_with_void<decltype(f), cref>;
+  using U = best::call_result<decltype(f), cref>;
   return impl().match([](best::index_t<0>) -> option<U> { return best::none; },
                       [&](best::index_t<1>, auto&&... args) -> option<U> {
                         return best::call(BEST_FWD(f), BEST_FWD(args)...);
@@ -854,7 +854,7 @@ constexpr auto option<T>::map(auto&& f) const& {
 }
 template <typename T>
 constexpr auto option<T>::map(auto&& f) & {
-  using U = best::call_result_with_void<decltype(f), ref>;
+  using U = best::call_result<decltype(f), ref>;
   return impl().match([](best::index_t<0>) -> option<U> { return best::none; },
                       [&](best::index_t<1>, auto&&... args) -> option<U> {
                         return best::call(BEST_FWD(f), BEST_FWD(args)...);
@@ -862,7 +862,7 @@ constexpr auto option<T>::map(auto&& f) & {
 }
 template <typename T>
 constexpr auto option<T>::map(auto&& f) const&& {
-  using U = best::call_result_with_void<decltype(f), crref>;
+  using U = best::call_result<decltype(f), crref>;
   return moved().impl().match(
       [](best::index_t<0>) -> option<U> { return best::none; },
       [&](best::index_t<1>, auto&&... args) -> option<U> {
@@ -871,7 +871,7 @@ constexpr auto option<T>::map(auto&& f) const&& {
 }
 template <typename T>
 constexpr auto option<T>::map(auto&& f) && {
-  using U = best::call_result_with_void<decltype(f), rref>;
+  using U = best::call_result<decltype(f), rref>;
   return moved().impl().match(
       [](best::index_t<0>) -> option<U> { return best::none; },
       [&](best::index_t<1>, auto&&... args) -> option<U> {
@@ -931,7 +931,7 @@ constexpr option<T>&& option<T>::inspect(auto&& f) && {
 
 template <typename T>
 constexpr auto option<T>::then(auto&& f) const& {
-  using U = best::unref<best::call_result_with_void<decltype(f), cref>>;
+  using U = best::unref<best::call_result<decltype(f), cref>>;
   return impl().match([](best::index_t<0>) -> U { return best::none; },
                       [&](best::index_t<1>, auto&&... args) -> U {
                         return best::call(BEST_FWD(f), BEST_FWD(args)...);
@@ -939,7 +939,7 @@ constexpr auto option<T>::then(auto&& f) const& {
 }
 template <typename T>
 constexpr auto option<T>::then(auto&& f) & {
-  using U = best::unref<best::call_result_with_void<decltype(f), ref>>;
+  using U = best::unref<best::call_result<decltype(f), ref>>;
   return impl().match([](best::index_t<0>) -> U { return best::none; },
                       [&](best::index_t<1>, auto&&... args) -> U {
                         return best::call(BEST_FWD(f), BEST_FWD(args)...);
@@ -947,7 +947,7 @@ constexpr auto option<T>::then(auto&& f) & {
 }
 template <typename T>
 constexpr auto option<T>::then(auto&& f) const&& {
-  using U = best::unref<best::call_result_with_void<decltype(f), crref>>;
+  using U = best::unref<best::call_result<decltype(f), crref>>;
   return moved().impl().match([](best::index_t<0>) -> U { return best::none; },
                               [&](best::index_t<1>, auto&&... args) -> U {
                                 return best::call(BEST_FWD(f),
@@ -956,7 +956,7 @@ constexpr auto option<T>::then(auto&& f) const&& {
 }
 template <typename T>
 constexpr auto option<T>::then(auto&& f) && {
-  using U = best::unref<best::call_result_with_void<decltype(f), rref>>;
+  using U = best::unref<best::call_result<decltype(f), rref>>;
   return moved().impl().match([](best::index_t<0>) -> U { return best::none; },
                               [&](best::index_t<1>, auto&&... args) -> U {
                                 return best::call(BEST_FWD(f),

@@ -2,7 +2,6 @@
 #define BEST_TEXT_INTERNAL_FORMAT_PARSER_H_
 
 #include "best/base/fwd.h"
-#include "best/meta/ops.h"
 #include "best/text/str.h"
 
 namespace best::format_internal {

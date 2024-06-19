@@ -13,6 +13,15 @@ namespace best {
 template <typename T>
 concept type_trait = requires { typename T::type; };
 
+/// # `best::extract_trait<T>
+///
+/// A helper for extracting a type trait.
+///
+/// For example, passing this to `map` on a type list will evaluate all type
+/// traits therein.
+template <best::type_trait T>
+using extract_trait = T::type;
+
 /// # `best::value_trait`
 ///
 /// Whether `T` is a value trait, i.e., a type with a static data member named
@@ -45,7 +54,7 @@ using select = traits_internal::select<cond, A, B>::type;
 /// Selects one of two type traits depending on a boolean condition, and
 /// extracts the result. This is useful for delaying materialization of an
 /// illegal construction if it would not be selected.
-template <bool cond, best::type_trait A, type_trait B>
+template <bool cond, best::type_trait A, best::type_trait B>
 using select_trait = traits_internal::select<cond, A, B>::type::type;
 }  // namespace best
 

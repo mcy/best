@@ -14,7 +14,6 @@
 #include "best/container/pun.h"
 #include "best/math/int.h"
 #include "best/meta/init.h"
-#include "best/meta/ops.h"
 #include "best/meta/tags.h"
 
 //! Internal implementation of best::choice.
@@ -75,7 +74,7 @@ class niched {
   using type = decltype(types)::template type<n>;
 
   static constexpr size_t NonEmpty =
-      *types.index([]<typename T> { return best::has_niche<T>; });
+      *types.find([]<typename T> { return best::has_niche<T>; });
   static constexpr size_t Empty = NonEmpty == 0 ? 1 : 0;
 
   constexpr niched() = default;
@@ -299,7 +298,7 @@ class impl : public storage<Ts...> {
   template <typename F, size_t... i>
   constexpr static auto make_jump_table(std::index_sequence<i...>) {
     // TODO(mcyoung): It'd be nice to use common_type here...
-    using Output = decltype(best::call(std::declval<F>(), best::index<0>));
+    using Output = best::call_result<F, best::index_t<0>>;
 
     return std::array<Output (*)(F&&), sizeof...(Ts)>{
         {+[](F&& callback) -> Output {

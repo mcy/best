@@ -167,8 +167,9 @@ concept destructible =
 ///
 /// Currently only available for object types.
 template <best::is_object T>
-inline constexpr auto ctor =
-    [](auto&&... args) -> T { return T{BEST_FWD(args)...}; };
+inline constexpr auto ctor = [](auto&&... args) -> T
+  requires best::constructible<T, decltype(args)...>
+{ return T{BEST_FWD(args)...}; };
 
 }  // namespace best
 

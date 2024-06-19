@@ -109,7 +109,7 @@ class choice final {
 
  private:
   template <typename Arg>
-  static constexpr auto convert_from = types.unique_index([]<typename T> {
+  static constexpr auto convert_from = types.find_unique([]<typename T> {
     return !best::is_void<T> && best::convertible<T, best::as_rref<Arg>>;
   });
 

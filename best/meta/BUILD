@@ -91,6 +91,7 @@ cc_library(
     ":traits",
     "//best/base:fwd",
     "//best/container:bounds",
+    "//best/func:call",
   ]
 )
 
