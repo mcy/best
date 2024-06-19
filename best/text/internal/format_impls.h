@@ -6,12 +6,24 @@
 #include "best/text/rune.h"
 #include "best/text/str.h"
 
+//! Misc. formatting impls that don't have a clear other place to live.
+
 namespace best {
 void BestFmt(auto& fmt, bool value) {
   value ? fmt.write("true") : fmt.write("false");
 }
+template <typename T>
+constexpr void BestFmtQuery(auto& query, bool* range) {
+  query.requires_debug = false;
+  query.supports_width = true;
+}
 
 void BestFmt(auto& fmt, std::byte value) { fmt.format(uint8_t(value)); }
+constexpr void BestFmtQuery(auto& query, std::byte*) {
+  query.requires_debug = false;
+  query.supports_width = true;
+  query.uses_method = [](auto r) { return str("boxX").contains(r); };
+}
 
 template <typename T>
 void BestFmt(auto& fmt, T* value) {
@@ -59,75 +71,81 @@ void BestFmt(auto& fmt, const std::pair<A, B> value) {
 }
 
 void BestFmt(auto& fmt, integer auto value) {
-  // TODO: Implement padding.
+  // Taken liberally from Rust's implementation of Formatter::pad_integral().
+
+  // First, select the base and prefix.
   uint32_t base = 10;
+  best::str prefix;
   bool uppercase = false;
   switch (fmt.current_spec().method.value_or()) {
     case 'b':
       base = 2;
+      prefix = "0b";
       break;
     case 'o':
       base = 8;
+      prefix = "0";  // In C++, the octal prefix is 0, not 0o
       break;
     case 'X':
       uppercase = true;
       [[fallthrough]];
     case 'x':
       base = 16;
+      prefix = "0x";
       break;
   }
 
-  if (value < 0) {
-    fmt.write("-");
-    value = -value;
-  }
+  bool negative = value < 0;
+  if (negative) value = -value;
 
-  if (fmt.current_spec().alt) {
-    switch (base) {
-      case 2:
-        fmt.write("0b");
-        break;
-      case 8:
-        fmt.write("0");  // In C++, the octal prefix is 0, not 0o
-        break;
-      case 16:
-        fmt.write("0x");
-        break;
-    }
-  }
-
+  // Construct the actual digits.
+  char buf[128];
+  size_t count = 0;
   do {
     rune r = *rune::from_digit(value % base, base);
     if (uppercase) r = r.to_ascii_upper();
 
-    fmt.write(r);
+    buf[128 - count++ - 1] = r;
     value /= base;
   } while (value != 0);
+
+  best::str digits(unsafe("all characters are ascii"),
+                   best::span(buf + 128 - count, count));
+
+  size_t width = count;
+  if (negative) ++width;
+  if (fmt.current_spec().alt) width += prefix.size();
+
+  auto write_prefix = [&] {
+    if (negative) fmt.write('-');
+    if (fmt.current_spec().alt) fmt.write(prefix);
+  };
+
+  size_t min_width = fmt.current_spec().width;
+  if (min_width <= width) {
+    write_prefix();
+    fmt.write(digits);
+  } else if (fmt.current_spec().sign_aware_padding) {
+    write_prefix();
+
+    auto padding = best::saturating_sub(min_width, width);
+    for (size_t i = 0; i < padding; ++i) fmt.write('0');
+    fmt.write(digits);
+  } else {
+    auto fill = fmt.current_spec().fill;
+    auto [pre, post] =
+        fmt.current_spec().compute_padding(width, fmt.current_spec().Right);
+
+    for (size_t i = 0; i < pre; ++i) fmt.write(fill);
+    write_prefix();
+    fmt.write(digits);
+    for (size_t i = 0; i < post; ++i) fmt.write(fill);
+  }
 }
 constexpr void BestFmtQuery(auto& query, integer auto*) {
   query.requires_debug = false;
   query.supports_width = true;
   query.uses_method = [](auto r) { return str("boxX").contains(r); };
-}
-
-void BestFmt(auto& fmt, const best::string_type auto& str) {
-  // TODO: Implement padding.
-  if (fmt.current_spec().method != 'q' && !fmt.current_spec().debug) {
-    fmt.write(str);
-    return;
-  }
-
-  // Quoted string.
-  fmt.write('"');
-  for (rune r : rune::iter(str)) {
-    fmt.format("{}", r.escaped());
-  }
-  fmt.write('"');
-}
-constexpr void BestFmtQuery(auto& query, best::string_type auto*) {
-  query.requires_debug = false;
-  query.supports_width = true;
-  query.uses_method = [](rune r) { return r == 'q'; };
 }
 
 // TODO: invent ranges/iterator traits.

@@ -650,9 +650,15 @@ class vec final {
 
 template <typename T>
 vec(std::initializer_list<T>) -> vec<T>;
+}  // namespace best
 
-// --- IMPLEMENTATION DETAILS BELOW ---
+/******************************************************************************/
 
+///////////////////// !!! IMPLEMENTATION DETAILS BELOW !!! /////////////////////
+
+/******************************************************************************/
+
+namespace best {
 template <best::relocatable T, size_t max_inline, best::allocator A>
 vec<T, max_inline, A>::vec(const vec& that)
   requires best::copyable<T> && best::copyable<alloc>

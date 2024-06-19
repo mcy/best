@@ -118,8 +118,8 @@ class layout final {
 
   friend void BestFmt(auto& fmt, layout ly) {
     auto rec = fmt.record();
-    rec.field({}, "size", fmt.current_spec(), ly.size());
-    rec.field({}, "align", fmt.current_spec(), ly.align());
+    rec.field("size", ly.size());
+    rec.field("align", ly.align());
   }
 
  private:

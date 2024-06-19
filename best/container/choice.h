@@ -196,6 +196,17 @@ class choice final {
   template <size_t n> constexpr rref<n> at(unsafe, best::index_t<n> = {}) &&;
   // clang-format on
 
+  /// # `choice::object(index<n>)`
+  ///
+  /// Returns the `n`th alternative as a reference to a `best::object`. If
+  /// `which() != n`, returns best::none.
+  // clang-format off
+  template <size_t n> constexpr best::option<const best::object<type<n>>&> object(best::index_t<n> = {}) const&;
+  template <size_t n> constexpr best::option<best::object<type<n>>&> object(best::index_t<n> = {}) &;
+  template <size_t n> constexpr best::option<const best::object<type<n>>&&> object(best::index_t<n> = {}) const&&;
+  template <size_t n> constexpr best::option<best::object<type<n>>&&> object(best::index_t<n> = {}) &&;
+  // clang-format on
+
   /// # `choice::as_ptr()`
   ///
   /// Extracts the `n`th alternative as a pointer. Returns `nullptr` if
@@ -293,9 +304,7 @@ class choice final {
     ch.match(
         [&]<size_t n>(best::index_t<n>) { fmt.format("choice<{}>(void)", n); },
         [&](auto idx, const auto& value) {
-          fmt.format("choice<{}>(", idx.value);
-          fmt.format(value);
-          fmt.write(")");
+          fmt.format("choice<{}>({:!})", idx.value, value);
         });
   }
 
@@ -371,9 +380,15 @@ class choice final {
   // name.
 #define BEST_CHOICE_IMPL_ private_
 };
+}  // namespace best
 
-/// --- IMPLEMENTATION DETAILS BELOW ---
+/******************************************************************************/
 
+///////////////////// !!! IMPLEMENTATION DETAILS BELOW !!! /////////////////////
+
+/******************************************************************************/
+
+namespace best {
 template <typename... A>
 template <size_t n>
 constexpr choice<A...>::cref<n> choice<A...>::operator[](
@@ -438,6 +453,39 @@ choice<A...>::at(best::index_t<n> i) && {
   return best::call_devoid([&]() -> decltype(auto) {
     return impl().move(unsafe{"checked which() before this"}, i);
   });
+}
+
+template <typename... A>
+template <size_t n>
+constexpr best::option<
+    const best::object<typename choice<A...>::template type<n>>&>
+choice<A...>::object(best::index_t<n> i) const& {
+  if (which() != n) return {};
+  return impl().object(unsafe{"checked which() before this"}, i);
+}
+template <typename... A>
+template <size_t n>
+constexpr best::option<best::object<typename choice<A...>::template type<n>>&>
+choice<A...>::object(best::index_t<n> i) & {
+  if (which() != n) return {};
+  return impl().object(unsafe{"checked which() before this"}, i);
+}
+template <typename... A>
+template <size_t n>
+constexpr best::option<
+    const best::object<typename choice<A...>::template type<n>>&&>
+choice<A...>::object(best::index_t<n> i) const&& {
+  if (which() != n) return {};
+  return static_cast<const best::object<type<n>>&&>(
+      impl().object(unsafe{"checked which() before this"}, i));
+}
+template <typename... A>
+template <size_t n>
+constexpr best::option<best::object<typename choice<A...>::template type<n>>&&>
+choice<A...>::object(best::index_t<n> i) && {
+  if (which() != n) return {};
+  static_cast<best::object<type<n>>&&>(
+      impl().object(unsafe{"checked which() before this"}, i));
 }
 
 template <typename... A>

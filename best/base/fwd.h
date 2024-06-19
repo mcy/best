@@ -3,6 +3,8 @@
 
 #include <stddef.h>
 
+#include <cstdint>
+
 //! Forward declarations of all types in best that can be forward-declared.
 //!
 //! This header is used both for breaking dependency cycles within best, and
@@ -57,6 +59,10 @@ struct empty;
 // best/meta/tlist.h
 template <typename...>
 class tlist;
+
+// best/text/encoding.h
+struct encoding_about;
+enum class encoding_error : uint8_t;
 
 // best/text/rune.h
 class rune;

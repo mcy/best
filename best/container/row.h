@@ -149,6 +149,16 @@ class row final
   template <size_t n> constexpr rref<n> at(best::index_t<n> = {}) &&;
   // clang-format on
 
+  /// # `row::object(index<n>)`
+  ///
+  /// Identical to `operator[]`, but returns a reference to a `best::object`.
+  // clang-format off
+  template <size_t n> constexpr const best::object<type<n>>& object(best::index_t<n> = {}) const&;
+  template <size_t n> constexpr best::object<type<n>>& object(best::index_t<n> = {}) &;
+  template <size_t n> constexpr const best::object<type<n>>&& object(best::index_t<n> = {}) const&&;
+  template <size_t n> constexpr best::object<type<n>>&& object(best::index_t<n> = {}) &&;
+  // clang-format on
+
   /// # `row::at(index<n>)`
   ///
   /// Identical to `operator[]` in all ways except that when we would return a
@@ -187,7 +197,9 @@ class row final
     requires requires(best::object<Elems>... els) { (fmt.format(els), ...); }
   {
     auto tup = fmt.tuple();
-    row.apply([&](const auto&... x) { (tup.entry(x), ...); });
+    return indices.apply([&]<typename... I> {
+      return (tup.entry(row.object(best::index<I::value>)), ...);
+    });
   }
 
   template <typename Q>
@@ -251,9 +263,15 @@ struct row_forward final {
         [](auto&&... args) { return T(BEST_FWD(args)...); });
   }
 };
+}  // namespace best
 
-/// --- IMPLEMENTATION DETAILS BELOW ---
+/******************************************************************************/
 
+///////////////////// !!! IMPLEMENTATION DETAILS BELOW !!! /////////////////////
+
+/******************************************************************************/
+
+namespace best {
 template <typename... A>
 constexpr auto row<A...>::forward() const& {
   return apply([](auto&&... args) {
@@ -343,6 +361,40 @@ constexpr row<A...>::rref<n> row<A...>::at(best::index_t<n> idx) && {
   using T = type<n>;
   using B = best::ebo<best::object<T>, T, n>;
   return static_cast<best::as_rref<T>>(*static_cast<B&>(*this).get());
+}
+
+template <typename... A>
+template <size_t n>
+constexpr const best::object<typename row<A...>::template type<n>>&
+row<A...>::object(best::index_t<n> i) const& {
+  using T = type<n>;
+  using B = best::ebo<best::object<T>, T, n>;
+  return static_cast<const B&>(*this).get();
+}
+template <typename... A>
+template <size_t n>
+constexpr best::object<typename row<A...>::template type<n>>& row<A...>::object(
+    best::index_t<n> i) & {
+  using T = type<n>;
+  using B = best::ebo<best::object<T>, T, n>;
+  return static_cast<const B&>(*this).get();
+}
+template <typename... A>
+template <size_t n>
+constexpr const best::object<typename row<A...>::template type<n>>&&
+row<A...>::object(best::index_t<n> i) const&& {
+  using T = type<n>;
+  using B = best::ebo<best::object<T>, T, n>;
+  return static_cast<const best::object<T>&&>(
+      static_cast<const B&>(*this).get());
+}
+template <typename... A>
+template <size_t n>
+constexpr best::object<typename row<A...>::template type<n>>&&
+row<A...>::object(best::index_t<n> i) && {
+  using T = type<n>;
+  using B = best::ebo<best::object<T>, T, n>;
+  return static_cast<best::object<T>&&>(static_cast<const B&>(*this).get());
 }
 
 template <typename... A>

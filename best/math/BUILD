@@ -34,6 +34,16 @@ cc_library(
   ]
 )
 
+cc_test(
+  name = "conv_test",
+  srcs = ["conv_test.cc"],
+  linkopts = ["-rdynamic"],
+  deps = [
+    ":conv",
+    "//best/test",
+  ]
+)
+
 cc_library(
   name = "int",
   hdrs = [

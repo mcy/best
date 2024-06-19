@@ -496,9 +496,15 @@ class textbuf final {
   buf buf_;
   [[no_unique_address]] encoding enc_;
 };
+}  // namespace best
 
-/// --- IMPLEMENTATION DETAILS BELOW ---
+/******************************************************************************/
 
+///////////////////// !!! IMPLEMENTATION DETAILS BELOW !!! /////////////////////
+
+/******************************************************************************/
+
+namespace best {
 template <encoding E, allocator A>
 best::option<textbuf<E, A>> textbuf<E, A>::from(alloc alloc,
                                                 best::span<const code> data,

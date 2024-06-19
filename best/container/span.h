@@ -711,9 +711,15 @@ span(std::initializer_list<T>) -> span<const T>;
 template <contiguous R>
 span(R&& r) -> span<std::remove_reference_t<decltype(*std::data(r))>,
                     best::static_size<R>>;
+}  // namespace best
 
-// --- IMPLEMENTATION DETAILS BELOW ---
+/******************************************************************************/
 
+///////////////////// !!! IMPLEMENTATION DETAILS BELOW !!! /////////////////////
+
+/******************************************************************************/
+
+namespace best {
 template <best::object_type T, best::option<size_t> n>
 struct span<T, n>::iter final {
   constexpr iter() = default;

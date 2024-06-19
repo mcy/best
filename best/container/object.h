@@ -391,7 +391,9 @@ using wrap = std::remove_pointer_t<decltype(wrap_impl<T>())>;
 /// This type wraps any `T` and reproduces its properties. The wrapped `T` can
 /// be accessed via `operator*` and `operator->`.
 template <typename T>
-class object final : best::ebo<object_internal::wrap<T>, T> {
+class object final :
+    // Public so we can be structural.
+    public best::ebo<object_internal::wrap<T>, T> {
  private:
   using base = best::ebo<object_internal::wrap<T>, T>;
 

@@ -1,12 +1,10 @@
 #ifndef BEST_CONTAINER_INTERNAL_PUN_H_
 #define BEST_CONTAINER_INTERNAL_PUN_H_
 
-#include <memory>
 #include <type_traits>
 
 #include "best/base/port.h"
 #include "best/container/object.h"
-#include "best/meta/concepts.h"
 #include "best/meta/tags.h"
 
 //! Internal implementation of best::pun.
@@ -84,15 +82,8 @@ union BEST_RELOCATABLE impl<info, H, T...> {
   BEST_IGNORE_GCC_DIAGNOSTIC("-Wc++11-narrowing")
   template <typename... Args>
   constexpr explicit impl(best::index_t<0>, Args&&... args)
-    requires best::object_type<H>
-      : h_(BEST_FWD(args)...) {}
+      : h_(best::in_place, BEST_FWD(args)...) {}
   BEST_POP_GCC_DIAGNOSTIC()
-
-  template <typename... Args>
-  constexpr explicit impl(best::index_t<0>, Args&&... args) : h_{} {
-    best::object_ptr<H>(std::addressof(h_))
-        .construct_in_place(BEST_FWD(args)...);
-  }
 
   template <size_t n, typename... Args>
   constexpr explicit impl(best::index_t<n>, Args&&... args)
@@ -126,7 +117,7 @@ union BEST_RELOCATABLE impl<info, H, T...> {
 
   /// NOTE: This type (and the union members) have very short names
   /// to minimize the size of mangled symbols that contain puns.
-  typename best::object<H>::wrapped_type h_;
+  best::object<H> h_;
   impl<info, T...> t_;
 };
 }  // namespace best::pun_internal

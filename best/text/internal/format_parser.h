@@ -111,6 +111,16 @@ constexpr bool visit_template(const char* data, size_t len, Print print,
       continue;
     }
 
+    // This is a fast-path for `{:!}`
+    if (len >= 3 && data[0] == ':' && data[1] == '1' && data[2] == '}') {
+      data += 3;
+      len -= 3;
+      args.pass_through = true;
+      args.debug = true;
+      if (!best::call(interpolate, idx++, args)) return false;
+      continue;
+    }
+
     auto atoi = [&]() -> uint32_t {
       // Parse digits for an explicit index.
       auto count = find(data, len, [](char c) { return c < '0' || c > '9'; });
@@ -144,6 +154,13 @@ constexpr bool visit_template(const char* data, size_t len, Print print,
       }
     }
     if (len == 0) return false;
+
+    if (consume_prefix(data, len, '!')) {
+      args.pass_through = true;
+      args.debug = true;
+      if (!best::call(interpolate, idx++, args)) return false;
+      continue;
+    }
 
     bool have_align = false;
     auto parse_align = [&](char r) {
@@ -180,7 +197,11 @@ constexpr bool visit_template(const char* data, size_t len, Print print,
 
     // Parse for '#' and '0'.
     if (consume_prefix(data, len, '#')) args.alt = true;
-    if (consume_prefix(data, len, '0')) args.sign_aware_padding = true;
+    if (consume_prefix(data, len, '0')) {
+      // Cannot specify '0' with an explicit fill+alignment.
+      if (have_align) return false;
+      args.sign_aware_padding = true;
+    }
     if (len == 0) return false;
 
     // Now, try parsing a width.
@@ -277,5 +298,22 @@ struct has_fmt_query {
   static constexpr bool value =
       !best::void_type<decltype(check(best::as_ptr<T>()))>;
 };
+
+struct unprintable final {
+  const char* bytes_;
+  size_t size_;
+};
+
+void BestFmt(auto& fmt, unprintable& x) {
+  fmt.format("unprintable {}-byte value: `", x.size_);
+  for (size_t i = 0; i < x.size_; ++i) {
+    fmt.format("{:02x}", uint8_t(x.bytes_[i]));
+  }
+  fmt.write("`");
+}
+template <typename T>
+constexpr void BestFmtQuery(auto& query, unprintable*) {
+  query = query.template of<T>;
+}
 }  // namespace best::format_internal
 #endif  // BEST_TEXT_INTERNAL_FORMAT_PARSER_H_

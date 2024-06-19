@@ -8,7 +8,7 @@
 #include "best/container/span.h"
 #include "best/math/bit.h"
 #include "best/meta/guard.h"
-#include "best/text/rune.h"
+#include "best/text/encoding.h"
 
 //! Low-level UTF encode/decode routines.
 

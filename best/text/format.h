@@ -14,7 +14,7 @@
 //! String formatting.
 //!
 //! The `best::formatter` is a `fmtlib`-style formatter for structured printing,
-//! with a Rust `fmt`-like API.
+//! strongly inspired by Rust's `fmt`-like API.
 //!
 //! Values can make themselves formattable by implementing the `BestFmt()`
 //! FTADLE, which should look like this:
@@ -25,6 +25,67 @@
 //!
 //! This function is passed a reference to a `best::formatter` and to the
 //! value being printed.
+//!
+//! ## Format Template Syntax
+//!
+//! A `best::format_template<...>` is a verified formatting template that can
+//! be passed to `best::format` etc. It is constructible from a `constexpr`
+//! string literal that includes format specifiers (wrapped in `{}`) that
+//! represent values to interpolate in from the other arguments to
+//! `best::format`.
+//!
+//! The syntax is very similar to Rust's but with some differences. The full
+//! grammar is this:
+//!
+//! ```
+//! '{'[num][':'['!'][[fill]align]['#']['0'][width]['.' prec][method]['?']]'}'
+//! ```
+//!
+//! * `num`: Which value from the argument list to use. If omitted, this drawn
+//!   from a counter incremented for each `{}` specifier without a number.
+//!
+//! * `!`: Forward from above. This will use whatever formatting style was
+//!   requested by the caller of `BestFmt()`. This is useful for container
+//!   types. Defaults to `?` with no method.
+//!
+//! * `align`: One of `<`, `^`, `>`. Sets the fill and alignment to justify with
+//!   when the output would be smaller than `width`.
+//!
+//! * `#`: Sets the "alternative mode" for printing. `BestFmt` implementations
+//!   can interpret this however they wish. For integers, it adds a radix
+//!   prefix, for `formatter::block`s it makes them multiline, etc.
+//!
+//! * `0`: Sets "sign aware zero padding". Incompatible with `align`. This is
+//!   the behavior of e.g. `%08x` in `printf()`.
+//!
+//! * `width`: Sets the minimum with that should be printed.
+//!
+//! * `prec`: Sets the prevision to print with. This affects the number of
+//!   digits to print for floating point numbers, and the maximum length to
+//!   print from a string.
+//!
+//! * `method`: A single ASCII letter. This is an open-ended extension point for
+//!   types to provide custom formatting directives. Integers use this for
+//!   setting what base they print, e.g. `{:x}`, `{:X}`, `{:b}`, and `{:o}`.
+//!   Strings can be quoted with `{:q}`, and pointer-like types can have their
+//!   address printed with `{:p}`. It ius
+//!
+//! * `?`: Whether this is "debug printing". Debug printing has fewer guarantees
+//!   on output. By default, all `BestFmt()` implementations only allow debug
+//!   printing.
+//!
+//! To configure which of these options your type supports, implement the
+//! `BestFmtQuery()` FTADLE, as directed in `best::format_spec::query`.
+//!
+//! ## Using the formatter.
+//!
+//! The main entry point is `best::format()`. You call it with a format template
+//! string and some arguments to interpolate. The syntax of the template is
+//! checked at compile time, as is whether the supplied arguments are compatible
+//! with it.
+//!
+//! `best::println()` and friends can be used to write directly to
+//! stderr/stdout.
 
 namespace best {
 /// # `best::formattable`
@@ -48,22 +109,17 @@ struct format_spec final {
   /// An alignment for a formatting operation that specifies a `width`.
   enum align { Left, Center, Right };
 
-  /// Common formatting methods.
-  static constexpr rune Hex = 'x';
-  static constexpr rune UpperHex = 'X';
-  static constexpr rune Octal = 'o';
-  static constexpr rune Binary = 'b';
-  static constexpr rune Pointer = 'p';
-
   /// Whether the `#` flag was passed. This usually
   bool alt = false;
   /// Whether the `?` flag was passed.
   bool debug = false;
   /// Whether the `0` flag was passed.
   bool sign_aware_padding = false;
+  /// If set, don't override any currently set specs.
+  bool pass_through = false;
 
   /// How to align the result within the padding.
-  align alignment = Right;
+  best::option<align> alignment = Right;
 
   /// What to fill the padding with.
   best::rune fill = ' ';
@@ -74,8 +130,15 @@ struct format_spec final {
   /// The maximum precision this formatting operation should use.
   best::option<uint32_t> prec;
 
-  /// The method to format with, represented as a character.
+  /// The method to format with, represented as a single rune.
   best::option<best::rune> method;
+
+  /// # `format_spec::compute_padding()`
+  ///
+  /// Computes the padding necessary if we were to respect the padding
+  /// requirements, given a particular number of runes to write.
+  best::row<size_t, size_t> compute_padding(size_t runes_to_write,
+                                            align default_alignment) const;
 
   /// # `format_spec::query`
   ///
@@ -117,7 +180,12 @@ struct format_spec final {
   };
 
   constexpr bool operator==(const format_spec&) const = default;
+
+ private:
+  friend formatter;
+  static const format_spec Default;
 };
+inline constexpr format_spec format_spec::Default{.debug = true};
 
 /// # `best::format_template`
 ///
@@ -129,10 +197,14 @@ struct format_spec final {
 /// within, and `.where()`, which returns the location at which this template
 /// was constructed.
 template <typename... Args>
-using format_template =
-    best::format_internal::templ<format_spec,
-                                 best::dependent<Args, Args...>...>;
+using format_template = best::format_internal::templ<  //
+    format_spec, best::dependent<Args, Args...>...>;
 
+/// # `best::formatter`
+///
+/// The type passed into `BestFmt()`. Not directly user-constructable; instead,
+/// it is constructed by functions like `best::format()` and passed to
+/// user-defined FTADLEs.
 class formatter final {
  public:
   class block;
@@ -157,18 +229,15 @@ class formatter final {
   /// transcoded as-needed.
   void write(rune r);
   void write(const best::string_type auto& string);
+  template <best::encoding E>
+  void write(best::span<const code<E>> data, const E& enc);
 
   /// # `formatter::format()`
   ///
   /// Writes a formatted value directly, potentially overriding the current
   /// specifier configuration.
   void format(const best::formattable auto& arg) { BestFmt(*this, arg); }
-  void format(const best::format_spec& spec,
-              const best::formattable auto& arg) {
-    auto old = std::exchange(cur_spec_, spec);
-    format(arg);
-    cur_spec_ = old;
-  }
+  void format(const best::format_spec& spec, const best::formattable auto& arg);
 
   /// # `formatter::format(template, ...)`
   ///
@@ -202,18 +271,16 @@ class formatter final {
   friend void format(best::strbuf&, best::format_template<Args...>,
                      const Args&...);
 
-  void update_indent() {
-    if (!std::exchange(at_new_line_, false)) return;
-    for (size_t i = 0; i < indent_; ++i) {
-      out_->push_lossy(config_.indent);
-    }
-  }
+  /// Prints indentation if we are at the start of a new line.
+  void update_indent();
+
+  struct vptr;
+  void format_impl(best::str templ, vptr* vtable);
 
   best::strbuf* out_;
-  best::option<const best::format_spec&> cur_spec_;
+  best::option<const best::format_spec&> cur_spec_ = format_spec::Default;
   bool at_new_line_ = false;
   size_t indent_ = 0;
-  size_t bytes_written = 0;
   config config_;
 };
 
@@ -226,51 +293,40 @@ class formatter::block final {
   /// # `block::entry()`
   ///
   /// Submits a single unkeyed entry to this block.
-  void entry(const best::formattable auto& value) {
-    if (!fmt_) return;
-    separator();
-    fmt_->format(value);
-  }
+  void entry(const best::formattable auto& value);
   void entry(const best::format_spec& spec,
-             const best::formattable auto& value) {
-    if (!fmt_) return;
-    separator();
-    fmt_->format(spec, value);
-  }
+             const best::formattable auto& value);
 
   /// # `block::field()`
   ///
+  /// Submits a single keyed entry to this block. This is a wrapper over
+  /// `pair()` that always uses a default formatting spec (a `{}`) for the key.
+  void field(best::str name, const best::formattable auto& value);
+  void field(best::str name, const best::format_spec& v_spec,
+             const best::formattable auto& value);
+
+  /// # `block::pair()`
+  ///
   /// Submits a single keyed entry to this block.
-  void field(const best::formattable auto& key,
-             const best::formattable auto& value) {
-    if (!fmt_) return;
-    separator();
-    fmt_->format(key);
-    fmt_->write(": ");
-    fmt_->format(value);
-  }
-  void field(const best::format_spec& k_spec, const best::formattable auto& key,
-             const best::format_spec& v_spec,
-             const best::formattable auto& value) {
-    if (!fmt_) return;
-    separator();
-    fmt_->format(k_spec, key);
-    fmt_->write(": ");
-    fmt_->format(v_spec, value);
-  }
+  void pair(const best::formattable auto& key,
+            const best::formattable auto& value);
+  void pair(const best::format_spec& k_spec, const best::formattable auto& key,
+            const best::format_spec& v_spec,
+            const best::formattable auto& value);
 
   /// # `block::finish()`
   ///
   /// Finishes this block; all further operations on this value are no-ops.
   /// This function is called automatically by the destructor.
-  void finish() {
-    if (!fmt_) return;
-    if (uses_indent_ && entries_ > 0) {
-      fmt_->write(",\n");
-    }
-    if (uses_indent_) --fmt_->indent_;
-    fmt_->write(config_.close);
-  }
+  void finish();
+
+  /// # `block::advise_size()`
+  ///
+  /// Advices this block that exactly `n` elements will be printed. This is
+  /// used for some print output cleanup.
+  ///
+  /// Calling this after calling `entry()` or `field()` is unspecified.
+  void advise_size(size_t n);
 
   ~block() { finish(); }
   block(const block&) = delete;
@@ -279,29 +335,16 @@ class formatter::block final {
   block& operator=(block&&) = delete;
 
  private:
+  friend formatter;
   struct config {
     best::str title;
     best::str open, close;
   };
 
-  friend formatter;
-  block(const config& config, formatter* fmt) : config_(config), fmt_(fmt) {
-    if (!config_.title.is_empty()) {
-      fmt_->write(config_.title);
-      fmt_->write(' ');
-    }
-    fmt_->write(config.open);
+  block(const config& config, formatter* fmt);
 
-    uses_indent_ = fmt_->current_spec().alt;
-    if (uses_indent_) ++fmt_->indent_;
-  }
-
-  void separator() {
-    if (entries_ > 0) fmt_->write(",");
-    if (uses_indent_) fmt_->write("\n");
-    if (!uses_indent_ && entries_ > 0) fmt_->write(" ");
-    ++entries_;
-  }
+  /// Prints a comma if needed.
+  void separator();
 
   size_t entries_ = 0;
   bool uses_indent_ = false;
@@ -314,7 +357,8 @@ class formatter::block final {
 /// Executes a formatting operation and returns the result as a string, or
 /// append it to an existing string.
 template <best::formattable... Args>
-best::strbuf format(best::format_template<Args...> templ, const Args&... args);
+best::strbuf format(best::format_template<Args...> templ = "",
+                    const Args&... args);
 template <best::formattable... Args>
 void format(best::strbuf& out, best::format_template<Args...> templ,
             const Args&... args);
@@ -336,52 +380,40 @@ void eprintln(best::format_template<Args...> templ = "", const Args&... args);
 ///
 /// Makes any type formattable. If a formatting implementation is not found for
 /// the type, it is printed as a hex string instead.
-template <typename T>
-struct make_formattable {
-  const T& value;
+decltype(auto) make_formattable(const auto& value);
+}  // namespace best
 
-  friend void BestFmt(auto& fmt, const make_formattable& x) {
-    if constexpr (best::formattable<T>) {
-      fmt.format(x.value);
-      return;
-    }
+/******************************************************************************/
 
-    const char* bytes = reinterpret_cast<const char*>(std::addressof(x.value));
-    fmt.format("unprintable {}-byte value: `", sizeof(T));
-    for (size_t i = 0; i < sizeof(T); ++i) {
-      fmt.format("{:02x}", uint8_t(bytes[i]));
-    }
-    fmt.write("`");
-  }
-  constexpr friend void BestFmtQuery(auto& query, make_formattable*) {
-    query = query.template of<T>;
-  }
-};
-template <typename T>
-make_formattable(const T&) -> make_formattable<T>;
+///////////////////// !!! IMPLEMENTATION DETAILS BELOW !!! /////////////////////
 
-// --- IMPLEMENTATION DETAILS BELOW ---
+/******************************************************************************/
 
-inline void formatter::write(rune r) {
-  size_t prev = out_->size();
-  if (r != '\n') update_indent();
-
-  out_->push_lossy(r);
-  bytes_written += out_->size() - prev;
-  at_new_line_ = r == '\n';
+namespace best {
+void formatter::write(const best::string_type auto& string) {
+  rune::iter it(string);
+  write(it.rest(), best::encoding_of(string));
 }
 
-void formatter::write(const best::string_type auto& string) {
-  size_t prev = out_->size();
+void formatter::format(const best::format_spec& spec,
+                       const best::formattable auto& arg) {
+  if (spec.pass_through) {
+    format(arg);
+    return;
+  }
+  auto old = std::exchange(cur_spec_, spec);
+  format(arg);
+  cur_spec_ = old;
+}
+
+template <best::encoding E>
+void formatter::write(best::span<const code<E>> data, const E& enc) {
   if (indent_ == 0) {
-    out_->push_lossy(string);
-    bytes_written += out_->size() - prev;
+    out_->push_lossy(data, enc);
     return;
   }
 
-  rune::iter runes(string);
-  auto data = runes.rest();
-  const auto& enc = best::encoding_of(string);
+  rune::iter runes(data, enc);
   size_t idx = 0;
   size_t watermark = 0;
   for (rune r : runes) {
@@ -401,49 +433,87 @@ void formatter::write(const best::string_type auto& string) {
   }
 }
 
-inline formatter::block formatter::list(best::str title) {
-  return {{.title = title, .open = "[", .close = "]"}, this};
-}
-inline formatter::block formatter::tuple(best::str title) {
-  return {{.title = title, .open = "(", .close = ")"}, this};
-}
-inline formatter::block formatter::record(best::str title) {
-  return {{.title = title, .open = "{", .close = "}"}, this};
+decltype(auto) make_formattable(const auto& value) {
+  if constexpr (best::formattable<decltype(value)>) {
+    return value;
+  } else {
+    return format_internal::unprintable{
+        reinterpret_cast<const char*>(std::addressof(value)), sizeof(value)};
+  }
 }
 
-namespace format_internal {
-// Custom function-ref type to minimize instantiation cost of format().
-struct vptr {
+struct formatter::vptr final {
   const void* data;
   void (*fn)(formatter&, const format_spec&, const void*);
+
   template <typename Arg>
   static void erased(formatter& f, const format_spec& s, const void* v) {
     f.format(s, *reinterpret_cast<const Arg*>(v));
   }
 };
 
-inline void format_impl(formatter& fmt, best::str templ, vptr* vtable) {
-  format_internal::visit_template(
-      templ.data(), templ.size(),
-      [&](best::str chunk) {
-        fmt.write(chunk);
-        return true;
-      },
-      [&](size_t idx, const auto& spec) {
-        vtable[idx].fn(fmt, spec, vtable[idx].data);
-        return true;
-      });
-}
-
-}  // namespace format_internal
-
 template <best::formattable... Args>
 void formatter::format(best::format_template<Args...> fmt, const Args&... arg) {
-  format_internal::vptr vtable[] = {{
+  vptr vtable[] = {{
       std::addressof(arg),
-      format_internal::vptr::erased<Args>,
+      vptr::erased<Args>,
   }...};
-  format_internal::format_impl(*this, fmt.as_str(), vtable);
+  format_impl(fmt.as_str(), vtable);
+}
+
+void formatter::block::entry(const best::formattable auto& value) {
+  if (!fmt_) return;
+  separator();
+  fmt_->format(value);
+}
+void formatter::block::entry(const best::format_spec& spec,
+                             const best::formattable auto& value) {
+  if (!fmt_) return;
+  separator();
+  fmt_->format(spec, value);
+}
+
+/// # `block::field()`
+///
+/// Submits a single keyed entry to this block. This is a wrapper over
+/// `pair()` that always uses a default formatting spec (a `{}`) for the key.
+void formatter::block::field(best::str name,
+                             const best::formattable auto& value) {
+  if (!fmt_) return;
+  separator();
+  fmt_->format(format_spec{}, name);
+  fmt_->write(": ");
+  fmt_->format(value);
+}
+void formatter::block::field(best::str name, const best::format_spec& v_spec,
+                             const best::formattable auto& value) {
+  if (!fmt_) return;
+  separator();
+  fmt_->format(format_spec{}, name);
+  fmt_->write(": ");
+  fmt_->format(v_spec, value);
+}
+
+/// # `block::pair()`
+///
+/// Submits a single keyed entry to this block.
+void formatter::block::pair(const best::formattable auto& key,
+                            const best::formattable auto& value) {
+  if (!fmt_) return;
+  separator();
+  fmt_->format(key);
+  fmt_->write(": ");
+  fmt_->format(value);
+}
+void formatter::block::pair(const best::format_spec& k_spec,
+                            const best::formattable auto& key,
+                            const best::format_spec& v_spec,
+                            const best::formattable auto& value) {
+  if (!fmt_) return;
+  separator();
+  fmt_->format(k_spec, key);
+  fmt_->write(": ");
+  fmt_->format(v_spec, value);
 }
 
 template <best::formattable... Args>

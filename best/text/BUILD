@@ -1,11 +1,20 @@
 package(default_visibility = ["//visibility:public"])
 
 cc_library(
-  name = "rune",
-  hdrs = ["rune.h"],
+  name = "encoding",
+  hdrs = ["encoding.h"],
   deps = [
     "//best/container:span",
     "//best/container:result",
+  ]
+)
+
+
+cc_library(
+  name = "rune",
+  hdrs = ["rune.h"],
+  deps = [
+    ":encoding",
     "//best/log/internal:crash",
   ]
 )
@@ -62,6 +71,7 @@ cc_library(
     "internal/format_impls.h",
     "internal/format_parser.h",
   ],
+  srcs = ["format.cc"],
   deps = [
     ":rune",
     ":strbuf",

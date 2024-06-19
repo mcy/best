@@ -128,15 +128,15 @@ class pun final {
 
   /// # `pun::object()`
   ///
-  /// Like `get()`, but returns a `best::object_ptr<T>` instead.
+  /// Like `get()`, but returns a `best::object<T>` instead.
   template <size_t n>
-  constexpr best::object_ptr<const type<n>> object(
-      unsafe, best::index_t<n> = {}) const& {
-    return std::addressof(impl().get(best::index<n>));
+  constexpr const best::object<type<n>>& object(unsafe,
+                                                best::index_t<n> = {}) const& {
+    return impl().get(best::index<n>);
   }
   template <size_t n>
-  constexpr best::object_ptr<type<n>> object(unsafe, best::index_t<n> = {}) & {
-    return std::addressof(impl().get(best::index<n>));
+  constexpr best::object<type<n>>& object(unsafe, best::index_t<n> = {}) & {
+    return impl().get(best::index<n>);
   }
 
   friend void BestFmt(auto& fmt, const pun& opt) { fmt.write("pun(...)"); }

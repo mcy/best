@@ -12,7 +12,11 @@ namespace best {
 /// # `best::atoi_error`
 ///
 /// An error returned by `best::atoi()`.
-struct atoi_error final {};
+struct atoi_error final {
+  friend void BestFmt(auto &fmt, atoi_error) {
+    auto rec = fmt.record("atoi_error");
+  }
+};
 
 /// # `best::atoi()`
 ///
@@ -87,6 +91,7 @@ constexpr best::result<Int, best::atoi_error> atoi(const string_type auto &str,
   }
   return result.wrap();
 }
+#undef BEST_ATOI_LOOP_
 }  // namespace best
 
 #endif  // BEST_MATH_CONV_H_

@@ -60,7 +60,7 @@ inline constexpr uninit_t uninit;
 /// being passed ANY type in an unevaluated context. This also ensures we have
 /// *a* type to pass in that position, so that calling the FTADLE finds
 /// overloads in the best:: namespace, too.
-struct ftadle;
+struct ftadle final {};
 }  // namespace best
 
 #endif  // BEST_META_TAGS_H_

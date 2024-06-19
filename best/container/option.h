@@ -295,6 +295,23 @@ class option final {
     return best::option<rref>(best::move(*this));
   }
 
+  /// # `option::as_object()`.
+  ///
+  /// Constructs a version of this option that contains a reference to the
+  /// corresponding `best::object` type.
+  constexpr best::option<const object<T>&> as_object() const& {
+    return impl().object(best::index<1>);
+  }
+  constexpr best::option<object<T>&> as_object() & {
+    return impl().object(best::index<1>);
+  }
+  constexpr best::option<const object<T>&&> as_object() const&& {
+    return moved().impl().object(best::index<1>);
+  }
+  constexpr best::option<object<T>&&> as_object() && {
+    return moved().impl().object(best::index<1>);
+  }
+
   // TODO: expect.
 
   /// # `option::value()`.
@@ -618,12 +635,8 @@ class option final {
   {
     if (!opt.has_value()) {
       fmt.write("none");
-    } else if constexpr (best::void_type<T>) {
-      fmt.write("option(void)");
     } else {
-      fmt.write("option(");
-      fmt.format(*opt);
-      fmt.write(")");
+      fmt.format("option({:!})", *opt.as_object());
     }
   }
 
@@ -808,8 +821,15 @@ inline constexpr best::option<void> VoidOption{best::in_place};
 template <best::object_type, best::option<size_t> = best::none>
 class span;
 
-/// --- IMPLEMENTATION DETAILS BELOW ---
+}  // namespace best
 
+/******************************************************************************/
+
+///////////////////// !!! IMPLEMENTATION DETAILS BELOW !!! /////////////////////
+
+/******************************************************************************/
+
+namespace best {
 template <typename T>
 constexpr option<T>::cref option<T>::value(best::location loc) const& {
   return check_ok(loc), value(unsafe("check_ok() called before this"));

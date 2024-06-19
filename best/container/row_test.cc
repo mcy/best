@@ -29,4 +29,16 @@ best::test Fwd = [](auto& t) {
   static_assert(best::same<decltype(std::move(x0).forward()),
                            best::row_forward<int&&, const float&, bool&&>>);
 };
+
+best::test ToString = [](auto& t) {
+  best::row<> x0{};
+  best::row<int> x1{1};
+  best::row<int, int> x2{1, 2};
+  best::row<int, void, int> x3{1, 2, 3};
+
+  t.expect_eq(best::format("{:?}", x0), "()");
+  t.expect_eq(best::format("{:?}", x1), "(1)");
+  t.expect_eq(best::format("{:?}", x2), "(1, 2)");
+  t.expect_eq(best::format("{:?}", x3), "(1, void, 3)");
+};
 }  // namespace best::row_test

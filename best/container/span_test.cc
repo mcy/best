@@ -70,6 +70,12 @@ best::test FromNul = [](auto& t) {
   t.expect_eq(best::span<int>::from_nul(nullptr), best::span<int>{});
 };
 
+best::test ToString = [](auto& t) {
+  t.expect_eq(best::format("{:?}", best::span<int>()), "[]");
+  t.expect_eq(best::format("{:?}", best::span{1}), "[1]");
+  t.expect_eq(best::format("{:?}", best::span{1, 2}), "[1, 2]");
+};
+
 best::test Ordering = [](auto& t) {
   int32_t ints[] = {1, 2, 3};
   int64_t longs[] = {1, 2, 3};

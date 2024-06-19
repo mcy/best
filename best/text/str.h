@@ -12,6 +12,7 @@
 #include "best/container/span.h"
 #include "best/memory/bytes.h"
 #include "best/meta/ops.h"
+#include "best/text/encoding.h"
 #include "best/text/rune.h"
 #include "best/text/utf.h"
 
@@ -140,8 +141,8 @@ class text final {
   ///
   /// Creates a new string by decoding the longest valid prefix of `data`.
   /// Returns the valid prefix, and the rest of `data`.
-  constexpr static std::pair<text, best::span<const code>> from_partial(
-      best::span<const code> data, encoding enc = {});
+  constexpr static std::pair<text, best::span<const best::code<E>>>
+  from_partial(best::span<const code> data, encoding enc = {});
 
   /// # `text::from_nul()`
   ///
@@ -375,9 +376,15 @@ class text final {
 
   static constexpr code empty{};
 };
+}  // namespace best
 
-/// --- IMPLEMENTATION DETAILS BELOW ---
+/******************************************************************************/
 
+///////////////////// !!! IMPLEMENTATION DETAILS BELOW !!! /////////////////////
+
+/******************************************************************************/
+
+namespace best {
 template <encoding E>
 constexpr best::option<text<E>> text<E>::from(best::span<const code> data,
                                               encoding enc) {

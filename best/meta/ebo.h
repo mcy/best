@@ -48,9 +48,7 @@ class ebo /* not final! */ {
   constexpr ebo(best::in_place_t, auto&&... args)
       : BEST_EBO_VALUE_(BEST_FWD(args)...) {}
 
-  constexpr ebo()
-    requires best::constructible<T>
-  = default;
+  constexpr ebo() = default;
   constexpr ebo(const ebo&) = default;
   constexpr ebo& operator=(const ebo&) = default;
   constexpr ebo(ebo&&) = default;

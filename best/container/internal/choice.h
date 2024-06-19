@@ -54,12 +54,11 @@ class tagged {
   constexpr size_t tag() const { return tag_; }
 
   template <size_t n>
-  constexpr best::object_ptr<const type<n>> get(unsafe u,
-                                                best::index_t<n>) const {
+  constexpr const best::object<type<n>>& get(unsafe u, best::index_t<n>) const {
     return union_.object(u, best::index<n>);
   }
   template <size_t n>
-  constexpr best::object_ptr<type<n>> get(unsafe u, best::index_t<n>) {
+  constexpr best::object<type<n>>& get(unsafe u, best::index_t<n>) {
     return union_.object(u, best::index<n>);
   }
 
@@ -101,29 +100,30 @@ class niched {
                    .object(unsafe("the non-empty variant is always engaged,"
                                   "except when after destructor runs"),
                            index<0>)
+                   .as_ptr()
                    .is_niche()
                ? Empty
                : NonEmpty;
   }
 
-  constexpr best::object_ptr<const type<Empty>> get(
-      unsafe, best::index_t<Empty>) const {
-    return empty_.as_ptr();
+  constexpr const best::object<type<Empty>>& get(unsafe,
+                                                 best::index_t<Empty>) const {
+    return empty_;
   }
-  constexpr best::object_ptr<type<Empty>> get(unsafe, best::index_t<Empty>) {
-    return empty_.as_ptr();
+  constexpr best::object<type<Empty>>& get(unsafe, best::index_t<Empty>) {
+    return empty_;
   }
-  constexpr best::object_ptr<const type<NonEmpty>> get(
+  constexpr const best::object<type<NonEmpty>>& get(
       unsafe u, best::index_t<NonEmpty>) const {
     return non_empty_.object(u, index<0>);
   }
-  constexpr best::object_ptr<type<NonEmpty>> get(unsafe u,
-                                                 best::index_t<NonEmpty>) {
+  constexpr best::object<type<NonEmpty>>& get(unsafe u,
+                                              best::index_t<NonEmpty>) {
     return non_empty_.object(u, index<0>);
   }
 
   best::pun<type<NonEmpty>> non_empty_;
-  inline static best::object<type<NonEmpty>> empty_;
+  [[no_unique_address]] best::object<type<Empty>> empty_;
 };
 
 template <typename... Ts>
@@ -224,6 +224,7 @@ class impl : public storage<Ts...> {
       if constexpr (best::object_type<type<which>> &&
                     best::assignable<type<which>, Args&&...>) {
         get(unsafe{"checked tag() before this"}, best::index<which>)
+            .as_ptr()
             .assign(BEST_FWD(args)...);
         return;
       }
@@ -263,6 +264,17 @@ class impl : public storage<Ts...> {
     return get(u, i).operator->();
   }
 
+  template <size_t n>
+  BEST_INLINE_SYNTHETIC constexpr const best::object<type<n>>& object(
+      unsafe u, best::index_t<n> i = {}) const {
+    return get(u, i);
+  }
+  template <size_t n>
+  BEST_INLINE_SYNTHETIC constexpr best::object<type<n>>& object(
+      unsafe u, best::index_t<n> i = {}) {
+    return get(u, i);
+  }
+
   template <typename F>
   BEST_INLINE_SYNTHETIC constexpr decltype(auto) match(F&& callback) const& {
     return JumpTable<decltype(make_match_arm(*this,
@@ -292,7 +304,7 @@ class impl : public storage<Ts...> {
   template <typename F, size_t... i>
   constexpr static auto make_jump_table(std::index_sequence<i...>) {
     // TODO(mcyoung): It'd be nice to use common_type here...
-    using Output = std::invoke_result_t<F, best::index_t<0>>;
+    using Output = decltype(best::call(std::declval<F>(), best::index<0>));
 
     return std::array<Output (*)(F&&), sizeof...(Ts)>{
         {+[](F&& callback) -> Output {
