@@ -1,17 +1,10 @@
 #ifndef BEST_TEXT_STR_H_
 #define BEST_TEXT_STR_H_
 
-#include <compare>
 #include <cstddef>
-#include <cstring>
-#include <iterator>
-#include <string_view>
-#include <type_traits>
-#include <utility>
 
 #include "best/container/span.h"
 #include "best/memory/bytes.h"
-#include "best/meta/ops.h"
 #include "best/text/encoding.h"
 #include "best/text/rune.h"
 #include "best/text/utf.h"
@@ -333,13 +326,13 @@ class text final {
     return span_ == best::span<const code>::from_nul(lit);
   }
 
-  constexpr std::strong_ordering operator<=>(rune) const;
-  constexpr std::strong_ordering operator<=>(const string_type auto&) const;
-  constexpr std::strong_ordering operator<=>(
+  constexpr best::ord operator<=>(rune) const;
+  constexpr best::ord operator<=>(const string_type auto&) const;
+  constexpr best::ord operator<=>(
       best::span<const code> span) const {
     return span_ <=> span;
   }
-  constexpr std::strong_ordering operator<=>(const code* lit) const {
+  constexpr best::ord operator<=>(const code* lit) const {
     return span_ <=> best::span<const code>::from_nul(lit);
   }
 
@@ -357,7 +350,7 @@ class text final {
 
   constexpr bool can_memeq(const auto& that) const {
     return !std::is_constant_evaluated() &&
-           (best::addr_eq(this, std::addressof(that)) ||
+           (best::equal(this, best::addr(that)) ||
             best::same_encoding(*this, that));
   }
 
@@ -571,8 +564,8 @@ constexpr bool text<E>::operator==(const string_type auto& s) const {
 }
 
 template <encoding E>
-constexpr std::strong_ordering text<E>::operator<=>(rune r) const {
-  if (is_empty()) return std::strong_ordering::less;
+constexpr best::ord text<E>::operator<=>(rune r) const {
+  if (is_empty()) return best::ord::less;
 
   auto [r2, rest] = *break_off();
   if (auto result = r <=> r2; result != 0) {
@@ -582,7 +575,7 @@ constexpr std::strong_ordering text<E>::operator<=>(rune r) const {
 }
 
 template <encoding E>
-constexpr std::strong_ordering text<E>::operator<=>(
+constexpr best::ord text<E>::operator<=>(
     const string_type auto& str) const {
   rune::iter a(*this);
   rune::iter b(str);
@@ -595,7 +588,7 @@ constexpr std::strong_ordering text<E>::operator<=>(
     auto r1 = a.next();
     auto r2 = b.next();
     if (r1.is_empty() && r2.is_empty()) {
-      return std::strong_ordering::equal;
+      return best::ord::equal;
     }
 
     if (auto result = r1 <=> r2; result != 0) {

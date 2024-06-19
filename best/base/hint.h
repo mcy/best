@@ -80,7 +80,7 @@ BEST_INLINE_ALWAYS constexpr void assume(bool truth) {
   if (!std::is_constant_evaluated()) {
     asm volatile("" : "+r"(value));
   }
-  return BEST_FWD(value);
+  return decltype(value)(value);
 }
 }  // namespace best
 

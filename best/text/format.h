@@ -170,12 +170,11 @@ struct format_spec final {
     template <typename T>
     static constexpr auto of = []<typename q = query> {
       q query;
-      if constexpr (format_internal::has_fmt_query<T>::value) {
+      if constexpr (requires { BestFmtQuery(query, best::as_ptr<T>()); }) {
         BestFmtQuery(query, best::as_ptr<T>());
       }
       return query;
-    }
-    ();
+    }();
   };
 
   constexpr bool operator==(const format_spec&) const = default;
@@ -437,7 +436,7 @@ decltype(auto) make_formattable(const auto& value) {
     return value;
   } else {
     return format_internal::unprintable{
-        reinterpret_cast<const char*>(std::addressof(value)), sizeof(value)};
+        reinterpret_cast<const char*>(best::addr(value)), sizeof(value)};
   }
 }
 
@@ -454,7 +453,7 @@ struct formatter::vptr final {
 template <best::formattable... Args>
 void formatter::format(best::format_template<Args...> fmt, const Args&... arg) {
   vptr vtable[] = {{
-      std::addressof(arg),
+      best::addr(arg),
       vptr::erased<Args>,
   }...};
   format_impl(fmt.as_str(), vtable);

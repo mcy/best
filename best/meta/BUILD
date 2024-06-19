@@ -27,6 +27,7 @@ cc_library(
   ],
   deps = [
     ":traits",
+    "//best/base:hint",
   ],
 )
 
@@ -90,6 +91,7 @@ cc_library(
     ":ops",
     ":traits",
     "//best/base:fwd",
+    "//best/base:ord",
     "//best/container:bounds",
     "//best/func:call",
   ]

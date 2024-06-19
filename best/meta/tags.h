@@ -4,7 +4,6 @@
 #include <stddef.h>
 
 #include <compare>
-#include <utility>
 
 //! Commonly-used tag types.
 //!
@@ -29,18 +28,15 @@ struct rank<0> {};
 /// An alias for std::in_place.
 ///
 /// Use this to tag variadic constructors that represent constructing a value
-/// in place, to
-struct in_place_t : std::in_place_t {
-  in_place_t() = default;
-};
-inline constexpr in_place_t in_place;
+/// in place.
+inline constexpr struct in_place_t {
+} in_place;
 
 /// An alias for std::in_place_index.
 ///
 /// Use this to tag things that want to take a size_t.
 template <size_t n>
-struct index_t : std::in_place_index_t<n> {
-  index_t() = default;
+struct index_t {
   static constexpr size_t value = n;
 };
 template <size_t n>

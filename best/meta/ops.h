@@ -3,12 +3,10 @@
 
 #include <stddef.h>
 
-#include <compare>
 #include <concepts>
-#include <functional>
-#include <utility>
 
 #include "best/meta/internal/ops.h"
+#include "best/meta/traits.h"
 
 //! Helpers for working with overloadable operators.
 
@@ -81,7 +79,7 @@ constexpr auto operate(auto &&...args) -> decltype(ops_internal::run<best::op>(o
 
 /// Infers the result type of `best::operate<op>(Args...)`.
 template <best::op op, typename... Args>
-using op_output = decltype(best::operate<op>(std::declval<Args>()...));
+using op_output = decltype(best::operate<op>(best::lie<Args>...));
 
 /// Whether best::operate<op>(args...) is well-formed.
 template <best::op op, typename... Args>
@@ -95,56 +93,6 @@ template <best::op op, typename R, typename... Args>
 concept has_op_r = requires(Args &&...args) {
   { best::operate<op>(BEST_FWD(args)...) } -> std::convertible_to<R>;
 };
-
-/// Whether two types can be compared for equality.
-///
-/// Somewhat different from C++'s equivalent concepts; this only checks for
-/// bool-producing operator== and operator!=, and allows for void types to be
-/// compared with each other.
-template <typename T, typename U = T>
-concept equatable = (std::is_void_v<T> && std::is_void_v<U>) ||
-                    (best::has_op_r<op::Eq, bool, const T &, const U &> &&
-                     best::has_op_r<op::Ne, bool, const T &, const U &>);
-
-/// Whether two types can be compared for ordering.
-///
-/// Somewhat different from C++'s equivalent concepts; this only checks for <=>
-/// comparisons, and allows for void types to be compared with each other.
-template <typename T, typename U = T>
-concept comparable = (std::is_void_v<T> && std::is_void_v<U>) ||
-                     (best::equatable<T, U> &&
-                      best::has_op<op::Spaceship, const T &, const U &>);
-
-/// The ordering type for T and U.
-///
-/// If both types are void, returns std::strong_ordering.
-template <typename T, comparable<T> U>
-using order_type = decltype([] {
-  auto a = std::declval<std::add_pointer_t<T>>();
-  auto b = std::declval<std::add_pointer_t<U>>();
-  if constexpr (std::is_void_v<T>) {
-    return std::strong_ordering::equal;
-  } else {
-    return *a <=> *b;
-  }
-}());
-
-/// Compares any two pointers for address equality.
-inline constexpr auto addr_eq(const volatile void *a, const volatile void *b) {
-  return a == b;
-}
-
-/// Compares any two pointers for address order.
-inline constexpr std::strong_ordering addr_cmp(const volatile void *a,
-                                               const volatile void *b) {
-  if (a == b) {
-    return std::strong_ordering::equal;
-  }
-  if (std::less<decltype(a)>{}(a, b)) {
-    return std::strong_ordering::less;
-  }
-  return std::strong_ordering::greater;
-}
 }  // namespace best
 
 #endif  // BEST_META_OPS_H_

@@ -23,20 +23,20 @@ inline constexpr info_t info = [] {
   } else {
     return info_t{
         .trivial_default =
-            ((std::is_void_v<Ts> ||
+            ((best::is_void<Ts> ||
               std::is_trivially_default_constructible_v<Ts>)&&...),
-        .trivial_copy = ((!std::is_object_v<Ts> ||
+        .trivial_copy = ((!best::is_object<Ts> ||
                           (std::is_trivially_copy_constructible_v<Ts> &&
 
                            std::is_trivially_copy_assignable_v<Ts>)) &&
                          ...),
-        .trivial_move = ((std::is_void_v<Ts> ||
+        .trivial_move = ((best::is_void<Ts> ||
                           (std::is_trivially_move_constructible_v<Ts> &&
 
                            std::is_trivially_move_assignable_v<Ts>)) &&
                          ...),
         .trivial_dtor =
-            ((std::is_void_v<Ts> || std::is_trivially_destructible_v<Ts>)&&...),
+            ((best::is_void<Ts> || std::is_trivially_destructible_v<Ts>)&&...),
     };
   }
 }();

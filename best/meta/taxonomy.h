@@ -3,7 +3,6 @@
 
 #include <type_traits>
 
-#include "best/base/hint.h"
 #include "best/meta/internal/abominable.h"
 #include "best/meta/internal/quals.h"
 
@@ -13,6 +12,23 @@
 //! container types.
 
 namespace best {
+/// # `BEST_FWD()`
+///
+/// Macro implementation of `std::forward`.
+///
+/// Intended to improve compile times and gdb debugging by eliminating an
+/// extremely common function that must be inlined.
+#define BEST_FWD(expr_) (static_cast<decltype(expr_)&&>(expr_))
+
+/// # `BEST_MOVE()`
+///
+/// Macro implementation of `std::forward`.
+///
+/// Intended to improve compile times and gdb debugging by eliminating an
+/// extremely common function that must be inlined.
+#define BEST_MOVE(expr_) \
+  (static_cast<::best::as_rref<::best::unref<decltype(expr_)>>>(expr_))
+
 /// # `best::is_void`
 ///
 /// A void type, i.e. cv-qualified void.
@@ -24,6 +40,14 @@ concept is_void = std::is_void_v<T>;
 /// Whether this is a `const`-qualified object or void type.
 template <typename T>
 concept is_const = std::is_const_v<T>;
+
+/// # `best::deconst`
+///
+/// Forcibly removes the `const` from a pointer type.
+template <typename T>
+constexpr T* deconst(const T* ptr) {
+  return const_cast<T*>(ptr);
+}
 
 /// # `best::unqual`
 ///
@@ -152,13 +176,6 @@ using unref = std::remove_reference_t<T>;
 template <typename T>
 using as_auto = std::remove_cvref_t<T>;
 
-/// # `best::move()`
-///
-/// Identical to `std::move()` but avoids pulling in the `<utility>` header.
-BEST_INLINE_SYNTHETIC constexpr decltype(auto) move(auto&& x) {
-  return static_cast<best::unref<decltype(x)>&&>(x);
-}
-
 /// # `best::is_ptr`
 ///
 /// Whether this is a pointer type.
@@ -181,6 +198,11 @@ using as_ptr = std::add_pointer_t<best::tame<T>>;
 /// otherwise, returns `T`.
 template <typename T>
 using unptr = std::remove_pointer_t<T>;
+
+/// # `best::addr()`
+///
+/// Obtains the address of a reference without hitting `operator&`.
+constexpr auto addr(auto&& ref) { return __builtin_addressof(ref); }
 }  // namespace best
 
 #endif  // BEST_META_TAXONOMY_H_

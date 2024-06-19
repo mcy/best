@@ -1,13 +1,10 @@
 #ifndef BEST_LOG_LOCATION_H_
 #define BEST_LOG_LOCATION_H_
 
-#include <concepts>
-#include <memory>
 #include <source_location>
 #include <string_view>
-#include <type_traits>
 
-#include "best/base/port.h"
+#include "best/meta/taxonomy.h"
 
 namespace best {
 inline constexpr struct here_t final {
@@ -21,7 +18,7 @@ class track_location {
   /// best::here.
   constexpr track_location(
       here_t, std::source_location loc = std::source_location::current())
-    requires std::is_void_v<T>
+    requires best::is_void<T>
       : value_{}, impl_(loc) {}
   template <typename Arg = T>
   constexpr track_location(
@@ -32,7 +29,7 @@ class track_location {
   /// Constructs a new location from the given location.
   template <typename U>
   constexpr track_location(best::track_location<U> loc)
-    requires std::is_void_v<T>
+    requires best::is_void<T>
       : value_{}, impl_(loc.impl_) {}
   template <typename Arg = T, typename U>
   constexpr track_location(Arg&& arg, best::track_location<U> loc)
@@ -68,24 +65,24 @@ class track_location {
   constexpr std::add_lvalue_reference_t<const T> operator*()
 
       const
-    requires(!std::is_void_v<T>)
+    requires(!best::is_void<T>)
   {
     return value_;
   }
   constexpr std::add_lvalue_reference_t<T> operator*()
-    requires(!std::is_void_v<T>)
+    requires(!best::is_void<T>)
   {
     return value_;
   }
   constexpr std::add_pointer_t<const T> operator->() const&
-    requires(!std::is_void_v<T>)
+    requires(!best::is_void<T>)
   {
-    return std::addressof(value_);
+    return best::addr(value_);
   }
   constexpr std::add_pointer_t<const T> operator->() &
-    requires(!std::is_void_v<T>)
+    requires(!best::is_void<T>)
   {
-    return std::addressof(value_);
+    return best::addr(value_);
   }
   constexpr operator std::add_lvalue_reference_t<const T>() const {
     return value_;
@@ -97,9 +94,9 @@ class track_location {
   constexpr track_location& operator=(track_location&) = default;
 
   friend void BestFmt(auto& fmt, const track_location& loc)
-    requires std::is_void_v<T> || requires { fmt.format(*loc); }
+    requires best::is_void<T> || requires { fmt.format(*loc); }
   {
-    if constexpr (!std::is_void_v<T>) {
+    if constexpr (!best::is_void<T>) {
       fmt.format(*loc);
       fmt.write(" @ ");
     }
@@ -110,7 +107,7 @@ class track_location {
   template <typename>
   friend class track_location;
 
-  std::conditional_t<std::is_void_v<T>, char, T> value_;
+  std::conditional_t<best::is_void<T>, char, T> value_;
   std::source_location impl_;
 };
 

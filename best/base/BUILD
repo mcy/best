@@ -21,3 +21,27 @@ cc_library(
   hdrs = ["unsafe.h"],
   deps = [":port"],
 )
+
+cc_library(
+  name = "ord",
+  hdrs = [
+    "ord.h",
+    "internal/ord.h",
+  ],
+  deps = [
+    ":port",
+    "//best/func:call",
+    "//best/meta:init",
+    "//best/meta:taxonomy",
+  ],
+)
+
+cc_test(
+  name = "ord_test",
+  srcs = ["ord_test.cc"],
+  linkopts = ["-rdynamic"],
+  deps = [
+    ":ord",
+    "//best/test",
+  ],
+)

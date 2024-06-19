@@ -3,12 +3,7 @@
 
 #include <stddef.h>
 
-#include <concepts>
-#include <type_traits>
-#include <utility>
-
 #include "best/base/hint.h"
-#include "best/base/port.h"
 
 namespace best::ops_internal {
 template <auto op>
@@ -120,69 +115,6 @@ BEST_INLINE_SYNTHETIC constexpr auto run(tag<op::Index>, auto&& func,
     -> decltype(BEST_FWD(func)[BEST_FWD(arg)]) {
   return BEST_FWD(func)[BEST_FWD(arg)];
 }
-
-template <typename...>
-struct tlist {};
-
-template <typename Class, typename F>
-BEST_INLINE_SYNTHETIC constexpr auto call(tlist<>, F Class::*member,
-                                          auto&& self, auto&&... args)
-    -> decltype((self.*member)(BEST_FWD(args)...))
-  requires std::is_function_v<F>
-{
-  return (BEST_FWD(self).*member)(BEST_FWD(args)...);
-}
-template <typename Class, typename F>
-BEST_INLINE_SYNTHETIC constexpr auto call(tlist<>, F Class::*member, auto* self,
-                                          auto&&... args)
-    -> decltype((self->*member)(BEST_FWD(args)...))
-  requires std::is_function_v<F>
-{
-  return (self->*member)(BEST_FWD(args)...);
-}
-
-template <typename Class, typename R>
-BEST_INLINE_SYNTHETIC constexpr auto call(tlist<>, R Class::*member,
-                                          auto&& self) -> decltype(self.*member)
-  requires(!std::is_function_v<R>)
-{
-  return BEST_FWD(self).*member;
-}
-template <typename Class, typename R>
-BEST_INLINE_SYNTHETIC constexpr auto call(tlist<>, R Class::*member, auto* self)
-    -> decltype(self->*member)
-  requires(!std::is_function_v<R>)
-{
-  return self->*member;
-}
-
-BEST_INLINE_SYNTHETIC constexpr auto call(tlist<>, auto&& func, auto&&... args)
-    -> decltype(BEST_FWD(func)(BEST_FWD(args)...)) {
-  return BEST_FWD(func)(BEST_FWD(args)...);
-}
-template <typename... Args>
-BEST_INLINE_SYNTHETIC constexpr auto call(tlist<Args...>, auto&& func,
-                                          auto&&... args)
-    -> decltype(BEST_FWD(func).template operator()<Args...>(BEST_FWD(args)...))
-  requires(sizeof...(Args) > 0)
-{
-  return BEST_FWD(func).template operator()<Args...>(BEST_FWD(args)...);
-}
-BEST_INLINE_SYNTHETIC constexpr void call(tlist<>) {}
-
-template <typename F, typename... TParams, typename R, typename... Args>
-constexpr auto can_call(tlist<TParams...>, R (*)(Args...))
-    -> decltype(ops_internal::call<TParams...>(tlist<TParams...>{},
-                                               std::declval<F>(),
-                                               std::declval<Args>()...),
-                false) {
-  return std::is_void_v<R> ||
-         std::convertible_to<decltype(ops_internal::call<TParams...>(
-                                 tlist<TParams...>{}, std::declval<F>(),
-                                 std::declval<Args>()...)),
-                             R>;
-}
-
 }  // namespace best::ops_internal
 
 #endif  // BEST_META_INTERNAL_OPS_H_

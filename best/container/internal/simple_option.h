@@ -2,7 +2,8 @@
 #define BEST_CONTAINER_INTERNAL_SIMPLE_OPTION_H_
 
 #include <cstddef>
-#include <memory>
+
+#include "best/meta/taxonomy.h"
 
 namespace best::container_internal {
 /// A simple implementation of best::option that does not use the complex
@@ -14,7 +15,7 @@ template <typename T>
 class option final {
  public:
   constexpr option() = default;
-  constexpr option(T value) : value_(std::move(value)), has_(true) {}
+  constexpr option(T value) : value_(BEST_MOVE(value)), has_(true) {}
 
   constexpr option(const option&) = default;
   constexpr option& operator=(const option&) = default;
@@ -29,8 +30,8 @@ class option final {
   constexpr const T& operator*() const { return value_; }
   constexpr T& operator*() { return value_; }
 
-  constexpr const T* operator->() const { return std::addressof(value_); }
-  constexpr T* operator->() { return std::addressof(value_); }
+  constexpr const T* operator->() const { return best::addr(value_); }
+  constexpr T* operator->() { return best::addr(value_); }
 
   constexpr bool operator==(const option& that) const {
     return has_ == that.has_ && value_ == that.value_;

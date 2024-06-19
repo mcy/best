@@ -2,6 +2,7 @@
 #define BEST_META_INTERNAL_INIT_H_
 
 #include "best/base/fwd.h"
+#include "best/base/port.h"
 #include "best/meta/taxonomy.h"
 
 //! Rule-based implementation of constructable/convertible/assignable, using

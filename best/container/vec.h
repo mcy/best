@@ -3,8 +3,6 @@
 
 #include <cstddef>
 #include <initializer_list>
-#include <iterator>
-#include <type_traits>
 
 #include "best/container/object.h"
 #include "best/container/option.h"
@@ -16,7 +14,6 @@
 #include "best/memory/allocator.h"
 #include "best/memory/layout.h"
 #include "best/meta/init.h"
-#include "best/meta/ops.h"
 #include "best/meta/tags.h"
 
 //! Dynamically sized sequences.
@@ -36,7 +33,7 @@ class vec;
 /// Determines whether `V` is some `best::vec<...>`.
 template <typename V>
 concept is_vec =
-    best::same<std::remove_cvref_t<V>,
+    best::same<best::as_auto<V>,
                best::vec<typename V::type, V::MaxInline, typename V::alloc>>;
 
 /// # `best::vec_inline_default()`
@@ -69,7 +66,7 @@ class vec final {
  public:
   /// Helper type aliases.
   using type = T;
-  using value_type = std::remove_cv_t<T>;
+  using value_type = best::unqual<T>;
 
   using cref = best::as_ref<const type>;
   using ref = best::as_ref<type>;
@@ -364,7 +361,7 @@ class vec final {
     as_span().sort(BEST_FWD(get_key));
   }
   void sort(
-      best::callable<std::partial_ordering(const T&, const T&)> auto&& cmp) {
+      best::callable<best::partial_ord(const T&, const T&)> auto&& cmp) {
     as_span().sort(BEST_FWD(cmp));
   }
 
@@ -382,7 +379,7 @@ class vec final {
     as_span().stable_sort(BEST_FWD(get_key));
   }
   void stable_sort(
-      best::callable<std::partial_ordering(const T&, const T&)> auto&& cmp) {
+      best::callable<best::partial_ord(const T&, const T&)> auto&& cmp) {
     as_span().stable_sort(BEST_FWD(cmp));
   }
 
@@ -684,7 +681,7 @@ auto vec<T, max_inline, A>::operator=(vec&& that) -> vec& {
 
 template <best::relocatable T, size_t max_inline, best::allocator A>
 void vec<T, max_inline, A>::move_construct(vec&& that, bool assign) {
-  if (best::addr_eq(this, &that)) return;
+  if (best::equal(this, &that)) return;
 
   if (auto heap = that.on_heap()) {
     destroy();
@@ -781,7 +778,7 @@ void vec<T, max_inline, A>::set_size(unsafe, size_t new_size) {
 
 template <best::relocatable T, size_t max_inline, best::allocator A>
 void vec<T, max_inline, A>::assign(const contiguous auto& that) {
-  if (best::addr_eq(this, &that)) return;
+  if (best::equal(this, &that)) return;
   using Range = best::unref<decltype(that)>;
   if constexpr (best::is_vec<Range>) {
     if (!that.on_heap() && best::copyable<T, trivially> &&

@@ -2,13 +2,9 @@
 #define BEST_CONTAINER_INTERNAL_CHOICE_H_
 
 #include <array>
-#include <cassert>
 #include <cstddef>
-#include <memory>
 #include <type_traits>
-#include <utility>
 
-#include "best/base/port.h"
 #include "best/container/internal/pun.h"
 #include "best/container/object.h"
 #include "best/container/pun.h"
@@ -19,18 +15,6 @@
 //! Internal implementation of best::choice.
 
 namespace best::choice_internal {
-template <typename T, template <typename> typename Trait>
-using if_not_void = std::conditional_t<std::is_void_v<T>, std::type_identity<T>,
-                                       Trait<T>>::type;
-
-template <typename T, template <typename> typename Trait>
-inline constexpr bool if_void_or_ref_or =
-    std::disjunction_v<std::is_void<T>, std::is_reference<T>, Trait<T>>;
-
-template <template <typename> typename Trait, typename L, typename R>
-inline constexpr bool if_impl_fails =
-    !if_void_or_ref_or<L, Trait> || !if_void_or_ref_or<R, Trait>;
-
 template <typename... Ts>
 class tagged {
  public:
@@ -185,7 +169,7 @@ class impl : public storage<Ts...> {
     requires(!info.trivial_move)
   {
     that.match([&](auto tag, auto&... value) {
-      std::construct_at(this, tag, std::move(value)...);
+      std::construct_at(this, tag, BEST_MOVE(value)...);
     });
   }
 
@@ -196,7 +180,7 @@ class impl : public storage<Ts...> {
     requires(!info.trivial_move)
   {
     that.match([&](auto tag, auto&... value) {
-      emplace<tag.value>(std::move(value)...);
+      emplace<tag.value>(BEST_MOVE(value)...);
     });
     return *this;
   }
@@ -208,7 +192,7 @@ class impl : public storage<Ts...> {
     requires(!info.trivial_dtor)
   {
     match([](auto, auto&... value) {
-      (std::destroy_at(std::addressof(value)), ...);
+      (std::destroy_at(best::addr(value)), ...);
     });
   }
 
@@ -236,16 +220,6 @@ class impl : public storage<Ts...> {
   BEST_INLINE_SYNTHETIC constexpr best::as_ref<type<n>> deref(
       unsafe u, best::index_t<n> i = {}) {
     return *get(u, i);
-  }
-  template <size_t n>
-  BEST_INLINE_SYNTHETIC constexpr best::as_rref<const type<n>> move(
-      unsafe u, best::index_t<n> i = {}) const {
-    return static_cast<best::as_rref<const type<n>>>(*get(u, i));
-  }
-  template <size_t n>
-  BEST_INLINE_SYNTHETIC constexpr best::as_rref<type<n>> move(
-      unsafe u, best::index_t<n> i = {}) {
-    return static_cast<best::as_rref<type<n>>>(*get(u, i));
   }
   template <size_t n>
   BEST_INLINE_SYNTHETIC constexpr best::as_ptr<type<n>> ptr(
@@ -283,15 +257,15 @@ class impl : public storage<Ts...> {
   }
   template <typename F>
   BEST_INLINE_SYNTHETIC constexpr decltype(auto) match(F&& callback) const&& {
-    return JumpTable<decltype(make_match_arm(static_cast<const impl&&>(*this),
+    return JumpTable<decltype(make_match_arm(BEST_MOVE(*this),
                                              BEST_FWD(callback)))>[tag()](
-        make_match_arm(static_cast<const impl&&>(*this), BEST_FWD(callback)));
+        make_match_arm(BEST_MOVE(*this), BEST_FWD(callback)));
   }
   template <typename F>
   BEST_INLINE_SYNTHETIC constexpr decltype(auto) match(F&& callback) && {
-    return JumpTable<decltype(make_match_arm(static_cast<impl&&>(*this),
+    return JumpTable<decltype(make_match_arm(BEST_MOVE(*this),
                                              BEST_FWD(callback)))>[tag()](
-        make_match_arm(static_cast<impl&&>(*this), BEST_FWD(callback)));
+        make_match_arm(BEST_MOVE(*this), BEST_FWD(callback)));
   }
 
  private:

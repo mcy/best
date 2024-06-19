@@ -1,8 +1,6 @@
 #ifndef BEST_CONTAINER_RESULT_H_
 #define BEST_CONTAINER_RESULT_H_
 
-#include <utility>
-
 #include "best/container/choice.h"
 #include "best/container/row.h"
 #include "best/meta/tags.h"
@@ -74,21 +72,21 @@ err(Args&&...) -> err<Args&&...>;
 /// Whether `T` is some `best::result<U, E>`.
 template <typename T>
 concept is_result =
-    std::is_same_v<std::remove_cvref_t<T>,
-                   best::result<typename std::remove_cvref_t<T>::ok_type,
-                                typename std::remove_cvref_t<T>::err_type>>;
+    best::same<best::as_auto<T>,
+               best::result<typename best::as_auto<T>::ok_type,
+                            typename best::as_auto<T>::err_type>>;
 
 /// # `best::ok_type<T>`
 ///
 /// Given `best::result<U, E>`, returns `U`.
 template <is_result T>
-using ok_type = typename std::remove_cvref_t<T>::ok_type;
+using ok_type = typename best::as_auto<T>::ok_type;
 
 /// # `best::err_type<T>`
 ///
 /// Given `best::result<U, E>`, returns `E`.
 template <is_result T>
-using err_type = typename std::remove_cvref_t<T>::err_type;
+using err_type = typename best::as_auto<T>::err_type;
 
 template <typename T, typename E>
 class [[nodiscard(
@@ -98,14 +96,14 @@ class [[nodiscard(
   template <typename U>
   static constexpr bool cannot_init_from =
       ((!best::constructible<T, const U&> && !best::constructible<T, U&&>) ||
-       best::is_void<T>)&&((!best::constructible<E, const U&> &&
-                            !best::constructible<E, U&&>) ||
-                           best::is_void<E>);
+       best::is_void<T>) &&
+      ((!best::constructible<E, const U&> && !best::constructible<E, U&&>) ||
+       best::is_void<E>);
 
  public:
   /// Helper type aliases.
   using ok_type = T;
-  using ok_value = std::remove_cvref_t<T>;
+  using ok_value = best::as_auto<T>;
   using ok_cref = best::as_ref<const ok_type>;
   using ok_ref = best::as_ref<ok_type>;
   using ok_crref = best::as_rref<const ok_type>;
@@ -114,7 +112,7 @@ class [[nodiscard(
   using ok_ptr = best::as_ptr<ok_type>;
 
   using err_type = E;
-  using err_value = std::remove_cvref_t<E>;
+  using err_value = best::as_auto<E>;
   using err_cref = best::as_ref<const err_type>;
   using err_ref = best::as_ref<err_type>;
   using err_crref = best::as_rref<const err_type>;
@@ -214,9 +212,11 @@ class [[nodiscard(
   constexpr ok_cref operator*() const& { return impl()[best::index<0>]; }
   constexpr ok_ref operator*() & { return impl()[best::index<0>]; }
   constexpr ok_crref operator*() const&& {
-    return moved().impl()[best::index<0>];
+    return BEST_MOVE(*this).impl()[best::index<0>];
   }
-  constexpr ok_rref operator*() && { return moved().impl()[best::index<0>]; }
+  constexpr ok_rref operator*() && {
+    return BEST_MOVE(*this).impl()[best::index<0>];
+  }
   constexpr ok_cptr operator->() const {
     return *ok(), impl().as_ptr(index<0>);
   }
@@ -285,30 +285,30 @@ class [[nodiscard(
   BEST_INLINE_SYNTHETIC constexpr auto operator<=>(
       const best::comparable<T> auto& u) const {
     if (auto v = ok()) return v <=> u;
-    return std::strong_ordering::less;
+    return best::ord::less;
   }
   BEST_INLINE_SYNTHETIC constexpr auto operator<=>(
       const best::comparable<E> auto& u) const {
     if (auto v = err()) return v <=> u;
-    return std::strong_ordering::greater;
+    return best::ord::greater;
   }
   template <best::comparable<T> U>
   BEST_INLINE_SYNTHETIC constexpr auto operator<=>(best::ok<U> u) const {
     if (auto v = ok()) return v <=> u.row[best::index<0>];
-    return std::strong_ordering::less;
+    return best::ord::less;
   }
   template <best::comparable<E> U>
   BEST_INLINE_SYNTHETIC constexpr auto operator<=>(best::err<U> u) const {
     if (auto v = ok()) return v <=> u.rpw[best::index<0>];
-    return std::strong_ordering::less;
+    return best::ord::less;
   }
   BEST_INLINE_SYNTHETIC constexpr auto operator<=>(best::ok<> u) const {
-    if (ok()) return std::strong_ordering::equal;
-    return std::strong_ordering::less;
+    if (ok()) return best::ord::equal;
+    return best::ord::less;
   }
   BEST_INLINE_SYNTHETIC constexpr auto operator<=>(best::err<> u) const {
-    if (err()) return std::strong_ordering::equal;
-    return std::strong_ordering::greater;
+    if (err()) return best::ord::equal;
+    return best::ord::greater;
   }
 
   friend void BestFmt(auto& fmt, const result& res)
@@ -337,19 +337,10 @@ class [[nodiscard(
   template <typename, typename>
   friend class result;
 
-  constexpr const result&& moved() const {
-    return static_cast<const result&&>(*this);
-  }
-  constexpr result&& moved() { return static_cast<result&&>(*this); }
-
   constexpr const auto& impl() const& { return BEST_RESULT_IMPL_; }
   constexpr auto& impl() & { return BEST_RESULT_IMPL_; }
-  constexpr const auto&& impl() const&& {
-    return static_cast<const best::choice<T, E>&&>(BEST_RESULT_IMPL_);
-  }
-  constexpr auto&& impl() && {
-    return static_cast<best::choice<T, E>&&>(BEST_RESULT_IMPL_);
-  }
+  constexpr const auto&& impl() const&& { return BEST_MOVE(BEST_RESULT_IMPL_); }
+  constexpr auto&& impl() && { return BEST_MOVE(BEST_RESULT_IMPL_); }
 
  public:
   best::choice<T, E> BEST_RESULT_IMPL_;
@@ -422,11 +413,11 @@ constexpr auto result<T, E>::ok() & -> option<ok_ref> {
 }
 template <typename T, typename E>
 constexpr auto result<T, E>::ok() const&& -> option<ok_crref> {
-  return moved().impl().at(best::index<0>);
+  return BEST_MOVE(*this).impl().at(best::index<0>);
 }
 template <typename T, typename E>
 constexpr auto result<T, E>::ok() && -> option<ok_rref> {
-  return moved().impl().at(best::index<0>);
+  return BEST_MOVE(*this).impl().at(best::index<0>);
 }
 
 template <typename T, typename E>
@@ -439,11 +430,11 @@ constexpr auto result<T, E>::err() & -> option<err_ref> {
 }
 template <typename T, typename E>
 constexpr auto result<T, E>::err() const&& -> option<err_crref> {
-  return moved().impl().at(best::index<1>);
+  return BEST_MOVE(*this).impl().at(best::index<1>);
 }
 template <typename T, typename E>
 constexpr auto result<T, E>::err() && -> option<err_rref> {
-  return moved().impl().at(best::index<1>);
+  return BEST_MOVE(*this).impl().at(best::index<1>);
 }
 
 template <typename T, typename E>
@@ -471,7 +462,7 @@ constexpr auto result<T, E>::map(auto&& f) & {
 template <typename T, typename E>
 constexpr auto result<T, E>::map(auto&& f) const&& {
   using U = best::call_result<decltype(f), ok_crref>;
-  return moved().impl().match(
+  return BEST_MOVE(*this).impl().match(
       [&](best::index_t<0>, auto&&... args) -> result<U, E> {
         return best::ok(best::call(BEST_FWD(f), BEST_FWD(args)...));
       },
@@ -482,7 +473,7 @@ constexpr auto result<T, E>::map(auto&& f) const&& {
 template <typename T, typename E>
 constexpr auto result<T, E>::map(auto&& f) && {
   using U = best::call_result<decltype(f), ok_rref>;
-  return moved().impl().match(
+  return BEST_MOVE(*this).impl().match(
       [&](best::index_t<0>, auto&&... args) -> result<U, E> {
         return best::ok(best::call(BEST_FWD(f), BEST_FWD(args)...));
       },
@@ -516,7 +507,7 @@ constexpr auto result<T, E>::map_err(auto&& f) & {
 template <typename T, typename E>
 constexpr auto result<T, E>::map_err(auto&& f) const&& {
   using U = best::call_result<decltype(f), err_crref>;
-  return moved().impl().match(
+  return BEST_MOVE(*this).impl().match(
       [&](best::index_t<1>, auto&&... args) -> result<T, U> {
         return best::err(best::call(BEST_FWD(f), BEST_FWD(args)...));
       },
@@ -527,7 +518,7 @@ constexpr auto result<T, E>::map_err(auto&& f) const&& {
 template <typename T, typename E>
 constexpr auto result<T, E>::map_err(auto&& f) && {
   using U = best::call_result<decltype(f), err_rref>;
-  return moved().impl().match(
+  return BEST_MOVE(*this).impl().match(
       [&](best::index_t<1>, auto&&... args) -> result<T, U> {
         return best::err(best::call(BEST_FWD(f), BEST_FWD(args)...));
       },
@@ -561,7 +552,7 @@ constexpr auto result<T, E>::then(auto&& f) & {
 template <typename T, typename E>
 constexpr auto result<T, E>::then(auto&& f) const&& {
   using U = best::unref<best::call_result<decltype(f), ok_crref>>;
-  return moved().impl().match(
+  return BEST_MOVE(*this).impl().match(
       [&](best::index_t<0>, auto&&... args) -> U {
         return best::call(BEST_FWD(f), BEST_FWD(args)...);
       },
@@ -572,7 +563,7 @@ constexpr auto result<T, E>::then(auto&& f) const&& {
 template <typename T, typename E>
 constexpr auto result<T, E>::then(auto&& f) && {
   using U = best::unref<best::call_result<decltype(f), ok_rref>>;
-  return moved().impl().match(
+  return BEST_MOVE(*this).impl().match(
       [&](best::index_t<0>, auto&&... args) -> U {
         return best::call(BEST_FWD(f), BEST_FWD(args)...);
       },

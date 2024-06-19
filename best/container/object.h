@@ -3,15 +3,15 @@
 
 #include <stddef.h>
 
-#include <compare>
 #include <memory>
 #include <type_traits>
 
+#include "best/base/ord.h"
 #include "best/base/port.h"
 #include "best/meta/ebo.h"
 #include "best/meta/init.h"
-#include "best/meta/ops.h"
 #include "best/meta/tags.h"
+#include "best/meta/traits.h"
 
 //! Objectification: turn any C++ type into a something you can use as a class
 //! member.
@@ -85,8 +85,8 @@ class object_ptr final {
   /// # `object_ptr::pointee`.
   ///
   /// The "true" pointee type. Internally, an `object_ptr` stores a `pointee*`.
-  using pointee = std::conditional_t<best::is_object<T> || best::is_void<T>, T,
-                                     const best::as_ptr<T>>;
+  using pointee = best::select<best::is_object<T> || best::is_void<T>, T,
+                               const best::as_ptr<T>>;
 
   using cref = best::as_ref<const T>;
   using ref = best::as_ref<T>;
@@ -125,14 +125,14 @@ class object_ptr final {
   constexpr explicit(!best::qualifies_to<U, pointee> && !best::is_void<T>)
       object_ptr(object_ptr<U> ptr)
       : BEST_OBJECT_PTR_(
-            const_cast<std::remove_const_t<typename object_ptr<U>::pointee>*>(
+            const_cast<best::unqual<typename object_ptr<U>::pointee>*>(
                 ptr.raw())) {}
 
   /// # `object_ptr::dangling()`
   ///
   /// Returns a non-null but dangling pointer, which is unique for the choice of
   /// `T`.
-  static constexpr object_ptr dangling() { return std::addressof(dangling_); }
+  static constexpr object_ptr dangling() { return best::addr(dangling_); }
 
   /// # `object_ptr::raw()`.
   ///
@@ -142,19 +142,19 @@ class object_ptr final {
   /// Pointers may be compared by address.
   template <typename U>
   constexpr bool operator==(object_ptr<U> that) const {
-    return best::addr_eq(raw(), that.raw());
+    return best::equal(raw(), that.raw());
   };
   template <typename U>
-  constexpr std::strong_ordering operator<=>(object_ptr<U> that) const {
-    return best::addr_cmp(raw(), that.raw());
+  constexpr best::ord operator<=>(object_ptr<U> that) const {
+    return best::compare(raw(), that.raw());
   };
   template <typename U>
   constexpr bool operator==(U* that) const {
-    return best::addr_eq(raw(), that);
+    return best::equal(raw(), that);
   };
   template <typename U>
-  constexpr std::strong_ordering operator<=>(U* that) const {
-    return best::addr_cmp(raw(), that);
+  constexpr best::ord operator<=>(U* that) const {
+    return best::compare(raw(), that);
   };
   constexpr operator pointee*() const { return raw(); }
 
@@ -187,7 +187,7 @@ class object_ptr final {
   constexpr ref operator[](size_t idx) const { return *(*this + idx); }
 
   constexpr object_ptr operator+(ptrdiff_t idx) const {
-    if constexpr (std::is_void_v<T>) {
+    if constexpr (best::is_void<T>) {
       return *this;
     } else {
       return object_ptr(raw() + idx);
@@ -205,7 +205,7 @@ class object_ptr final {
   }
 
   constexpr object_ptr operator-(ptrdiff_t idx) const {
-    if constexpr (std::is_void_v<T>) {
+    if constexpr (best::is_void<T>) {
       return *this;
     } else {
       return object_ptr(raw() - idx);
@@ -236,10 +236,9 @@ class object_ptr final {
     if constexpr (best::is_object<T>) {
       std::construct_at(raw(), BEST_FWD(args)...);
     } else if constexpr (best::is_ref<T>) {
-      *const_cast<std::remove_const_t<pointee>*>(raw()) =
-          std::addressof(args...);
+      *const_cast<best::unqual<pointee>*>(raw()) = best::addr(args...);
     } else if constexpr (best::is_func<T>) {
-      *const_cast<std::remove_const_t<pointee>*>(raw()) = (args, ...);
+      *const_cast<best::unqual<pointee>*>(raw()) = (args, ...);
     }
   }
   template <typename... Args>
@@ -261,7 +260,7 @@ class object_ptr final {
     if constexpr (best::is_object<T>) {
       std::construct_at(raw(), niche{});
     } else if constexpr (best::is_ref<T>) {
-      *const_cast<std::remove_const_t<pointee>*>(raw()) = nullptr;
+      *const_cast<best::unqual<pointee>*>(raw()) = nullptr;
     }
   }
 
@@ -341,9 +340,9 @@ class object_ptr final {
   {
     if constexpr (!best::is_void<T>) {
       if (is_init) {
-        assign(static_cast<rref>(*that));
+        assign(BEST_MOVE(*that));
       } else {
-        construct_in_place(static_cast<rref>(*that));
+        construct_in_place(BEST_MOVE(*that));
       }
     }
   }
@@ -379,7 +378,7 @@ template <typename T>
 best::as_ptr<T>* wrap_impl();
 
 template <typename T>
-using wrap = std::remove_pointer_t<decltype(wrap_impl<T>())>;
+using wrap = best::unptr<decltype(wrap_impl<T>())>;
 }  // namespace object_internal
 
 /// # `best::object<T>`
@@ -403,7 +402,7 @@ class object final :
   using wrapped_type = object_internal::wrap<T>;
 
   using type = T;
-  using value_type = std::remove_cvref_t<T>;
+  using value_type = best::as_auto<T>;
 
   using cref = best::as_ref<const type>;
   using ref = best::as_ref<type>;
@@ -459,10 +458,10 @@ class object final :
   ///
   /// Extracts an `object_ptr<T>` pointing to this object.
   constexpr best::object_ptr<const T> as_ptr() const {
-    return best::object_ptr<const T>(std::addressof(base::get()));
+    return best::object_ptr<const T>(best::addr(base::get()));
   }
   constexpr best::object_ptr<T> as_ptr() {
-    return best::object_ptr<T>(std::addressof(base::get()));
+    return best::object_ptr<T>(best::addr(base::get()));
   }
 
   /// # `object_ptr::operator*`, `object_ptr::operator->`
@@ -470,8 +469,8 @@ class object final :
   /// Retrieves the wrapped value.
   constexpr cref operator*() const& { return *as_ptr(); }
   constexpr ref operator*() & { return *as_ptr(); }
-  constexpr crref operator*() const&& { return static_cast<crref>(**this); }
-  constexpr rref operator*() && { return static_cast<rref>(**this); }
+  constexpr crref operator*() const&& { return BEST_MOVE(**this); }
+  constexpr rref operator*() && { return BEST_MOVE(**this); }
   constexpr cptr operator->() const { return as_ptr().operator->(); }
   constexpr ptr operator->() { return as_ptr().operator->(); }
 
@@ -489,14 +488,14 @@ class object final :
     requires best::comparable<T, T>
   {
     if constexpr (best::is_void<T>) {
-      return std::strong_ordering::equal;
+      return best::ord::equal;
     } else {
       return **this <=> *that;
     }
   }
 
   friend void BestFmt(auto& fmt, const object& obj)
-    requires std::is_void_v<T> || requires { fmt.format(*obj); }
+    requires best::is_void<T> || requires { fmt.format(*obj); }
   {
     if constexpr (best::is_void<T>) {
       fmt.write("void");

@@ -1,15 +1,12 @@
 #ifndef BEST_CONTAINER_ROW_H_
 #define BEST_CONTAINER_ROW_H_
 
-#include <compare>
-#include <type_traits>
-
 #include "best/base/fwd.h"
+#include "best/base/ord.h"
 #include "best/container/internal/row.h"
 #include "best/container/object.h"
 #include "best/meta/ebo.h"
 #include "best/meta/init.h"
-#include "best/meta/ops.h"
 #include "best/meta/tags.h"
 #include "best/meta/tlist.h"
 
@@ -223,13 +220,10 @@ class row final
   }
 
   template <typename... Us>
-  constexpr std::common_comparison_category_t<best::order_type<Elems, Us>...>
-  operator<=>(const choice<Us...>& that) const
+  constexpr auto operator<=>(const choice<Us...>& that) const
     requires(best::comparable<Elems, Us> && ...)
   {
-    using Output =
-        std::common_comparison_category_t<best::order_type<Elems, Us>...>;
-
+    using Output = best::common_ord<best::order_type<Elems, Us>...>;
     return indices.apply([&]<typename... I> {
       Output result = Output::equivalent;
       return (..., (result == 0 ? result = at(best::index<I::value>) <=>
@@ -237,16 +231,10 @@ class row final
                                 : result));
     });
   }
-
- private:
-  constexpr const row&& moved() const {
-    return static_cast<const row&&>(*this);
-  }
-  constexpr row&& moved() { return static_cast<row&&>(*this); }
 };
 
 template <typename... Elems>
-row(Elems&&...) -> row<std::remove_cvref_t<Elems>...>;
+row(Elems&&...) -> row<best::as_auto<Elems>...>;
 
 /// # `best::row_forward`
 ///
@@ -288,14 +276,14 @@ constexpr auto row<A...>::forward() & {
 }
 template <typename... A>
 constexpr auto row<A...>::forward() const&& {
-  return moved().apply([](auto&&... args) {
+  return BEST_MOVE(*this).apply([](auto&&... args) {
     return row_forward<decltype(args)...>{
         row<decltype(args)...>(BEST_FWD(args)...)};
   });
 }
 template <typename... A>
 constexpr auto row<A...>::forward() && {
-  return moved().apply([](auto&&... args) {
+  return BEST_MOVE(*this).apply([](auto&&... args) {
     return row_forward<decltype(args)...>{
         row<decltype(args)...>(BEST_FWD(args)...)};
   });
@@ -421,7 +409,7 @@ constexpr decltype(auto) row<A...>::get(best::index_t<n> idx) const&& {
   if constexpr (best::is_void<type<n>>) {
     return best::empty{};
   } else {
-    return moved().at(idx);
+    return BEST_MOVE(*this).at(idx);
   }
 }
 template <typename... A>
@@ -430,7 +418,7 @@ constexpr decltype(auto) row<A...>::get(best::index_t<n> idx) && {
   if constexpr (best::is_void<type<n>>) {
     return best::empty{};
   } else {
-    return moved().at(idx);
+    return BEST_MOVE(*this).at(idx);
   }
 }
 
@@ -449,13 +437,15 @@ constexpr decltype(auto) row<A...>::apply(auto&& f) & {
 template <typename... A>
 constexpr decltype(auto) row<A...>::apply(auto&& f) const&& {
   return indices.apply([&]<typename... I>() -> decltype(auto) {
-    return best::call(BEST_FWD(f), moved().get(best::index<I::value>)...);
+    return best::call(BEST_FWD(f),
+                      BEST_MOVE(*this).get(best::index<I::value>)...);
   });
 }
 template <typename... A>
 constexpr decltype(auto) row<A...>::apply(auto&& f) && {
   return indices.apply([&]<typename... I>() -> decltype(auto) {
-    return best::call(BEST_FWD(f), moved().get(best::index<I::value>)...);
+    return best::call(BEST_FWD(f),
+                      BEST_MOVE(*this).get(best::index<I::value>)...);
   });
 }
 }  // namespace best

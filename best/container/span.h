@@ -1,11 +1,8 @@
 #ifndef BEST_CONTAINER_SPAN_H_
 #define BEST_CONTAINER_SPAN_H_
 
-#include <compare>
-#include <concepts>
 #include <cstddef>
 #include <initializer_list>
-#include <type_traits>
 
 #include "best/base/port.h"
 #include "best/container/internal/span.h"
@@ -15,7 +12,6 @@
 #include "best/math/overflow.h"
 #include "best/memory/bytes.h"
 #include "best/meta/init.h"
-#include "best/meta/ops.h"
 #include "best/meta/tags.h"
 #include "best/meta/tlist.h"
 
@@ -65,22 +61,21 @@ concept static_contiguous = static_size<T>.has_value();
 ///
 /// Represents whether T is best::span<U, n> for some U, n.
 template <typename T>
-concept is_span = best::same<std::remove_cvref_t<T>,
-                             best::span<typename std::remove_cvref_t<T>::type,
-                                        std::remove_cvref_t<T>::extent>>;
+concept is_span =
+    best::same<best::as_auto<T>, best::span<typename best::as_auto<T>::type,
+                                            best::as_auto<T>::extent>>;
 
 /// # `best::span_type<T>`
 ///
 /// Given T = best::span<U, n>, returns U.
 template <is_span T>
-using span_type = typename std::remove_cvref_t<T>::type;
+using span_type = typename best::as_auto<T>::type;
 
 /// # `best::span_extent<T>`
 ///
 /// Given T = best::span<U, n>, returns n.
 template <is_span T>
-inline constexpr best::option<size_t> span_extent =
-    std::remove_cvref_t<T>::extent;
+inline constexpr best::option<size_t> span_extent = best::as_auto<T>::extent;
 
 /// # `best::span<T, n>`
 ///
@@ -124,7 +119,7 @@ class span final {
  public:
   /// Helper type aliases.
   using type = T;
-  using value_type = std::remove_cv_t<T>;
+  using value_type = best::unqual<T>;
   using cref = best::as_ref<const type>;
   using ref = best::as_ref<type>;
   using crref = best::as_rref<const type>;
@@ -150,7 +145,7 @@ class span final {
   /// # `span::is_const`
   ///
   /// Whether it is possible to mutate through this span.
-  static constexpr bool is_const = std::is_const_v<T>;
+  static constexpr bool is_const = best::is_const<T>;
 
   /// # `span::with_extent`
   ///
@@ -249,8 +244,7 @@ class span final {
     if (data == nullptr) return {data, 0};
 
     auto ptr = data;
-    while (*ptr++ != T{0})
-      ;
+    while (*ptr++ != T{0});
 
     return best::span(data, ptr - data - 1);
   }
@@ -573,8 +567,7 @@ class span final {
     requires best::comparable<T> && (!is_const);
   void sort(best::callable<void(const T&)> auto&&) const
     requires(!is_const);
-  void sort(
-      best::callable<std::partial_ordering(const T&, const T&)> auto&&) const
+  void sort(best::callable<best::partial_ord(const T&, const T&)> auto&&) const
     requires(!is_const);
 
   /// # `span::stable_sort()`
@@ -587,7 +580,7 @@ class span final {
   void stable_sort(best::callable<void(const T&)> auto&&) const
     requires(!is_const);
   void stable_sort(
-      best::callable<std::partial_ordering(const T&, const T&)> auto&&) const
+      best::callable<best::partial_ord(const T&, const T&)> auto&&) const
     requires(!is_const);
 
   /// # `span::copy_from()`
@@ -707,8 +700,7 @@ span(best::object_ptr<T>, size_t) -> span<T>;
 template <typename T>
 span(std::initializer_list<T>) -> span<const T>;
 template <contiguous R>
-span(R&& r) -> span<std::remove_reference_t<decltype(*std::data(r))>,
-                    best::static_size<R>>;
+span(R&& r) -> span<best::unref<decltype(*std::data(r))>, best::static_size<R>>;
 }  // namespace best
 
 /******************************************************************************/

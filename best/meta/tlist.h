@@ -3,11 +3,9 @@
 
 #include <stddef.h>
 
-#include <compare>
-#include <concepts>
 #include <type_traits>
-#include <utility>
 
+#include "best/base/ord.h"
 #include "best/container/bounds.h"
 #include "best/func/call.h"
 #include "best/meta/internal/tlist.h"
@@ -368,16 +366,16 @@ class tlist final {
     return false;
   }
   template <typename... Those>
-  constexpr std::partial_ordering operator<=>(tlist<Those...> that) const {
+  constexpr best::partial_ord operator<=>(tlist<Those...> that) const {
     if constexpr (tlist{} == that) {
-      return std::partial_ordering::equivalent;
+      return best::partial_ord::equivalent;
     } else if constexpr (!std::is_void_v<decltype(remove_prefix_from(that))>) {
-      return std::partial_ordering::less;
+      return best::partial_ord::less;
     } else if constexpr (!std::is_void_v<decltype(that.remove_prefix_from(
                              tlist{}))>) {
-      return std::partial_ordering::greater;
+      return best::partial_ord::greater;
     } else {
-      return std::partial_ordering::unordered;
+      return best::partial_ord::unordered;
     }
   }
 

@@ -277,27 +277,6 @@ class templ final {
   best::location loc_;
 };
 
-// Can't seem to use requires {} for this. Unclear if this is a Clang bug, or
-// a limitation of how names are bound in requires-expressions.
-template <typename T>
-struct has_fmt {
-  static auto check(const auto& r)
-      -> decltype(BestFmt(std::declval<best::ftadle&>(), r), true);
-  static void check(...);
-
-  static constexpr bool value =
-      !best::is_void<decltype(check(std::declval<const T&>()))>;
-};
-template <typename T>
-struct has_fmt_query {
-  static auto check(auto* r)
-      -> decltype(BestFmtQuery(std::declval<best::ftadle&>(), r), true);
-  static void check(...);
-
-  static constexpr bool value =
-      !best::is_void<decltype(check(best::as_ptr<T>()))>;
-};
-
 struct unprintable final {
   const char* bytes_;
   size_t size_;

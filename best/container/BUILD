@@ -49,6 +49,7 @@ cc_library(
   name = "object",
   hdrs = ["object.h"],
   deps = [
+    "//best/base:ord",
     "//best/meta:ebo",
   ]
 )
@@ -212,4 +213,7 @@ cc_library(
   name = "simple_option",
   hdrs = ["internal/simple_option.h"],
   visibility = ["//best:__subpackages__"],
+  deps = [
+    "//best/meta:taxonomy",
+  ]
 )

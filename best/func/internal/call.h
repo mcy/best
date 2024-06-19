@@ -3,12 +3,10 @@
 
 #include <stddef.h>
 
-#include <utility>
-
 #include "best/base/hint.h"
-#include "best/base/port.h"
 #include "best/meta/init.h"
 #include "best/meta/taxonomy.h"
+#include "best/meta/traits.h"
 
 namespace best::call_internal {
 template <typename...>
@@ -69,17 +67,16 @@ constexpr bool can_call(tag<TParams...>, R (*)(Args...))
 {
   return best::is_void<R> ||
          best::convertible<R, decltype(call_internal::call<TParams...>(
-                                  tag<TParams...>{}, std::declval<F>(),
-                                  std::declval<Args>()...))>;
+                                  tag<TParams...>{}, best::lie<F>,
+                                  best::lie<Args>...))>;
 }
 
 template <typename F, typename... Args>
 auto call_result(tag<Args...>)
-    -> decltype(call_internal::call(tag<>{}, std::declval<F>(),
-                                    std::declval<Args>()...));
+    -> decltype(call_internal::call(tag<>{}, best::lie<F>, best::lie<Args>...));
 template <typename F, best::is_void V>
-auto call_result(tag<V>)
-    -> decltype(call_internal::call(tag<>{}, std::declval<F>()));
+auto call_result(tag<V>) -> decltype(call_internal::call(tag<>{},
+                                                         best::lie<F>));
 }  // namespace best::call_internal
 
 #endif  // BEST_FUNC_INTERNAL_CALL_H_

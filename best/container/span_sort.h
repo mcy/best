@@ -26,7 +26,7 @@ void span<T, n>::sort(best::callable<void(const T&)> auto&& get_key) const
 }
 template <best::is_object T, best::option<size_t> n>
 void span<T, n>::sort(
-    best::callable<std::partial_ordering(const T&, const T&)> auto&& get_key)
+    best::callable<best::partial_ord(const T&, const T&)> auto&& get_key)
     const
   requires(!is_const)
 {
@@ -51,7 +51,7 @@ void span<T, n>::stable_sort(
 }
 template <best::is_object T, best::option<size_t> n>
 void span<T, n>::stable_sort(
-    best::callable<std::partial_ordering(const T&, const T&)> auto&& get_key)
+    best::callable<best::partial_ord(const T&, const T&)> auto&& get_key)
     const
   requires(!is_const)
 {

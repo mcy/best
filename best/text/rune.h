@@ -2,7 +2,6 @@
 #define BEST_TEXT_RUNE_H_
 
 #include <cstddef>
-#include <type_traits>
 
 #include "best/base/hint.h"
 #include "best/container/option.h"
@@ -185,7 +184,7 @@ class rune final {
   template <typename S, typename E>
   iter(S, const E&) -> iter<E>;
   template <typename S>
-  iter(const S& s) -> iter<std::remove_cvref_t<decltype(best::encoding_of(s))>>;
+  iter(const S& s) -> iter<best::as_auto<decltype(best::encoding_of(s))>>;
 
   /// # `rune::from_digit()`
   ///
@@ -359,7 +358,7 @@ struct rune::iter final {
   ///
   /// Constructs a new iterator over the given span of code units.
   constexpr explicit iter(best::span<const code<E>> codes, const E& enc)
-      : codes_(codes), enc_(std::addressof(enc)) {}
+      : codes_(codes), enc_(best::addr(enc)) {}
 
   /// # `iter::iter(str)`
   ///

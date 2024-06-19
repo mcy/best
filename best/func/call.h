@@ -7,6 +7,7 @@
 #include "best/base/hint.h"
 #include "best/func/internal/call.h"
 #include "best/meta/tags.h"
+#include "best/meta/taxonomy.h"
 
 //! Highly generic function-calling functions.
 
@@ -43,7 +44,7 @@ BEST_INLINE_SYNTHETIC constexpr decltype(auto) call_devoid(auto &&...args)
 {
   using Out = decltype(call_internal::call(call_internal::tag<TParams...>{},
                                            BEST_FWD(args)...));
-  if constexpr (std::is_void_v<Out>) {
+  if constexpr (best::is_void<Out>) {
     call_internal::call(call_internal::tag<TParams...>{}, BEST_FWD(args)...);
     return best::empty{};
   } else {

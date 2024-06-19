@@ -2,7 +2,6 @@
 #define BEST_TEXT_ENCODING_H_
 
 #include <cstddef>
-#include <type_traits>
 
 #include "best/container/option.h"
 #include "best/container/result.h"
@@ -35,7 +34,7 @@ namespace best {
 /// * Injective. Every rune is encoded as exactly one sequence of one or more
 ///   code units.
 /// * ISO-646 compliant. Every printable ISO 646 character is encodable.
-template <typename E_, typename E = std::remove_cvref_t<E_>>
+template <typename E_, typename E = best::as_auto<E_>>
 concept encoding =
     best::copyable<E> && best::equatable<E> && requires(const E& e) {
       /// Required type aliases.
@@ -71,7 +70,7 @@ enum class encoding_error : uint8_t {
 ///
 /// The code unit type of a particular encoding.
 template <encoding E>
-using code = std::remove_cvref_t<E>::code;
+using code = best::as_auto<E>::code;
 
 /// # `best::encoding_about`
 ///
@@ -137,8 +136,7 @@ concept string_type =
       { BestEncoding(tag, value) } -> best::encoding;
       {
         std::data(value)
-      } -> best::same<
-          code<decltype(BestEncoding(std::declval<ftadle&>(), value))> const*>;
+      } -> best::same<code<decltype(BestEncoding(tag, value))> const*>;
     };
 
 /// # `best::encoding_of()`
@@ -152,8 +150,7 @@ constexpr const auto& encoding_of(const string_type auto& string) {
 ///
 /// Extracts the encoding type out of some string type.
 template <string_type S>
-using encoding_type =
-    std::remove_cvref_t<decltype(best::encoding_of(std::declval<S>()))>;
+using encoding_type = best::as_auto<decltype(best::encoding_of(best::lie<S>))>;
 
 /// # `best::same_encoding()`
 ///
