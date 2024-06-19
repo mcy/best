@@ -8,6 +8,7 @@
 #include <functional>
 #include <utility>
 
+#include "best/base/fwd.h"
 #include "best/meta/internal/ops.h"
 
 //! Helpers for working with overloadable operators.
@@ -156,11 +157,39 @@ inline constexpr std::strong_ordering addr_cmp(const volatile void *a,
 /// Additionally, any type parameters passed to this function will be forwarded
 /// to `call`.
 template <typename... TParams>
-constexpr auto call(auto &&...args)
-    -> decltype(ops_internal::call(ops_internal::tlist<TParams...>{},
-                                   BEST_FWD(args)...)) {
+constexpr decltype(auto) call(auto &&...args)
+  requires requires {
+    ops_internal::call(ops_internal::tlist<TParams...>{}, BEST_FWD(args)...);
+  }
+{
   return ops_internal::call(ops_internal::tlist<TParams...>{},
                             BEST_FWD(args)...);
+}
+
+/// Calls a function, and replaces a `void` return with a `best::empty`.
+///
+/// This is a highly generic operation: it emulates the behavior of std::invoke,
+/// which treats T C::* as a C -> T function; it also allows passing a
+/// best::tlist as the first argument, which will pass explicit template
+/// parameters to the underlying operator().
+///
+/// Additionally, any type parameters passed to this function will be forwarded
+/// to `call`.
+template <typename... TParams, typename Default = best::empty>
+constexpr decltype(auto) call_devoid(auto &&...args)
+  requires requires {
+    ops_internal::call(ops_internal::tlist<TParams...>{}, BEST_FWD(args)...);
+  }
+{
+  using Out = decltype(ops_internal::call(ops_internal::tlist<TParams...>{},
+                                          BEST_FWD(args)...));
+  if constexpr (std::is_void_v<Out>) {
+    ops_internal::call(ops_internal::tlist<TParams...>{}, BEST_FWD(args)...);
+    return Default{};
+  } else {
+    return ops_internal::call(ops_internal::tlist<TParams...>{},
+                              BEST_FWD(args)...);
+  }
 }
 
 /// Returns true if a particular call to best::call is possible.

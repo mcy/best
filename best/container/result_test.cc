@@ -1,6 +1,7 @@
 
 #include "best/container/result.h"
 
+#include "best/container/option.h"
 #include "best/test/fodder.h"
 #include "best/test/test.h"
 #include "best/text/strbuf.h"
@@ -64,6 +65,18 @@ best::test Cmp = [](auto& t) {
   t.expect_lt(x0, x1);
   t.expect_lt(x1, x2);
   t.expect_lt(x2, x3);
+};
+
+best::test ToString = [](auto& t) {
+  best::result<int, int> x0 = best::ok(1);
+  best::result<int, int> x1 = best::err(2);
+  best::result<void, int> x2 = best::ok();
+  best::result<int, void> x3 = best::err();
+
+  t.expect_eq(best::format("{:?}", x0), "ok(1)");
+  t.expect_eq(best::format("{:?}", x1), "err(2)");
+  t.expect_eq(best::format("{:?}", x2), "ok(void)");
+  t.expect_eq(best::format("{:?}", x3), "err(void)");
 };
 
 best::test Map = [](auto& t) {

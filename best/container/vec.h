@@ -196,6 +196,16 @@ class vec final {
   best::span<const T> as_span() const { return *this; }
   best::span<T> as_span() { return *this; }
 
+  /// # `vec::spare_capacity()`
+  ///
+  /// Returns a span over the uninitialized spare capacity.
+  best::span<const T> spare_capacity() const {
+    return best::span(data() + size(), capacity() - size());
+  }
+  best::span<T> spare_capacity() {
+    return best::span(data() + size(), capacity() - size());
+  }
+
   /// # `vec::first()`
   ///
   /// Returns the first, or first `m`, elements of this vector, or `best::none`
@@ -401,9 +411,7 @@ class vec final {
   ///
   /// Ensures that pushing an additional `count` elements would not cause this
   /// vector to resize, by resizing the internal array eagerly.
-  void reserve(size_t count) {
-    unsafe::in([&](auto u) { resize_uninit(u, size() + count); });
-  }
+  void reserve(size_t count) { resize_uninit(size() + count); }
 
   /// # `vec::truncate()`.
   ///
@@ -411,7 +419,7 @@ class vec final {
   /// If `count > size()`, this function does nothing.
   void truncate(size_t count) {
     if (count > size()) return;
-    unsafe::in([&](auto u) { resize_uninit(u, count); });
+    resize_uninit(count);
   }
 
   /// # `vec::set_size()`.
@@ -438,7 +446,8 @@ class vec final {
   ref insert(size_t idx, Args&&... args)
     requires best::constructible<T, Args&&...>
   {
-    auto ptr = unsafe::in([&](auto u) { return insert_uninit(u, idx, 1); });
+    auto ptr = insert_uninit(
+        unsafe("we call construct_in_place immediately after this"), idx, 1);
     ptr.construct_in_place(BEST_FWD(args)...);
     return *ptr;
   }
@@ -460,9 +469,9 @@ class vec final {
   void splice(size_t idx, const Range& range)
     requires best::constructible<T, decltype(*std::data(range))>
   {
-    auto ptr = unsafe::in(
-        [&](auto u) { return insert_uninit(u, idx, std::size(range)); });
-    best::span(ptr, std::size(range)).emplace_from(best::span(range));
+    auto ptr = insert_uninit(unsafe("we call copy_from immediately after this"),
+                             idx, std::size(range));
+    best::span(ptr, std::size(range)).copy_from(best::span(range));
   }
 
   /// # `vec::clear()`.
@@ -474,7 +483,7 @@ class vec final {
         (data() + i).destroy_in_place();
       }
     }
-    unsafe::in([&](auto u) { set_size(u, 0); });
+    set_size(unsafe("we just destroyed all elements"), 0);
   }
 
   /// # `best::pop()`
@@ -500,11 +509,14 @@ class vec final {
   void erase(best::bounds bounds) {
     auto range = operator[](bounds);
     range.destroy_in_place();
-    best::unsafe::in([&](auto u) {
-      shift_within(u, bounds.start, bounds.start + range.size(),
-                   size() - bounds.start + range.size());
-      set_size(u, size() - range.size());
-    });
+
+    size_t start = bounds.start;
+    size_t end = bounds.start + range.size();
+    size_t len = size() - end;
+    shift_within(unsafe("shifting elements over the ones we just destroyed"),
+                 start, end, len);
+    set_size(unsafe("updating length to exclude the range we just deleted"),
+             size() - range.size());
   }
 
   /// # `vec::assign()`.
@@ -531,7 +543,7 @@ class vec final {
   /// the requested size is smaller than the current size, this destroys
   /// elements as-needed. If the requested size is greater than the capacity,
   /// this resizes the underlying buffer. Otherwise, does nothing.
-  void resize_uninit(unsafe, size_t new_size);
+  void resize_uninit(size_t new_size);
 
   /// # `vec::shift_within()`
   ///
@@ -564,12 +576,6 @@ class vec final {
     requires best::equatable<T, decltype(*std::data(range))>
   {
     return as_span() <=> best::span(range);
-  }
-
-  // TODO: BestFmt
-  template <typename Os>
-  friend Os& operator<<(Os& os, const vec& sp) {
-    return os << sp.as_span();
   }
 
  private:
@@ -644,9 +650,15 @@ class vec final {
 
 template <typename T>
 vec(std::initializer_list<T>) -> vec<T>;
+}  // namespace best
 
-// --- IMPLEMENTATION DETAILS BELOW ---
+/******************************************************************************/
 
+///////////////////// !!! IMPLEMENTATION DETAILS BELOW !!! /////////////////////
+
+/******************************************************************************/
+
+namespace best {
 template <best::relocatable T, size_t max_inline, best::allocator A>
 vec<T, max_inline, A>::vec(const vec& that)
   requires best::copyable<T> && best::copyable<alloc>
@@ -689,7 +701,7 @@ void vec<T, max_inline, A>::move_construct(vec&& that, bool assign) {
   } else if (!assign || alloc_ == that.alloc_) {
     auto old_size = size();
     auto new_size = that.size();
-    best::unsafe::in([&](auto u) { resize_uninit(u, new_size); });
+    resize_uninit(new_size);
     for (size_t i = 0; i < new_size; ++i) {
       (data() + i).relocate_from(that.data() + i, /*is_init=*/i < old_size);
     }
@@ -737,7 +749,12 @@ best::object_ptr<T> vec<T, max_inline, A>::data() {
 
 template <best::relocatable T, size_t max_inline, best::allocator A>
 size_t vec<T, max_inline, A>::size() const {
-  return on_heap() ? ~size_ : size_ >> (bits_of<size_t> - SizeBytes * 8);
+  if constexpr (max_inline == 0) {
+    // size_ is implicitly always zero if off-heap.
+    return on_heap() ? ~size_ : 0;
+  } else {
+    return on_heap() ? ~size_ : size_ >> (bits_of<size_t> - SizeBytes * 8);
+  }
 }
 template <best::relocatable T, size_t max_inline, best::allocator A>
 void vec<T, max_inline, A>::set_size(unsafe, size_t new_size) {
@@ -749,39 +766,42 @@ void vec<T, max_inline, A>::set_size(unsafe, size_t new_size) {
   if (on_heap()) {
     size_ = ~new_size;
   } else {
-    auto offset = new_size << (bits_of<size_t> - SizeBytes * 8);
-    auto mask = ~size_t{0} << (bits_of<size_t> - SizeBytes * 8);
+    if constexpr (max_inline == 0) {
+      // size_ is implicitly always zero if off-heap, so we don't have to do
+      // anything here.
+    } else {
+      auto offset = new_size << (bits_of<size_t> - SizeBytes * 8);
+      auto mask = ~size_t{0} << (bits_of<size_t> - SizeBytes * 8);
 
-    // TODO(mcyoung): This is a strict aliasing violation...
-    size_ &= ~mask;
-    size_ |= offset;
+      // TODO(mcyoung): This is a strict aliasing violation...
+      size_ &= ~mask;
+      size_ |= offset;
+    }
   }
 }
 
 template <best::relocatable T, size_t max_inline, best::allocator A>
 void vec<T, max_inline, A>::assign(const contiguous auto& that) {
   if (best::addr_eq(this, &that)) return;
-  best::unsafe::in([&](auto u) {
-    using Range = best::as_deref<decltype(that)>;
-    if constexpr (best::is_vec<Range>) {
-      if (!that.on_heap() && best::copyable<T, trivially> &&
-          best::same<T, typename Range::type> &&
-          MaxInline == Range::MaxInline) {
-        std::memcpy(this, &that, that.size() * size_of<T>);
-        set_size(u, that.size());
-        return;
-      }
+  using Range = best::as_deref<decltype(that)>;
+  if constexpr (best::is_vec<Range>) {
+    if (!that.on_heap() && best::copyable<T, trivially> &&
+        best::same<T, typename Range::type> && MaxInline == Range::MaxInline) {
+      std::memcpy(this, &that, that.size() * size_of<T>);
+      set_size(unsafe("updating size to that of the memcpy'd range"),
+               that.size());
+      return;
     }
+  }
 
-    auto old_size = size();
-    auto new_size = std::size(that);
-    resize_uninit(u, new_size);
+  auto old_size = size();
+  auto new_size = std::size(that);
+  resize_uninit(new_size);
 
-    for (size_t i = 0; i < new_size; ++i) {
-      (data() + i).copy_from(std::data(that) + i, /*is_init=*/i < old_size);
-    }
-    set_size(u, new_size);
-  });
+  for (size_t i = 0; i < new_size; ++i) {
+    (data() + i).copy_from(std::data(that) + i, /*is_init=*/i < old_size);
+  }
+  set_size(unsafe("updating size to that of the memcpy'd range"), new_size);
 }
 
 template <best::relocatable T, size_t max_inline, best::allocator A>
@@ -805,11 +825,12 @@ best::object_ptr<T> vec<T, max_inline, A>::insert_uninit(unsafe u, size_t start,
 }
 
 template <best::relocatable T, size_t max_inline, best::allocator A>
-void vec<T, max_inline, A>::resize_uninit(unsafe u, size_t new_size) {
+void vec<T, max_inline, A>::resize_uninit(size_t new_size) {
   auto old_size = this->size();
   if (new_size <= capacity()) {
     if (new_size < old_size) {
-      at(u, {.start = new_size}).destroy_in_place();
+      at(unsafe{"we just did a bounds check (above)"}, {.start = new_size})
+          .destroy_in_place();
     }
     return;
   }

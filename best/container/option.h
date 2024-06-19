@@ -35,6 +35,7 @@ namespace best {
 /// best::option<int> x = best::none;
 /// ```
 inline constexpr struct none_t {
+  friend void BestFmt(auto& fmt, none_t) { fmt.write("none"); }
 } none;
 
 /// # `best::is_option`
@@ -292,6 +293,23 @@ class option final {
   }
   constexpr best::option<rref> as_ref() && {
     return best::option<rref>(best::move(*this));
+  }
+
+  /// # `option::as_object()`.
+  ///
+  /// Constructs a version of this option that contains a reference to the
+  /// corresponding `best::object` type.
+  constexpr best::option<const object<T>&> as_object() const& {
+    return impl().object(best::index<1>);
+  }
+  constexpr best::option<object<T>&> as_object() & {
+    return impl().object(best::index<1>);
+  }
+  constexpr best::option<const object<T>&&> as_object() const&& {
+    return moved().impl().object(best::index<1>);
+  }
+  constexpr best::option<object<T>&&> as_object() && {
+    return moved().impl().object(best::index<1>);
   }
 
   // TODO: expect.
@@ -612,20 +630,19 @@ class option final {
   }
   // clang-format on
 
-  // TODO: BestFmt
-  template <typename Os>
-  friend Os& operator<<(Os& os, const option& opt)
-    requires best::void_type<T> || requires {
-      { os << *opt };
-    }
+  friend void BestFmt(auto& fmt, const option& opt)
+    requires std::is_void_v<T> || requires { fmt.format(*opt); }
   {
     if (!opt.has_value()) {
-      return os << "none";
-    } else if constexpr (best::void_type<T>) {
-      return os << "option()";
+      fmt.write("none");
     } else {
-      return os << "option(" << *opt << ")";
+      fmt.format("option({:!})", *opt.as_object());
     }
+  }
+
+  friend constexpr void BestFmtQuery(auto& query, option*) {
+    query = query.template of<T>;
+    query.requires_debug = true;
   }
 
   // Conversions w/ simple_option.
@@ -798,41 +815,36 @@ template <typename T>
 option(T&&) -> option<std::remove_cvref_t<T>>;
 option(best::none_t) -> option<void>;
 
-// TODO: BestFmt
-template <typename Os>
-Os& operator<<(Os& os, none_t opt) {
-  return os << "none";
-}
-
 inline constexpr best::option<void> VoidOption{best::in_place};
 
 // Forward declare span as soon as possible.
 template <best::object_type, best::option<size_t> = best::none>
 class span;
 
-/// --- IMPLEMENTATION DETAILS BELOW ---
+}  // namespace best
 
+/******************************************************************************/
+
+///////////////////// !!! IMPLEMENTATION DETAILS BELOW !!! /////////////////////
+
+/******************************************************************************/
+
+namespace best {
 template <typename T>
 constexpr option<T>::cref option<T>::value(best::location loc) const& {
-  return unsafe::in(
-      [&](auto u) -> decltype(auto) { return check_ok(loc), value(u); });
+  return check_ok(loc), value(unsafe("check_ok() called before this"));
 }
 template <typename T>
 constexpr option<T>::ref option<T>::value(best::location loc) & {
-  return unsafe::in(
-      [&](auto u) -> decltype(auto) { return check_ok(loc), value(u); });
+  return check_ok(loc), value(unsafe("check_ok() called before this"));
 }
 template <typename T>
 constexpr option<T>::crref option<T>::value(best::location loc) const&& {
-  return unsafe::in([&](auto u) -> decltype(auto) {
-    return check_ok(loc), moved().value(u);
-  });
+  return check_ok(loc), moved().value(unsafe("check_ok() called before this"));
 }
 template <typename T>
 constexpr option<T>::rref option<T>::value(best::location loc) && {
-  return unsafe::in([&](auto u) -> decltype(auto) {
-    return check_ok(loc), moved().value(u);
-  });
+  return check_ok(loc), moved().value(unsafe("check_ok() called before this"));
 }
 
 template <typename T>

@@ -1,7 +1,6 @@
 #ifndef BEST_TEXT_INTERNAL_UTF_H_
 #define BEST_TEXT_INTERNAL_UTF_H_
 
-#include <bit>
 #include <cstddef>
 
 #include "best/container/option.h"
@@ -9,7 +8,7 @@
 #include "best/container/span.h"
 #include "best/math/bit.h"
 #include "best/meta/guard.h"
-#include "best/text/rune.h"
+#include "best/text/encoding.h"
 
 //! Low-level UTF encode/decode routines.
 
@@ -26,39 +25,57 @@ constexpr size_t size8(uint32_t rune) {
   }
 }
 
+constexpr bool validate_utf8_fast(const char* data, size_t len) {
+  // This function is hit whenever we create a `best::str` from a literal, so
+  // we need to avoid optional/span here.
+  while (len > 0) {
+    uint32_t value = uint8_t(data[0]);
+    ++data, --len;
+    if (value < 0x80) continue;  // ASCII fast path.
+
+    size_t bytes = best::leading_ones(uint8_t(value));
+    value &= 0x7f >> bytes;
+
+    if (bytes > 4 || len < bytes - 1) return false;
+    while (--bytes > 0) {
+      char c = data[0];
+      ++data, --len;
+      if (best::leading_ones(c) != 1) return false;
+
+      value <<= 6;
+      value |= c & 0b00'111111;
+    }
+
+    if (value >= 0x11'0000 || (value >= 0xd800 && value <= 0xdfff)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 constexpr best::result<std::pair<size_t, uint32_t>, encoding_error> decode8(
     best::span<const char> input) {
-  auto first = input.first().ok_or(encoding_error::OutOfBounds);
-  BEST_GUARD(first);
+  // This function is unfortunately a build-time hot-spot, so we can't use
+  // nice helper functions from best::span here.
+  if (input.is_empty()) return encoding_error::OutOfBounds;
 
-  size_t bytes = 0;
-  uint32_t value = static_cast<uint8_t>(*first);
-  switch (std::countl_one<uint8_t>(value)) {
-    case 0:
-      bytes = 1;
-      break;
-    case 2:
-      bytes = 2;
-      value &= 0b000'11111;
-      break;
-    case 3:
-      bytes = 3;
-      value &= 0b0000'1111;
-      break;
-    case 4:
-      bytes = 4;
-      value &= 0b00000'111;
-      break;
-    default:
-      return encoding_error::Invalid;
+  const char* data = input.data();
+  // Fast-path for ASCII.
+  if (uint8_t(data[0]) < 0x80) {
+    return best::ok(1, data[0]);
   }
 
-  auto rest = input.at({.start = 1, .count = bytes - 1})
-                  .ok_or(encoding_error::OutOfBounds);
-  BEST_GUARD(rest);
+  uint32_t value = uint8_t(data[0]);
+  uint32_t ones = best::leading_ones(uint8_t(value));
+  value &= 0x7f >> ones;
+  size_t bytes = ones + (ones == 0);
 
-  for (uint8_t c : *rest) {
-    if (std::countl_one(c) != 1) return encoding_error::Invalid;
+  if (bytes > 4) return encoding_error::Invalid;
+  if (input.size() < bytes) return encoding_error::OutOfBounds;
+
+  for (size_t i = 1; i < bytes; ++i) {
+    char c = data[i];
+    if (best::leading_ones(c) != 1) return encoding_error::Invalid;
 
     value <<= 6;
     value |= c & 0b00'111111;

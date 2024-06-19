@@ -70,6 +70,12 @@ best::test FromNul = [](auto& t) {
   t.expect_eq(best::span<int>::from_nul(nullptr), best::span<int>{});
 };
 
+best::test ToString = [](auto& t) {
+  t.expect_eq(best::format("{:?}", best::span<int>()), "[]");
+  t.expect_eq(best::format("{:?}", best::span{1}), "[1]");
+  t.expect_eq(best::format("{:?}", best::span{1, 2}), "[1, 2]");
+};
+
 best::test Ordering = [](auto& t) {
   int32_t ints[] = {1, 2, 3};
   int64_t longs[] = {1, 2, 3};
@@ -276,50 +282,50 @@ struct NonPod {
 };
 
 best::test Shift = [](auto& t) {
-  unsafe::in([&](auto u) {
-    int a[] = {1, 2, 3, 4, 5, 6, 7, 8};
-    best::span ints = a;
+  unsafe u("test");
 
-    int d = 0xcdcdcdcd;
+  int a[] = {1, 2, 3, 4, 5, 6, 7, 8};
+  best::span ints = a;
 
-    ints.shift_within(u, 5, 1, 2);
-    t.expect_eq(best::black_box(ints), best::span{1, d, d, 4, 5, 2, 3, 8});
-    ints[1] = 2;
-    ints[2] = 3;
+  int d = 0xcdcdcdcd;
 
-    ints.shift_within(u, 1, 6, 2);
-    t.expect_eq(best::black_box(ints), best::span{1, 3, 8, 4, 5, 2, d, d});
-    ints[6] = 3;
-    ints[7] = 8;
+  ints.shift_within(u, 5, 1, 2);
+  t.expect_eq(best::black_box(ints), best::span{1, d, d, 4, 5, 2, 3, 8});
+  ints[1] = 2;
+  ints[2] = 3;
 
-    ints.shift_within(u, 1, 3, 4);
-    t.expect_eq(best::black_box(ints), best::span{1, 4, 5, 2, 3, d, d, 8});
-    ints[5] = 2;
-    ints[6] = 3;
+  ints.shift_within(u, 1, 6, 2);
+  t.expect_eq(best::black_box(ints), best::span{1, 3, 8, 4, 5, 2, d, d});
+  ints[6] = 3;
+  ints[7] = 8;
 
-    ints.shift_within(u, 3, 1, 4);
-    t.expect_eq(best::black_box(ints), best::span{1, d, d, 4, 5, 2, 3, 8});
+  ints.shift_within(u, 1, 3, 4);
+  t.expect_eq(best::black_box(ints), best::span{1, 4, 5, 2, 3, d, d, 8});
+  ints[5] = 2;
+  ints[6] = 3;
 
-    NonPod a2[] = {1, 2, 3, 4, 5, 6, 7, 8};
-    best::span nps = a2;
+  ints.shift_within(u, 3, 1, 4);
+  t.expect_eq(best::black_box(ints), best::span{1, d, d, 4, 5, 2, 3, 8});
 
-    nps.shift_within(u, 5, 1, 2);
-    t.expect_eq(best::black_box(nps), best::span{1, d, d, 4, 5, 2, 3, 8});
-    nps[1] = 2;
-    nps[2] = 3;
+  NonPod a2[] = {1, 2, 3, 4, 5, 6, 7, 8};
+  best::span nps = a2;
 
-    nps.shift_within(u, 1, 6, 2);
-    t.expect_eq(best::black_box(nps), best::span{1, 3, 8, 4, 5, 2, d, d});
-    nps[6] = 3;
-    nps[7] = 8;
+  nps.shift_within(u, 5, 1, 2);
+  t.expect_eq(best::black_box(nps), best::span{1, d, d, 4, 5, 2, 3, 8});
+  nps[1] = 2;
+  nps[2] = 3;
 
-    nps.shift_within(u, 1, 3, 4);
-    t.expect_eq(best::black_box(nps), best::span{1, 4, 5, 2, 3, d, d, 8});
-    nps[5] = 2;
-    nps[6] = 3;
+  nps.shift_within(u, 1, 6, 2);
+  t.expect_eq(best::black_box(nps), best::span{1, 3, 8, 4, 5, 2, d, d});
+  nps[6] = 3;
+  nps[7] = 8;
 
-    nps.shift_within(u, 3, 1, 4);
-    t.expect_eq(best::black_box(nps), best::span{1, d, d, 4, 5, 2, 3, 8});
-  });
+  nps.shift_within(u, 1, 3, 4);
+  t.expect_eq(best::black_box(nps), best::span{1, 4, 5, 2, 3, d, d, 8});
+  nps[5] = 2;
+  nps[6] = 3;
+
+  nps.shift_within(u, 3, 1, 4);
+  t.expect_eq(best::black_box(nps), best::span{1, d, d, 4, 5, 2, 3, 8});
 };
 }  // namespace best::span_test

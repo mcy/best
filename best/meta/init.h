@@ -113,16 +113,11 @@ concept copyable =
 /// this further requires that the type be trivial, but it may hold
 /// for some other types, such as those annotated with BEST_RELOCATABLE.
 template <typename T, typename... Args>
-concept relocatable =
-    init_internal::only_trivial<Args...> &&  //
-    (!std::is_object_v<T> ||                 //
-     (types<trivially> <= types<Args...> ?
-#if __has_builtin(__is_trivially_relocatable)
-                                         __is_trivially_relocatable(T)
-#else
-                                         std::is_trivial_v<T>
-#endif
-                                         : moveable<T>));
+concept relocatable = init_internal::only_trivial<Args...> &&  //
+                      (!std::is_object_v<T> ||                 //
+                       (types<trivially> <= types<Args...>
+                            ? init_internal::trivially_relocatable<T>
+                            : moveable<T>));
 
 /// Whether T can be destroyed.
 ///

@@ -9,8 +9,10 @@
 #include <utility>
 
 #include "best/base/port.h"
+#include "best/container/internal/pun.h"
 #include "best/container/object.h"
 #include "best/container/pun.h"
+#include "best/math/int.h"
 #include "best/meta/concepts.h"
 #include "best/meta/init.h"
 #include "best/meta/ops.h"
@@ -52,12 +54,11 @@ class tagged {
   constexpr size_t tag() const { return tag_; }
 
   template <size_t n>
-  constexpr best::object_ptr<const type<n>> get(unsafe u,
-                                                best::index_t<n>) const {
+  constexpr const best::object<type<n>>& get(unsafe u, best::index_t<n>) const {
     return union_.object(u, best::index<n>);
   }
   template <size_t n>
-  constexpr best::object_ptr<type<n>> get(unsafe u, best::index_t<n>) {
+  constexpr best::object<type<n>>& get(unsafe u, best::index_t<n>) {
     return union_.object(u, best::index<n>);
   }
 
@@ -95,31 +96,34 @@ class niched {
       : non_empty_(best::index<0>, BEST_FWD(args)...) {}
 
   constexpr size_t tag() const {
-    return unsafe::in([&](auto u) {
-             return non_empty_.object(u, index<0>);
-           }).is_niche()
+    return non_empty_
+                   .object(unsafe("the non-empty variant is always engaged,"
+                                  "except when after destructor runs"),
+                           index<0>)
+                   .as_ptr()
+                   .is_niche()
                ? Empty
                : NonEmpty;
   }
 
-  constexpr best::object_ptr<const type<Empty>> get(
-      unsafe, best::index_t<Empty>) const {
-    return empty_.as_ptr();
+  constexpr const best::object<type<Empty>>& get(unsafe,
+                                                 best::index_t<Empty>) const {
+    return empty_;
   }
-  constexpr best::object_ptr<type<Empty>> get(unsafe, best::index_t<Empty>) {
-    return empty_.as_ptr();
+  constexpr best::object<type<Empty>>& get(unsafe, best::index_t<Empty>) {
+    return empty_;
   }
-  constexpr best::object_ptr<const type<NonEmpty>> get(
+  constexpr const best::object<type<NonEmpty>>& get(
       unsafe u, best::index_t<NonEmpty>) const {
     return non_empty_.object(u, index<0>);
   }
-  constexpr best::object_ptr<type<NonEmpty>> get(unsafe u,
-                                                 best::index_t<NonEmpty>) {
+  constexpr best::object<type<NonEmpty>>& get(unsafe u,
+                                              best::index_t<NonEmpty>) {
     return non_empty_.object(u, index<0>);
   }
 
   best::pun<type<NonEmpty>> non_empty_;
-  inline static best::object<type<NonEmpty>> empty_;
+  [[no_unique_address]] best::object<type<Empty>> empty_;
 };
 
 template <typename... Ts>
@@ -127,14 +131,14 @@ tagged<Ts...> which_storage(best::tlist<Ts...>, best::rank<0>);
 
 template <typename A, typename B>
 niched<A, B> which_storage(best::tlist<A, B>, best::rank<1>)
-  requires(has_niche<A> && (best::void_type<B> || std::is_empty_v<B>) &&
-           best::constructible<B, trivially>) ||
-          (has_niche<B> && (best::void_type<A> || std::is_empty_v<A>) &&
-           best::constructible<A, trivially>);
-
-static_assert(has_niche<int&>);
-static_assert(void_type<void>);
-static_assert(constructible<void, trivially>);
+    // This is a compile-time performance hot-spot: use the compiler intrinsics
+    // directly.
+  requires(has_niche<A> && (best::void_type<B> ||
+                            (std::is_empty_v<B> &&
+                             std::is_trivially_default_constructible_v<B>))) ||
+          (has_niche<B> && (best::void_type<A> ||
+                            (std::is_empty_v<A> &&
+                             std::is_trivially_default_constructible_v<A>)));
 
 template <typename... Ts>
 using storage = decltype(which_storage(types<Ts...>, best::rank<1>{}));
@@ -142,7 +146,7 @@ using storage = decltype(which_storage(types<Ts...>, best::rank<1>{}));
 template <typename... Ts>
 class impl : public storage<Ts...> {
  private:
-  static constexpr auto info = best::init_info<Ts...>;
+  static constexpr auto info = best::pun_internal::info<Ts...>;
 
  public:
   template <size_t n>
@@ -219,9 +223,9 @@ class impl : public storage<Ts...> {
     if (which == tag()) {
       if constexpr (best::object_type<type<which>> &&
                     best::assignable<type<which>, Args&&...>) {
-        unsafe::in([&](auto u) {
-          return get(u, best::index<which>);
-        }).assign(BEST_FWD(args)...);
+        get(unsafe{"checked tag() before this"}, best::index<which>)
+            .as_ptr()
+            .assign(BEST_FWD(args)...);
         return;
       }
     }
@@ -260,6 +264,17 @@ class impl : public storage<Ts...> {
     return get(u, i).operator->();
   }
 
+  template <size_t n>
+  BEST_INLINE_SYNTHETIC constexpr const best::object<type<n>>& object(
+      unsafe u, best::index_t<n> i = {}) const {
+    return get(u, i);
+  }
+  template <size_t n>
+  BEST_INLINE_SYNTHETIC constexpr best::object<type<n>>& object(
+      unsafe u, best::index_t<n> i = {}) {
+    return get(u, i);
+  }
+
   template <typename F>
   BEST_INLINE_SYNTHETIC constexpr decltype(auto) match(F&& callback) const& {
     return JumpTable<decltype(make_match_arm(*this,
@@ -289,7 +304,7 @@ class impl : public storage<Ts...> {
   template <typename F, size_t... i>
   constexpr static auto make_jump_table(std::index_sequence<i...>) {
     // TODO(mcyoung): It'd be nice to use common_type here...
-    using Output = std::invoke_result_t<F, best::index_t<0>>;
+    using Output = decltype(best::call(std::declval<F>(), best::index<0>));
 
     return std::array<Output (*)(F&&), sizeof...(Ts)>{
         {+[](F&& callback) -> Output {
@@ -323,15 +338,16 @@ class impl : public storage<Ts...> {
           return best::call(BEST_FWD(callback), static_cast<Empty>(arg));
         }
       } else {
-        return unsafe::in([&](auto u) -> decltype(auto) {
-          if constexpr (best::callable<F, void(I, Type)>) {
-            return best::call(BEST_FWD(callback), tag,
-                              static_cast<Type>(*self.get(u, tag)));
-          } else {
-            return best::call(BEST_FWD(callback),
-                              static_cast<Type>(*self.get(u, tag)));
-          }
-        });
+        unsafe u(
+            "this function is only called after"
+            "checking tag() via the jump table.");
+        if constexpr (best::callable<F, void(I, Type)>) {
+          return best::call(BEST_FWD(callback), tag,
+                            static_cast<Type>(*self.get(u, tag)));
+        } else {
+          return best::call(BEST_FWD(callback),
+                            static_cast<Type>(*self.get(u, tag)));
+        }
       }
     };
   }

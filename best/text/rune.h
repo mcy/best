@@ -2,7 +2,6 @@
 #define BEST_TEXT_RUNE_H_
 
 #include <cstddef>
-#include <ios>
 #include <type_traits>
 
 #include "best/base/hint.h"
@@ -10,6 +9,7 @@
 #include "best/container/result.h"
 #include "best/container/span.h"
 #include "best/log/internal/crash.h"
+#include "best/text/encoding.h"
 
 //! Unicode characters and encodings.
 //!
@@ -19,167 +19,6 @@
 //! [1]: https://www.unicode.org/glossary/#unicode_scalar_value
 
 namespace best {
-/// # `best::encoding_about`
-///
-/// Details about an encoding. Every encoding must provide a `constexpr` member
-/// named `About` of this type.
-///
-/// In the future, this requirement may be relaxed for an encoding to provide
-/// a dynamic value for this type.
-struct encoding_about final {
-  /// The maximum number of codes `write_rune()` can write. Must be positive.
-  size_t max_codes_per_rune = 0;
-
-  /// Whether this encoding is self-synchronizing.
-  ///
-  /// A self-synchronizing encoding is one where attempting to decode a rune
-  /// using a suffix of an encoded rune is detectable as an error without
-  /// context.
-  ///
-  /// For example, x86 machine code is not self-synchronizing, because jumping
-  /// into the middle of an instruction may decode a different, valid
-  /// instruction. UTF-8, UTF-16, and UTF-32 are self-synchronizing.
-  ///
-  /// We assume that self-synchronizing encodings are stateless. It is possible
-  /// to construct a non-synchronizing, stateful encoding, but those don't
-  /// really occur in practice because being self-synchronizing is an extremely
-  /// strong property.
-  ///
-  /// Many string algorithms are only available for self-synchronizing
-  /// encodings. https://en.wikipedia.org/wiki/Self-synchronizing_code
-  bool is_self_syncing = false;
-
-  /// Whether encoded runes are lexicographic.
-  ///
-  /// An encoding has the lexicographic property if, given two sequences of
-  /// runes `r1` and `r2`, and their corresponding encoded code sequences
-  /// `c1` and `c2`, then `r1 <=> r2 == c1 <=> c2`, as `best::span`s.
-  ///
-  /// UTF-8 and UTF-32 have this property. UTF-16 does not, because runes
-  /// greater than U+FFFF are encoded with a pair of surrogates, both of which
-  /// start with hex digit `0xd`; this means that `U+FFFF > U+10000` when
-  /// encoded as UTF-16.
-  bool is_lexicographic = false;
-
-  /// Whether this encoding can encode all of Unicode, not including the
-  /// unpaired surrogates.
-  ///
-  /// A universal encoding's encode() function will never fail when called on
-  /// a buffer at least `max_codes_per_rune` in length, unless it is passed an
-  /// unpaired surrogate.
-  bool is_universal = false;
-
-  /// Whether this encoding allows encoding unpaired surrogates.
-  bool allows_surrogates = false;
-};
-
-/// # `best::encoding_error`
-///
-/// An error produced by an encoder.
-enum class encoding_error : uint8_t {
-  /// Insufficient space in the input/output buffer.
-  OutOfBounds,
-  /// Attempted to encode/decode a rune the encoding does not support.
-  Invalid,
-};
-}  // namespace best
-
-namespace best {
-/// # `best::encoding`
-///
-/// A text encoding type. This type usually won't be used on its own; instead,
-/// helpers from `best::rune` should be used instead.
-///
-/// A text encoding is any type that fulfills a contract in the spirit of the
-/// "Lucky 7" encoding API from ztd.text.
-/// <https://ztdtext.readthedocs.io/en/latest/design/lucky%207.html>
-///
-/// To be supported by `best`, an encoding must be:
-///
-/// * Stateless. Decoding any one rune may not depend on what runes came
-///   before it.
-/// * Reversible. At any position within a stream, assuming it is a rune
-///   boundary, it is possible to decode a unique rune in reverse order, and
-///   reverse decoding agrees with forward decoding.
-/// * Injective. Every rune is encoded as exactly one sequence of one or more
-///   code units.
-template <typename E_, typename E = std::remove_cvref_t<E_>>
-concept encoding =
-    best::copyable<E> && best::equatable<E> && requires(const E& e) {
-      /// Required type aliases.
-      typename E::code;
-
-      /// Required constants.
-      { E::About } -> std::convertible_to<best::encoding_about>;
-
-      /// It must provide the following operations. `best::rune` provides
-      /// wrappers for them, which specifies what each of these functions must
-      /// do.
-      requires requires(size_t idx, rune r,
-                        best::span<const typename E::code>& input,
-                        best::span<typename E::code>& output) {
-        { e.is_boundary(input, idx) } -> same<bool>;
-        { e.encode(&output, r) } -> same<result<void, encoding_error>>;
-        { e.decode(&input) } -> same<result<rune, encoding_error>>;
-        { e.undecode(&input) } -> same<result<rune, encoding_error>>;
-      };
-    };
-
-/// # `best::code`
-///
-/// The code unit type of a particular encoding.
-template <encoding E>
-using code = E::code;
-
-/// # `best::string_type`
-///
-/// A string type: a contiguous range that defines the `BestEncoding()` FTADLE
-/// and whose data pointer matches that encoding.
-template <typename T>
-concept string_type = best::contiguous<T> && requires(const T& value) {
-  { BestEncoding(best::types<const T&>, value) } -> best::encoding;
-  {
-    std::data(value)
-  } -> best::same<const typename std::remove_cvref_t<decltype(BestEncoding(
-      best::types<const T&>, value))>::code*>;
-};
-
-/// # `best::encoding_of()`
-///
-/// Extracts the encoding out of a string type.
-constexpr const auto& encoding_of(const string_type auto& string) {
-  return BestEncoding(best::types<decltype(string)>, string);
-}
-
-/// # `best::encoding_type<S>`
-///
-/// Extracts the encoding type out of some string type.
-template <string_type S>
-using encoding_type =
-    std::remove_cvref_t<decltype(best::encoding_of(std::declval<S>()))>;
-
-/// # `best::same_encoding()`
-///
-/// Returns whether two string values have the same encoding. This verifies that
-/// their encodings compare as equal.
-constexpr bool same_encoding(const string_type auto& lhs,
-                             const string_type auto& rhs) {
-  if constexpr (best::equatable<encoding_type<decltype(lhs)>,
-                                encoding_type<decltype(rhs)>>) {
-    return best::encoding_of(lhs) == best::encoding_of(rhs);
-  }
-
-  return false;
-}
-
-/// # `best::same_encoding_code()`
-///
-/// Returns whether two string types have the same code unit type.
-template <string_type S1, string_type S2>
-constexpr bool same_encoding_code() {
-  return best::same<code<encoding_type<S1>>, code<encoding_type<S2>>>;
-}
-
 /// # `best::rune`
 ///
 /// A Unicode scalar value, called a "rune" in the p9 tradition.
@@ -198,7 +37,7 @@ class rune final {
   /// # `rune::replacement()`
   ///
   /// Returns the Unicode replacement character.
-  static constexpr rune replacement() { return 0xfffd; }
+  static const rune Replacement;
 
   /// # `rune::rune()`
   ///
@@ -247,9 +86,13 @@ class rune final {
   /// # `rune::validate()`
   ///
   /// Validates whether a span of code units is correctly encoded per `E`.
-  template <encoding E = utf8>
+  template <best::encoding E = best::utf8>
   constexpr static bool validate(best::span<const code<E>> input,
                                  const E& enc = {}) {
+    if constexpr (requires { enc.validate(input); }) {
+      return enc.validate(input);
+    }
+
     while (!input.is_empty()) {
       if (!decode(&input, enc)) return false;
     }
@@ -260,14 +103,14 @@ class rune final {
   ///
   /// Returns the number of code units needed to encode this rune. Returns
   /// `best::none` if this rune is not encodable with `E`.
-  template <encoding E = utf8>
+  template <best::encoding E = best::utf8>
   constexpr best::result<size_t, encoding_error> size(const E& = {}) const;
 
   /// # `rune::is_boundary()`
   ///
   /// Returns whether the code unit boundary given by `idx` is also a rune
   /// boundary.
-  template <encoding E = utf8>
+  template <best::encoding E = best::utf8>
   constexpr static bool is_boundary(best::span<const code<E>> input, size_t idx,
                                     const E& enc = {}) {
     return enc.is_boundary(input, idx);
@@ -298,10 +141,10 @@ class rune final {
   /// value, it is automatically advanced.
   ///
   /// Returns `best::none` on failure; in this case, `input` is not advanced.
-  template <encoding E = utf8>
+  template <best::encoding E = best::utf8>
   constexpr static best::result<rune, encoding_error> decode(
       best::span<const code<E>>* input, const E& enc = {});
-  template <encoding E = utf8>
+  template <best::encoding E = best::utf8>
   constexpr static best::result<rune, encoding_error> decode(
       best::span<const code<E>> input, const E& enc = {}) {
     return decode(&input, enc);
@@ -315,10 +158,10 @@ class rune final {
   /// value, it is automatically advanced.
   ///
   /// Returns `best::none` on failure; in this case, `input` is not advanced.
-  template <encoding E = utf8>
+  template <best::encoding E = best::utf8>
   constexpr static best::result<rune, encoding_error> undecode(
       best::span<const code<E>>* input, const E& enc = {});
-  template <encoding E = utf8>
+  template <best::encoding E = best::utf8>
   constexpr static best::result<rune, encoding_error> undecode(
       best::span<const code<E>> input, const E& enc = {}) {
     return undecode(&input, enc);
@@ -458,10 +301,32 @@ class rune final {
   /// Returns whether this rune is an ASCII whitespace character.
   constexpr bool is_ascii_space() const;
 
-  /// Tempoaray hack until BestFmt.
-  template <typename Os>
-  friend Os& operator<<(Os& os, rune r) {
-    return os << std::hex << r.to_int();
+  /// # `rune::escaped()`
+  ///
+  /// Returns a value that, when formatted, is the value of this rune after
+  /// replacing it with an appropriate C++ escape sequence, if necessary.
+
+  constexpr auto escaped() const {
+    struct x {
+      rune _private;
+    };
+    return x{*this};
+  }
+
+  friend void BestFmt(auto& fmt, rune r) {
+    // TODO: Implement padding.
+    if (fmt.current_spec().method != 'q' && !fmt.current_spec().debug) {
+      fmt.write(r);
+      return;
+    }
+
+    // Quoted rune.
+    fmt.format("'{}'", r.escaped());
+  }
+  constexpr friend void BestFmtQuery(auto& query, rune*) {
+    query.requires_debug = false;
+    query.supports_width = true;
+    query.uses_method = [](rune r) { return r == 'q'; };
   }
 
   // best::rune has a niche representation.
@@ -478,6 +343,8 @@ class rune final {
 
   uint32_t value_;
 };
+
+inline constexpr rune rune::Replacement = 0xfffd;
 
 /// See `rune::iter` above.
 template <encoding E>
@@ -536,7 +403,7 @@ struct rune::iter final {
     next_ = decode(&codes_, *enc_).ok();
     if (next_) return *this;
 
-    next_ = rune::replacement();
+    next_ = Replacement;
     if (E::About.is_self_syncing) {
       codes_ = codes_[{.start = 1}];
     } else {
@@ -557,8 +424,15 @@ struct rune::iter final {
   best::span<const code<E>> codes_;
   const E* enc_;
 };
+}  // namespace best
 
-/// --- IMPLEMENTATION DETAILS BELOW ---
+/******************************************************************************/
+
+///////////////////// !!! IMPLEMENTATION DETAILS BELOW !!! /////////////////////
+
+/******************************************************************************/
+
+namespace best {
 constexpr best::option<rune> rune::from_int(uint32_t value) {
   if (!is_unicode(value) || is_surrogate(value)) return best::none;
   return rune(best::in_place, value);
@@ -653,6 +527,56 @@ constexpr bool rune::is_ascii_space() const {
   }
 }
 
+void BestFmt(auto& fmt, const decltype(rune().escaped())& esc) {
+  switch (esc._private) {
+    case '\'':
+      fmt.write("\\\'");
+      return;
+    case '"':
+      fmt.write("\\\"");
+      return;
+    case '\\':
+      fmt.write("\\\\");
+      return;
+    case '\0':
+      fmt.write("\\0");
+      return;
+    case '\a':
+      fmt.write("\\a");
+      return;
+    case '\b':
+      fmt.write("\\b");
+      return;
+    case '\f':
+      fmt.write("\\f");
+      return;
+    case '\n':
+      fmt.write("\\n");
+      return;
+    case '\r':
+      fmt.write("\\r");
+      return;
+    case '\t':
+      fmt.write("\\t");
+      return;
+    case '\v':
+      fmt.write("\\v");
+      return;
+  }
+
+  if (esc._private.is_ascii_control()) {  // TODO: unicode is_control
+    fmt.format("\\x{:02}", esc._private.to_int());
+  } else if (esc._private == 0x200d) {
+    // Handle the ZWJ explicitly for now, since it appears in some of our tests.
+    fmt.write("\\u200D");
+  } else {
+    fmt.write(esc._private);
+  }
+}
+constexpr void BestFmtQuery(auto& query, decltype(rune().escaped())*) {
+  query.requires_debug = false;
+  query.supports_width = true;
+}
 }  // namespace best
 
 #endif  // BEST_TEXT_RUNE_H_

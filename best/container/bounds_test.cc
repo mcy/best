@@ -51,5 +51,20 @@ best::test ComputeCount = [](auto& t) {
   t.expect_eq(count({.start = 2, .count = 2}, 3), {});
 };
 
+best::test Debug = [](auto& t) {
+  t.expect_eq(best::format("{:?}", bounds{}), "{}");
+  t.expect_eq(best::format("{:?}", bounds{.start = 5}), "{.start = 5}");
+  t.expect_eq(best::format("{:?}", bounds{.start = 5, .end = 6}),
+              "{.start = 5, .end = 6}");
+  t.expect_eq(best::format("{:?}", bounds{.start = 5, .count = 6}),
+              "{.start = 5, .count = 6}");
+  t.expect_eq(best::format("{:?}", bounds{.start = 5, .including_end = 6}),
+              "{.start = 5, .including_end = 6}");
+  t.expect_eq(best::format("{:?}", bounds{.end = 6}), "{.end = 6}");
+  t.expect_eq(best::format("{:?}", bounds{.count = 6}), "{.count = 6}");
+  t.expect_eq(best::format("{:?}", bounds{.including_end = 6}),
+              "{.including_end = 6}");
+};
+
 // TODO: Once we have death tests, test the check-fail messages.
 }  // namespace best::bounds_test

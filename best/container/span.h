@@ -432,9 +432,7 @@ class span final {
   ///
   /// Extracts a single element. If the requested index is out-of-bounds,
   /// Undefined Behavior.
-  constexpr best::option<T&> at(unsafe, size_t idx) const {
-    return data()[idx];
-  }
+  constexpr T& at(unsafe, size_t idx) const { return data()[idx]; }
 
   /// # `span::at(unsafe, {.start = ...})`
   ///
@@ -609,12 +607,11 @@ class span final {
       return;
     }
 
-    unsafe::in([&](auto u) {
-      size_t to_copy = best::min(size(), src.size());
-      for (size_t i = 0; i < to_copy; ++i) {
-        at(u, i) = src.at(u, i);
-      }
-    });
+    unsafe u("already performed a bounds check in the loop latch");
+    size_t to_copy = best::min(size(), src.size());
+    for (size_t i = 0; i < to_copy; ++i) {
+      at(u, i) = src.at(u, i);
+    }
   }
 
   /// # `span::emplace_from()`
@@ -676,24 +673,6 @@ class span final {
                               size_t count) const
     requires(!is_const) && is_dynamic;
 
-  // TODO: BestFmt
-  template <typename Os>
-  friend Os& operator<<(Os& os, span sp)
-    requires requires {
-      { os << sp[0] };
-    }
-  {
-    os << "[";
-    bool first = true;
-    for (auto&& value : sp) {
-      if (!std::exchange(first, false)) {
-        os << ", ";
-      }
-      os << value;
-    }
-    return os << "]";
-  }
-
   // All spans are comparable.
   template <object_type U, best::option<size_t> m>
   constexpr bool operator==(best::span<U, m> that) const
@@ -732,9 +711,15 @@ span(std::initializer_list<T>) -> span<const T>;
 template <contiguous R>
 span(R&& r) -> span<std::remove_reference_t<decltype(*std::data(r))>,
                     best::static_size<R>>;
+}  // namespace best
 
-// --- IMPLEMENTATION DETAILS BELOW ---
+/******************************************************************************/
 
+///////////////////// !!! IMPLEMENTATION DETAILS BELOW !!! /////////////////////
+
+/******************************************************************************/
+
+namespace best {
 template <best::object_type T, best::option<size_t> n>
 struct span<T, n>::iter final {
   constexpr iter() = default;
@@ -793,7 +778,9 @@ constexpr bool span<T, n>::operator==(span<U, m> that) const
 {
   if (size() != that.size()) return false;
   if constexpr (best::byte_comparable<T, U>) {
-    return best::equate_bytes(span<T>(*this), span<U>(that));
+    if (!std::is_constant_evaluated()) {
+      return best::equate_bytes(span<T>(*this), span<U>(that));
+    }
   }
 
   for (size_t i = 0; i < size(); ++i) {
@@ -811,8 +798,10 @@ constexpr auto span<T, n>::operator<=>(span<U, m> that) const
   requires best::comparable<T, U>
 {
   if constexpr (best::byte_comparable<T, U>) {
-    return best::order_type<T, U>(
-        best::compare_bytes(span<T>(*this), span<U>(that)));
+    if (!std::is_constant_evaluated()) {
+      return best::order_type<T, U>(
+          best::compare_bytes(span<T>(*this), span<U>(that)));
+    }
   }
 
   size_t prefix = best::min(size(), that.size());

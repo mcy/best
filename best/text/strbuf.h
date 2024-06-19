@@ -59,7 +59,7 @@ using strbuf32 = best::textbuf<utf32, best::malloc>;
 /// A `best::text` may not point to invalidly-text data. Constructors from
 /// unauthenticated strings must go through factories that return
 /// `best::optional`.
-template <best::encoding E, best::allocator A>
+template <best::encoding E, best::allocator A = best::malloc>
 class textbuf final {
  public:
   /// # `textbuf::encoding`
@@ -231,7 +231,8 @@ class textbuf final {
   /// Returns the span of code units that backs this string. This is also
   /// an implicit conversion.
   text as_text() const {
-    return unsafe::in([&](auto u) { return text(u, buf_.as_span(), enc()); });
+    return text(unsafe("buf_ is always validly encoded"), buf_.as_span(),
+                enc());
   }
   operator text() const { return as_text(); }
 
@@ -380,9 +381,8 @@ class textbuf final {
 
   /// # `textbuf::push()`.
   ///
-  /// Pushes a rune or string to this vector. Returns `false` if the rune or
-  /// string contains characters that cannot be transcoded to this strings's
-  /// encoding.
+  /// Pushes a rune or string to this vector. Returns `false` if input text
+  /// contains characters that cannot be transcoded to this strings's encoding.
   bool push(rune r) {
     code buf[About.max_codes_per_rune];
     if (auto codes = r.encode(buf, enc())) {
@@ -393,8 +393,13 @@ class textbuf final {
   }
   bool push(const string_type auto& that) {
     rune::iter it(that);
-    if constexpr (best::same_encoding_code<textbuf, decltype(that)>()) {
-      if (best::same_encoding(*this, that)) {
+    return push(it.rest(), best::encoding_of(that));
+  }
+  template <best::encoding E2>
+  bool push(best::span<const best::code<E2>> data, const E2& enc) {
+    rune::iter it(data, enc);
+    if constexpr (best::same<code, best::code<E2>> && best::equatable<E, E2>) {
+      if (this->enc() == enc) {
         buf_.append(it.rest());
         return true;
       }
@@ -405,14 +410,63 @@ class textbuf final {
       reserve(About.max_codes_per_rune);
       best::span<code> buf = {buf_.data() + buf_.size(),
                               About.max_codes_per_rune};
-      if (auto codes = r.encode(buf, enc())) {
-        buf_.append(*codes);
+      if (auto codes = r.encode(buf, this->enc())) {
+        buf_.set_size(unsafe("we just wrote this much data in encode()"),
+                      size() + codes->size());
         continue;
       }
       truncate(watermark);
       return false;
     }
     return true;
+  }
+
+  /// # `textbuf::push_lossy()`.
+  ///
+  /// Pushes a rune or string to this vector. If the input text contains
+  /// characters that cannot be transcoded into this string's encoding, they
+  /// are replaced with `rune::Replacement`, or if that cannot be encoded, with
+  /// `?`.
+  void push_lossy(rune r) {
+    code buf[About.max_codes_per_rune];
+    if (auto codes = r.encode(buf, enc())) {
+      buf_.append(*codes);
+    } else if (auto codes = rune::Replacement.encode(buf, enc())) {
+      buf_.append(*codes);
+    } else {
+      codes = rune('?').encode(buf, enc());
+      buf_.append(*codes);
+    }
+  }
+  void push_lossy(const string_type auto& that) {
+    rune::iter it(that);
+    push_lossy(it.rest(), best::encoding_of(that));
+  }
+  template <best::encoding E2>
+  void push_lossy(best::span<const best::code<E2>> data, const E2& enc) {
+    rune::iter it(data, enc);
+    if constexpr (best::same<code, best::code<E2>> && best::equatable<E, E2>) {
+      if (this->enc() == enc) {
+        buf_.append(it.rest());
+        return;
+      }
+    }
+
+    for (rune r : it) {
+      reserve(About.max_codes_per_rune);
+      best::span<code> buf = {buf_.data() + buf_.size(),
+                              About.max_codes_per_rune};
+
+      unsafe u("we just wrote this much data in encode()");
+      if (auto codes = r.encode(buf, this->enc())) {
+        buf_.set_size(u, size() + codes->size());
+      } else if (auto codes = rune::Replacement.encode(buf, this->enc())) {
+        buf_.set_size(u, size() + codes->size());
+      } else {
+        codes = rune('?').encode(buf, this->enc());
+        buf_.set_size(u, size() + codes->size());
+      }
+    }
   }
 
   /// # `textbuf::clear()`.
@@ -436,21 +490,21 @@ class textbuf final {
     return t.enc();
   }
 
-  // TODO: BestFmt
-  template <typename Os>
-  friend Os& operator<<(Os& os, textbuf str) {
-    return os << str.as_text();
-  }
-
  private:
   explicit textbuf(best::in_place_t, buf buf, encoding enc)
       : buf_(std::move(buf)), enc_(std::move(enc)) {}
   buf buf_;
   [[no_unique_address]] encoding enc_;
 };
+}  // namespace best
 
-/// --- IMPLEMENTATION DETAILS BELOW ---
+/******************************************************************************/
 
+///////////////////// !!! IMPLEMENTATION DETAILS BELOW !!! /////////////////////
+
+/******************************************************************************/
+
+namespace best {
 template <encoding E, allocator A>
 best::option<textbuf<E, A>> textbuf<E, A>::from(alloc alloc,
                                                 best::span<const code> data,

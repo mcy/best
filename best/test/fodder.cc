@@ -1,7 +1,5 @@
 #include "best/test/fodder.h"
 
-#include <format>
-
 #include "best/log/location.h"
 
 namespace best_fodder {
@@ -58,17 +56,14 @@ LeakTest::~LeakTest() {
     destroyed_.erase(token);
 
     if (diff > 0) {
-      t_->fail(*best::str::from(
-          std::format("unexpected extra {} free(s) of #{}", diff, token)));
+      t_->fail("unexpected extra {} free(s) of #{}", diff, token);
     } else if (diff < 0) {
-      t_->fail(*best::str::from(
-          std::format("unexpected missing {} free(s) of #{}", -diff, token)));
+      t_->fail("unexpected missing {} free(s) of #{}", -diff, token);
     }
   }
 
   for (auto [token, destroyed] : destroyed_) {
-    t_->fail(*best::str::from(std::format(
-        "unexpected {} free(s) of uncreated #{}", destroyed, token)));
+    t_->fail("unexpected {} free(s) of uncreated #{}", destroyed, token);
   }
 }
 }  // namespace best_fodder

@@ -136,6 +136,27 @@ struct bounds final {
     return end - start;
   }
 
+  friend void BestFmt(auto& fmt, const bounds& bounds) {
+    /// NOTE: This does not use the struct printer because we want very
+    /// fine-grained control so this looks like syntax the user would ordinarily
+    /// write.
+    fmt.write('{');
+    if (bounds.start != 0) {
+      fmt.format(".start = {}", bounds.start);
+    }
+    if (bounds.end) {
+      if (bounds.start != 0) fmt.write(", ");
+      fmt.format(".end = {}", *bounds.end);
+    } else if (bounds.including_end) {
+      if (bounds.start != 0) fmt.write(", ");
+      fmt.format(".including_end = {}", *bounds.including_end);
+    } else if (bounds.count) {
+      if (bounds.start != 0) fmt.write(", ");
+      fmt.format(".count = {}", *bounds.count);
+    }
+    fmt.write('}');
+  }
+
   /// # `bounds:with_location`
   ///
   /// A carbon copy of `bounds` but which captures a `best::location` on

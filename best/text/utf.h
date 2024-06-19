@@ -25,6 +25,10 @@ struct utf8 final {
       .is_universal = true,
   };
 
+  static constexpr bool validate(best::span<const char> input) {
+    return best::utf_internal::validate_utf8_fast(input.data(), input.size());
+  }
+
   static constexpr bool is_boundary(best::span<const char> input, size_t idx) {
     return input.size() == idx || input.at(idx).has_value([](char c) {
       return best::leading_ones(c) != 1;
@@ -42,10 +46,15 @@ struct utf8 final {
 
   static constexpr best::result<rune, encoding_error> decode(
       best::span<const char>* input) {
+    // This function is unfortunately a build-time hot-spot, so we can't use
+    // nice helper functions from best::option here.
     auto result = best::utf_internal::decode8(*input);
-    BEST_GUARD(result);
-    *input = (*input)[{.start = result->first}];
-    return rune::from_int(result->second).ok_or(encoding_error::Invalid);
+    if (!result) return *result.err();
+    auto [bytes, code] = *result;
+    // Elide a bounds check here; this shaves off milliseconds off of the
+    // per-rune cost of validating a best::format_template.
+    *input = best::span(input->data() + bytes, input->size() - bytes);
+    return rune::from_int(code).ok_or(encoding_error::Invalid);
   }
 
   static constexpr best::result<rune, encoding_error> undecode(
@@ -167,11 +176,17 @@ struct utf32 final {
       .is_universal = true,
   };
 
+  // Make all of these functions have delayed instantiation. Virtually no code
+  // uses utf32, but this is included in every file, and that's a significant
+  // flat compilation cost.
+
+  template <int = 0>
   static constexpr bool is_boundary(best::span<const char32_t> input,
                                     size_t idx) {
     return idx <= input.size();
   }
 
+  template <int = 0>
   static constexpr best::result<void, encoding_error> encode(
       best::span<char32_t>* output, rune rune) {
     auto next = output->take_first(1).ok_or(encoding_error::OutOfBounds);
@@ -181,15 +196,21 @@ struct utf32 final {
     return best::ok();
   }
 
+  template <int = 0>
   static constexpr best::result<rune, encoding_error> decode(
       best::span<const char32_t>* input) {
     auto next = input->take_first(1).ok_or(encoding_error::OutOfBounds);
+    BEST_GUARD(next);
+
     return rune::from_int((*next)[0]).ok_or(encoding_error::Invalid);
   }
 
+  template <int = 0>
   static constexpr best::result<rune, encoding_error> undecode(
       best::span<const char32_t>* input) {
     auto next = input->take_last(1).ok_or(encoding_error::OutOfBounds);
+    BEST_GUARD(next);
+
     return rune::from_int((*next)[0]).ok_or(encoding_error::Invalid);
   }
 
@@ -199,7 +220,6 @@ struct utf32 final {
 static_assert(encoding<utf8>);
 static_assert(encoding<wtf8>);
 static_assert(encoding<utf16>);
-static_assert(encoding<utf32>);
 
 constexpr const utf8& BestEncoding(auto, const std::string&) {
   return best::val<utf8{}>::value;

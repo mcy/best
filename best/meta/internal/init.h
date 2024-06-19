@@ -89,6 +89,14 @@ constexpr bool assign_by_row(best::tlist<best::row_forward<Args...>>) {
   return assign<T, trivial, best::types<Args...>>;
 }
 
+template <typename T>
+concept trivially_relocatable =
+#if __has_builtin(__is_trivially_relocatable)
+    __is_trivially_relocatable(T);
+#else
+    std::is_trivial_v<T>;
+#endif
+
 }  // namespace init_internal
 }  // namespace best
 

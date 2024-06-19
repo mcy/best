@@ -28,6 +28,16 @@ template <typename... Args>
 struct ok {
   constexpr ok(Args... args) : row(BEST_FWD(args)...) {}
   best::row<Args...> row;
+
+  friend void BestFmt(auto& fmt, const ok& ok)
+    requires requires { fmt.format(ok.row); }
+  {
+    fmt.write("ok");
+    fmt.format(ok.row);
+  }
+  friend constexpr void BestFmtQuery(auto& query, ok*) {
+    query = query.template of<best::row<Args...>>;
+  }
 };
 template <typename... Args>
 ok(Args&&...) -> ok<Args&&...>;
@@ -45,6 +55,16 @@ template <typename... Args>
 struct err {
   constexpr err(Args... args) : row(BEST_FWD(args)...) {}
   best::row<Args...> row;
+
+  friend void BestFmt(auto& fmt, const err& err)
+    requires requires { fmt.format(err.row); }
+  {
+    fmt.write("err");
+    fmt.format(err.row);
+  }
+  friend constexpr void BestFmtQuery(auto& query, err*) {
+    query = query.template of<best::row<Args...>>;
+  }
 };
 template <typename... Args>
 err(Args&&...) -> err<Args&&...>;
@@ -174,7 +194,7 @@ class [[nodiscard(
   constexpr best::option<ok_ref> ok() &;
   constexpr best::option<ok_crref> ok() const&&;
   constexpr best::option<ok_rref> ok() &&;
-  constexpr explicit operator bool() const { return ok().has_value(); }
+  constexpr explicit operator bool() const { return impl().which() == 0; }
 
   /// # `result::ok()`
   ///
@@ -191,10 +211,12 @@ class [[nodiscard(
   /// operators. These internally simply defer to `*ok()`.
   ///
   // TODO: nicer formatting once we have BestFmt.
-  constexpr ok_cref operator*() const& { return *ok(); }
-  constexpr ok_ref operator*() & { return *ok(); }
-  constexpr ok_crref operator*() const&& { return moved().ok(); }
-  constexpr ok_rref operator*() && { return *moved().ok(); }
+  constexpr ok_cref operator*() const& { return impl()[best::index<0>]; }
+  constexpr ok_ref operator*() & { return impl()[best::index<0>]; }
+  constexpr ok_crref operator*() const&& {
+    return moved().impl()[best::index<0>];
+  }
+  constexpr ok_rref operator*() && { return moved().impl()[best::index<0>]; }
   constexpr ok_cptr operator->() const {
     return *ok(), impl().as_ptr(index<0>);
   }
@@ -233,19 +255,19 @@ class [[nodiscard(
   }
   BEST_INLINE_SYNTHETIC constexpr bool operator==(
       const best::equatable<T> auto& u) const {
-    return operator==(best::ok(u));
+    return ok() == u;
   }
   BEST_INLINE_SYNTHETIC constexpr bool operator==(
       const best::equatable<E> auto& u) const {
-    return operator==(best::err(u));
+    return err() == u;
   }
   template <best::equatable<T> U>
   BEST_INLINE_SYNTHETIC constexpr bool operator==(best::ok<U> u) const {
-    return operator==(best::result<const U&, E>(u));
+    return ok() == u.row[best::index<0>];
   }
   template <best::equatable<E> U>
   BEST_INLINE_SYNTHETIC constexpr bool operator==(best::err<U> u) const {
-    return operator==(best::result<T, const U&>(u));
+    return err() == u.row[best::index<0>];
   }
 
   BEST_INLINE_SYNTHETIC constexpr bool operator==(best::ok<> u) const {
@@ -255,57 +277,60 @@ class [[nodiscard(
     return err().has_value();
   }
 
-  template <best::equatable<T> U, best::equatable<E> F>
+  template <best::comparable<T> U, best::comparable<E> F>
   BEST_INLINE_SYNTHETIC constexpr auto operator<=>(
       const best::result<U, F>& that) const {
     return impl() <=> that.impl();
   }
   BEST_INLINE_SYNTHETIC constexpr auto operator<=>(
-      const best::equatable<T> auto& u) const {
-    return operator<=>(best::ok(u));
+      const best::comparable<T> auto& u) const {
+    if (auto v = ok()) return v <=> u;
+    return std::strong_ordering::less;
   }
   BEST_INLINE_SYNTHETIC constexpr auto operator<=>(
-      const best::equatable<E> auto& u) const {
-    return operator<=>(best::err(u));
+      const best::comparable<E> auto& u) const {
+    if (auto v = err()) return v <=> u;
+    return std::strong_ordering::greater;
   }
-  template <best::equatable<T> U>
+  template <best::comparable<T> U>
   BEST_INLINE_SYNTHETIC constexpr auto operator<=>(best::ok<U> u) const {
-    return operator<=>(best::result<const U&, E>(u));
+    if (auto v = ok()) return v <=> u.row[best::index<0>];
+    return std::strong_ordering::less;
   }
-  template <best::equatable<E> U>
+  template <best::comparable<E> U>
   BEST_INLINE_SYNTHETIC constexpr auto operator<=>(best::err<U> u) const {
-    return operator<=>(best::result<T, const U&>(u));
+    if (auto v = ok()) return v <=> u.rpw[best::index<0>];
+    return std::strong_ordering::less;
   }
-  BEST_INLINE_SYNTHETIC constexpr bool operator<=>(best::ok<> u) const {
-    return operator<=>(best::result<void, E>(u));
+  BEST_INLINE_SYNTHETIC constexpr auto operator<=>(best::ok<> u) const {
+    if (ok()) return std::strong_ordering::equal;
+    return std::strong_ordering::less;
   }
-  BEST_INLINE_SYNTHETIC constexpr bool operator<=>(best::err<> u) const {
-    return operator<=>(best::result<T, void>(u));
+  BEST_INLINE_SYNTHETIC constexpr auto operator<=>(best::err<> u) const {
+    if (err()) return std::strong_ordering::equal;
+    return std::strong_ordering::greater;
   }
 
-  // TODO: BestFmt
-  template <typename Os>
-  friend Os& operator<<(Os& os, const result& r)
-    requires requires {
-      { os << r.ok() };
-    } && requires {
-      { os << r.err() };
-    }
+  friend void BestFmt(auto& fmt, const result& res)
+    requires requires { fmt.format(res.ok()); } &&
+             requires { fmt.format(res.err()); }
   {
-    if (auto v = r.ok()) {
-      if constexpr (best::void_type<T>) {
-        return os << "ok()";
-      } else {
-        return os << "ok(" << *v << ")";
-      }
-    } else if (auto v = r.err()) {
-      if constexpr (best::void_type<E>) {
-        return os << "err()";
-      } else {
-        return os << "err(" << *v << ")";
-      }
+    if (auto v = res.ok()) {
+      fmt.format("ok({:!})", *v.as_object());
+    } else if (auto v = res.err()) {
+      fmt.format("err({:!})", *v.as_object());
     }
-    return os;
+  }
+  template <typename Q>
+  friend constexpr void BestFmtQuery(Q& query, result*) {
+    query.supports_width = query.template of<T>.supports_width ||
+                           query.template of<E>.supports_width;
+    query.supports_prec = query.template of<T>.supports_prec ||
+                          query.template of<E>.supports_prec;
+    query.uses_method = [](auto r) {
+      return (Q::template of<T>.uses_method(r) &&
+              Q::template of<E>.uses_method(r));
+    };
   }
 
  private:
@@ -329,9 +354,15 @@ class [[nodiscard(
  public:
   best::choice<T, E> BEST_RESULT_IMPL_;
 };
+}  // namespace best
 
-/// --- IMPLEMENTATION DETAILS BELOW ---
+/******************************************************************************/
 
+///////////////////// !!! IMPLEMENTATION DETAILS BELOW !!! /////////////////////
+
+/******************************************************************************/
+
+namespace best {
 template <typename T, typename E>
 template <is_result R>
 constexpr result<T, E>::result(R&& that)

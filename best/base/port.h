@@ -1,9 +1,6 @@
 #ifndef BEST_BASE_PORT_H_
 #define BEST_BASE_PORT_H_
 
-#include <ios>
-#include <utility>
-
 //! Miscellaneous helper/portability macros.
 
 namespace best {
@@ -116,20 +113,6 @@ inline constexpr bool is_debug() {
 /// Specifies the linker symbol of a particular function declaration, overriding
 /// the usual mangling. This should be placed after the argument list.
 #define BEST_LINK_NAME(sym_) asm(sym_)
-
-// HACK: Wait for BestFmt.
-template <typename Os>
-Os& operator<<(Os& os, std::byte b) {
-  return os << "0x" << std::hex << int(b);
-}
-template <typename Os, typename A, typename B>
-Os& operator<<(Os& os, const std::pair<A, B>& pair)
-  requires requires {
-    { os << pair.first << pair.second };
-  }
-{
-  return os << "(" << pair.first << ", " << pair.second << ")";
-}
 }  // namespace best
 
 #endif  // BEST_BASE_PORT_H_

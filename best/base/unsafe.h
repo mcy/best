@@ -1,10 +1,6 @@
 #ifndef BEST_BASE_UNSAFE_H_
 #define BEST_BASE_UNSAFE_H_
 
-#include <stddef.h>
-
-#include "best/base/hint.h"
-
 //! Unsafe operation tracking.
 //!
 //! This header provides `best::unsafe`, a tag type for specifying that an
@@ -14,28 +10,23 @@
 namespace best {
 /// # `best::unsafe`
 ///
-/// The unsafe tag type. This value cannot be constructed directly; instead,
-/// its scope is limited to an unsafe block:
+/// The unsafe tag type. This value is used for tagging functions that have
+/// non-trivial preconditions. This is not exactly the same as `unsafe` in Rust;
+/// many operations in `best` and C++ at large cannot have such a check.
+/// Instead, it primarily exists for providing unsafe overloads of functions
+/// that skip safety checks.
 ///
 /// ```
 /// int evil(best::unsafe, int);
 ///
-/// int x = best::unsafe::in([](auto u) {
-///   return evil(u, 42);
-/// });
+/// int x = evil(best::unsafe("I checked the preconditions"), 42);
 /// ```
-///
-/// Although it is possible to escape the `unsafe` tag out of the block, this
-/// is relatively difficult to do accidentally, which helps limit the blast
-/// radius of an unsafe block.
 struct unsafe final {
-  /// # `unsafe::in()`
+  /// # `unsafe::unsafe()`
   ///
-  /// Executes an unsafe block.
-  BEST_INLINE_SYNTHETIC static constexpr decltype(auto) in(auto&& block,
-                                                           auto&&... args) {
-    return BEST_FWD(block)(unsafe{}, BEST_FWD(args)...);
-  }
+  /// Constructs a new `unsafe`; the user must provide justification for doing
+  /// so, usually in the form of a string literal.
+  constexpr unsafe(auto&& why) {}
 
  private:
   unsafe() = default;

@@ -4,7 +4,6 @@
 #include <stddef.h>
 
 #include <compare>
-#include <concepts>
 #include <memory>
 #include <type_traits>
 
@@ -47,9 +46,14 @@ struct niche final {};
 ///
 /// Whether T is a type with a niche.
 template <typename T>
-concept has_niche = best::ref_type<T> || (best::object_type<T> &&
-                                          best::constructible<T, best::niche> &&
-                                          best::equatable<T, best::niche>);
+concept has_niche =
+    best::ref_type<T> ||
+    (best::object_type<T> &&
+     // NOTE: This is a performance hotspot, so we use skip the init.h
+     // machinery.
+     // best::constructible<T, best::niche> && best::equatable<T, best::niche>
+     std::is_constructible_v<T, niche> &&
+     requires(const T& x, niche n) { x == n; });
 
 /// # `best::object_ptr<T>`
 ///
@@ -368,11 +372,15 @@ class object_ptr final {
 };
 
 namespace object_internal {
+template <best::void_type T>
+best::empty* wrap_impl();
+template <best::object_type T>
+T* wrap_impl();
 template <typename T>
-using wrap = std::conditional_t<
-    best::void_type<T>, best::empty,
-    std::conditional_t<best::object_type<T>, std::remove_cv_t<T>,
-                       best::as_ptr<T>>>;
+best::as_ptr<T>* wrap_impl();
+
+template <typename T>
+using wrap = std::remove_pointer_t<decltype(wrap_impl<T>())>;
 }  // namespace object_internal
 
 /// # `best::object<T>`
@@ -383,7 +391,9 @@ using wrap = std::conditional_t<
 /// This type wraps any `T` and reproduces its properties. The wrapped `T` can
 /// be accessed via `operator*` and `operator->`.
 template <typename T>
-class object final : best::ebo<object_internal::wrap<T>, T> {
+class object final :
+    // Public so we can be structural.
+    public best::ebo<object_internal::wrap<T>, T> {
  private:
   using base = best::ebo<object_internal::wrap<T>, T>;
 
@@ -485,20 +495,20 @@ class object final : best::ebo<object_internal::wrap<T>, T> {
       return **this <=> *that;
     }
   }
-};
 
-// TODO: eliminate.
-template <typename F, typename... Args>
-BEST_INLINE_SYNTHETIC constexpr decltype(auto) invoke(F&& f, Args&&... args)
-  requires std::invocable<F, Args...>
-{
-  if constexpr (best::void_type<std::invoke_result_t<F, Args...>>) {
-    std::invoke(BEST_FWD(f), BEST_FWD(args)...);
-    return best::empty{};
-  } else {
-    return std::invoke(BEST_FWD(f), BEST_FWD(args)...);
+  friend void BestFmt(auto& fmt, const object& obj)
+    requires std::is_void_v<T> || requires { fmt.format(*obj); }
+  {
+    if constexpr (best::void_type<T>) {
+      fmt.write("void");
+    } else {
+      fmt.format(*obj);
+    }
   }
-}
+  friend constexpr void BestFmtQuery(auto& query, object*) {
+    query = query.template of<T>;
+  }
+};
 }  // namespace best
 
 #endif  // BEST_CONTAINER_OBJECT_H_

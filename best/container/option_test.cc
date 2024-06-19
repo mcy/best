@@ -141,6 +141,18 @@ best::test HasValue = [](auto& t) {
   t.expect(!x4.has_value([] { return false; }));
 };
 
+best::test ToString = [](auto& t) {
+  best::option<int> x0;
+  best::option<void> x1;
+  best::option<int> x2 = 42;
+  best::option<void> x3 = VoidOption;
+
+  t.expect_eq(best::format("{:?}", x0), "none");
+  t.expect_eq(best::format("{:?}", x1), "none");
+  t.expect_eq(best::format("{:?}", x2), "option(42)");
+  t.expect_eq(best::format("{:?}", x3), "option(void)");
+};
+
 best::test Converting = [](auto& t) {
   best::option<int32_t> x1 = 42;
   best::option<int64_t> x2 = x1;

@@ -3,6 +3,8 @@
 
 #include <stddef.h>
 
+#include <cstdint>
+
 //! Forward declarations of all types in best that can be forward-declared.
 //!
 //! This header is used both for breaking dependency cycles within best, and
@@ -51,12 +53,23 @@ class pun;
 template <typename>
 class track_location;
 
+// best/meta/tags.h
+struct empty;
+
 // best/meta/tlist.h
 template <typename...>
 class tlist;
 
+// best/text/encoding.h
+struct encoding_about;
+enum class encoding_error : uint8_t;
+
 // best/text/rune.h
 class rune;
+
+// best/text/format.h
+struct format_spec;
+class formatter;
 
 // best::text cannot be forward-declared because that depends on
 // best::encoding being defined.

@@ -1,9 +1,8 @@
-
 #include "best/text/rune.h"
 
 #include "best/test/test.h"
 
-namespace best::utf_test {
+namespace best::rune_test {
 best::test FromInt = [](auto& t) {
   t.expect_eq(best::rune::from_int(0), 0);
   t.expect_eq(best::rune::from_int('a'), 'a');
@@ -37,4 +36,4 @@ best::test FromIntAllowSurrogates = [](auto& t) {
   t.expect_eq(best::rune::from_int_allow_surrogates(0x110000), best::none);
   t.expect_eq(best::rune::from_int_allow_surrogates(-1), best::none);
 };
-}  // namespace best::utf_test
+}  // namespace best::rune_test
