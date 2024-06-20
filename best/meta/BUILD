@@ -11,6 +11,27 @@ cc_library(
 )
 
 cc_library(
+  name = "traits",
+  hdrs = [
+    "traits.h",
+    "internal/traits.h",
+  ],
+)
+
+cc_library(
+  name = "taxonomy",
+  hdrs = [
+    "taxonomy.h",
+    "internal/abominable.h",
+    "internal/quals.h",
+  ],
+  deps = [
+    ":traits",
+    "//best/base:hint",
+  ],
+)
+
+cc_library(
   name = "ops",
   hdrs = [
     "ops.h",
@@ -37,8 +58,8 @@ cc_library(
   ],
   deps = [
     ":bit_enum",
-    ":concepts",
     ":tags",
+    ":taxonomy",
   ]
 )
 
@@ -53,12 +74,10 @@ cc_test(
 )
 
 cc_library(
-  name = "ebo",
-  hdrs = ["ebo.h"],
+  name = "empty",
+  hdrs = ["empty.h"],
   deps = [
-    ":concepts",
     ":init",
-    ":tags",
   ]
 )
 
@@ -70,8 +89,11 @@ cc_library(
   ],
   deps = [
     ":ops",
+    ":traits",
     "//best/base:fwd",
+    "//best/base:ord",
     "//best/container:bounds",
+    "//best/func:call",
   ]
 )
 
@@ -79,20 +101,6 @@ cc_test(
   name = "tlist_test",
   srcs = ["tlist_test.cc"],
   deps = [
-    ":tlist",
-  ]
-)
-
-cc_library(
-  name = "concepts",
-  hdrs = [
-    "concepts.h",
-    "internal/abominable.h",
-    "internal/quals.h",
-  ],
-  deps = [
-    ":bit_enum",
-    ":tags",
     ":tlist",
   ]
 )

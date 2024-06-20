@@ -66,8 +66,8 @@ constexpr void BestFmtQuery(auto& query, T** range) {
 }
 
 template <typename A, typename B>
-void BestFmt(auto& fmt, const std::pair<A, B> value) {
-  fmt.format(best::row<const A&, const B&>(value.first, value.second));
+void BestFmt(auto& fmt, const best::row<A, B> value) {
+  fmt.format(best::row<const A&, const B&>(value.first, value.second()));
 }
 
 void BestFmt(auto& fmt, integer auto value) {

@@ -5,7 +5,6 @@
 #include <cstdio>
 
 #include "best/container/option.h"
-#include "best/meta/concepts.h"
 #include "best/text/internal/format_parser.h"
 #include "best/text/rune.h"
 #include "best/text/str.h"
@@ -93,7 +92,7 @@ namespace best {
 /// Whether a type can be formatted.
 template <typename T>
 concept formattable =
-    best::void_type<T> ||
+    best::is_void<T> ||
     requires(best::formatter& fmt, const T& value) { BestFmt(fmt, value); };
 
 /// # `best::format_spec`
@@ -171,7 +170,7 @@ struct format_spec final {
     template <typename T>
     static constexpr auto of = []<typename q = query> {
       q query;
-      if constexpr (format_internal::has_fmt_query<T>::value) {
+      if constexpr (requires { BestFmtQuery(query, best::as_ptr<T>()); }) {
         BestFmtQuery(query, best::as_ptr<T>());
       }
       return query;
@@ -438,7 +437,7 @@ decltype(auto) make_formattable(const auto& value) {
     return value;
   } else {
     return format_internal::unprintable{
-        reinterpret_cast<const char*>(std::addressof(value)), sizeof(value)};
+        reinterpret_cast<const char*>(best::addr(value)), sizeof(value)};
   }
 }
 
@@ -455,7 +454,7 @@ struct formatter::vptr final {
 template <best::formattable... Args>
 void formatter::format(best::format_template<Args...> fmt, const Args&... arg) {
   vptr vtable[] = {{
-      std::addressof(arg),
+      best::addr(arg),
       vptr::erased<Args>,
   }...};
   format_impl(fmt.as_str(), vtable);

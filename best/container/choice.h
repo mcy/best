@@ -1,15 +1,13 @@
 #ifndef BEST_CONTAINER_CHOICE_H_
 #define BEST_CONTAINER_CHOICE_H_
 
-#include <compare>
 #include <initializer_list>
 
+#include "best/base/ord.h"
 #include "best/container/internal/choice.h"
 #include "best/log/internal/crash.h"
 #include "best/log/location.h"
-#include "best/meta/concepts.h"
 #include "best/meta/init.h"
-#include "best/meta/ops.h"
 #include "best/meta/tags.h"
 
 //! A sum type, like `std::variant`.
@@ -110,8 +108,8 @@ class choice final {
 
  private:
   template <typename Arg>
-  static constexpr auto convert_from = types.unique_index([]<typename T> {
-    return !best::void_type<T> && best::convertible<T, best::as_rref<Arg>>;
+  static constexpr auto convert_from = types.find_unique([]<typename T> {
+    return !best::is_void<T> && best::convertible<T, best::as_rref<Arg>>;
   });
 
  public:
@@ -133,8 +131,8 @@ class choice final {
         // convert_from, which executes the whole init_from machinery, if we
         // would choose another constructor: namely, a copy/move constructor.
         // This is a common case, and avoiding it improves compile times by at
-        // least a second.
-        !best::same<choice, std::remove_cvref_t<Arg>> &&
+        // least a second().
+        !best::same<choice, best::as_auto<Arg>> &&
         convert_from<Arg>.has_value())
       : choice(best::index<*convert_from<Arg>>, BEST_FWD(arg)) {}
 
@@ -233,10 +231,10 @@ class choice final {
     requires best::constructible<type<n>, Args&&...>
   {
     if constexpr (best::assignable<type<n>, Args&&...>) {
-      impl().template emplace<n, best::Assign>(BEST_FWD(args)...);
+      impl().template emplace<n>(BEST_FWD(args)...);
       return *at(t);
     }
-    impl().template emplace<n, best::Construct>(BEST_FWD(args)...);
+    impl().template emplace<n>(BEST_FWD(args)...);
     return *at(t);
   }
 
@@ -329,31 +327,20 @@ class choice final {
   }
 
   template <typename... Us>
-  BEST_INLINE_ALWAYS constexpr std::common_comparison_category_t<
-      best::order_type<Alts, Us>...>
+  BEST_INLINE_ALWAYS constexpr best::common_ord<best::order_type<Alts, Us>...>
   operator<=>(const choice<Us...>& that) const
     requires(best::comparable<Alts, Us> && ...)
   {
-    if (auto tags = which() <=> that.which(); tags != 0) {
-      return tags;
-    }
-
-    using Output =
-        std::common_comparison_category_t<best::order_type<Alts, Us>...>;
-
-    return match(
-        []() -> Output { return std::strong_ordering::equal; },  // void case.
-        [&](auto tag, const auto& value) -> Output {
-          return value <=> that[tag];
-        });
+    return (which() <=> that.which())->*best::or_cmp([&] {
+      using Output = best::common_ord<best::order_type<Alts, Us>...>;
+      return match([]() -> Output { return best::Equal; },  // void case.
+                   [&](auto tag, const auto& value) -> Output {
+                     return value <=> that[tag];
+                   });
+    });
   }
 
  private:
-  constexpr const choice&& moved() const {
-    return static_cast<const choice&&>(*this);
-  }
-  constexpr choice&& moved() { return static_cast<choice&&>(*this); }
-
   constexpr void check_ok(size_t n, best::location loc = best::here) const {
     if (best::unlikely(n != which())) {
       crash_internal::crash(
@@ -365,13 +352,8 @@ class choice final {
 
   constexpr const auto& impl() const& { return BEST_CHOICE_IMPL_; }
   constexpr auto& impl() & { return BEST_CHOICE_IMPL_; }
-  constexpr const auto&& impl() const&& {
-    return static_cast<const choice_internal::impl<Alts...>&&>(
-        BEST_CHOICE_IMPL_);
-  }
-  constexpr auto&& impl() && {
-    return static_cast<choice_internal::impl<Alts...>&&>(BEST_CHOICE_IMPL_);
-  }
+  constexpr const auto&& impl() const&& { return BEST_MOVE(BEST_CHOICE_IMPL_); }
+  constexpr auto&& impl() && { return BEST_MOVE(BEST_CHOICE_IMPL_); }
 
  public:
   choice_internal::impl<Alts...> BEST_CHOICE_IMPL_;
@@ -408,14 +390,16 @@ template <size_t n>
 constexpr choice<A...>::crref<n> choice<A...>::operator[](
     best::index_t<n> idx) const&& {
   check_ok(idx.value);
-  return impl().move(unsafe{"check_ok() called before this"}, idx);
+  return static_cast<crref<n>>(
+      impl().deref(unsafe{"check_ok() called before this"}, idx));
 }
 template <typename... A>
 template <size_t n>
 constexpr choice<A...>::rref<n> choice<A...>::operator[](
     best::index_t<n> idx) && {
   check_ok(idx.value);
-  return impl().move(unsafe{"check_ok() called before this"}, idx);
+  return static_cast<rref<n>>(
+      impl().deref(unsafe{"check_ok() called before this"}, idx));
 }
 
 template <typename... A>
@@ -442,7 +426,8 @@ constexpr best::option<typename choice<A...>::template crref<n>>
 choice<A...>::at(best::index_t<n> i) const&& {
   if (which() != n) return {};
   return best::call_devoid([&]() -> decltype(auto) {
-    return impl().move(unsafe{"checked which() before this"}, i);
+    return static_cast<crref<n>>(
+        impl().deref(unsafe{"checked which() before this"}, i));
   });
 }
 template <typename... A>
@@ -451,7 +436,8 @@ constexpr best::option<typename choice<A...>::template rref<n>>
 choice<A...>::at(best::index_t<n> i) && {
   if (which() != n) return {};
   return best::call_devoid([&]() -> decltype(auto) {
-    return impl().move(unsafe{"checked which() before this"}, i);
+    return static_cast<rref<n>>(
+        impl().deref(unsafe{"checked which() before this"}, i));
   });
 }
 
@@ -476,16 +462,14 @@ constexpr best::option<
     const best::object<typename choice<A...>::template type<n>>&&>
 choice<A...>::object(best::index_t<n> i) const&& {
   if (which() != n) return {};
-  return static_cast<const best::object<type<n>>&&>(
-      impl().object(unsafe{"checked which() before this"}, i));
+  return BEST_MOVE(impl().object(unsafe{"checked which() before this"}, i));
 }
 template <typename... A>
 template <size_t n>
 constexpr best::option<best::object<typename choice<A...>::template type<n>>&&>
 choice<A...>::object(best::index_t<n> i) && {
   if (which() != n) return {};
-  static_cast<best::object<type<n>>&&>(
-      impl().object(unsafe{"checked which() before this"}, i));
+  BEST_MOVE(impl().object(unsafe{"checked which() before this"}, i));
 }
 
 template <typename... A>
@@ -504,13 +488,13 @@ template <typename... A>
 template <size_t n>
 constexpr choice<A...>::crref<n> choice<A...>::at(best::unsafe u,
                                                   best::index_t<n> i) const&& {
-  return best::assume(which() == n), impl().move(u, i);
+  return best::assume(which() == n), static_cast<crref<n>>(impl().deref(u, i));
 }
 template <typename... A>
 template <size_t n>
 constexpr choice<A...>::rref<n> choice<A...>::at(best::unsafe u,
                                                  best::index_t<n> i) && {
-  return best::assume(which() == n), impl().move(u, i);
+  return best::assume(which() == n), static_cast<rref<n>>(impl().deref(u, i));
 }
 
 template <typename... A>
@@ -523,11 +507,13 @@ constexpr decltype(auto) choice<A...>::match(auto... cases) & {
 }
 template <typename... A>
 constexpr decltype(auto) choice<A...>::match(auto... cases) const&& {
-  return moved().impl().match(choice_internal::Overloaded(BEST_FWD(cases)...));
+  return BEST_MOVE(*this).impl().match(
+      choice_internal::Overloaded(BEST_FWD(cases)...));
 }
 template <typename... A>
 constexpr decltype(auto) choice<A...>::match(auto... cases) && {
-  return moved().impl().match(choice_internal::Overloaded(BEST_FWD(cases)...));
+  return BEST_MOVE(*this).impl().match(
+      choice_internal::Overloaded(BEST_FWD(cases)...));
 }
 }  // namespace best
 

@@ -30,7 +30,6 @@ cc_library(
     ":pun",
     "//best/base:port",
     "//best/meta:tags",
-    "//best/meta:concepts",
     "//best/log/internal:crash",
   ],
 )
@@ -50,8 +49,8 @@ cc_library(
   name = "object",
   hdrs = ["object.h"],
   deps = [
-    "//best/meta:concepts",
-    "//best/meta:ebo",
+    "//best/base:ord",
+    "//best/meta:empty",
   ]
 )
 
@@ -145,7 +144,6 @@ cc_library(
     ":object",
     "//best/base:port",
     "//best/meta:tags",
-    "//best/meta:concepts",
   ],
 )
 
@@ -194,7 +192,6 @@ cc_library(
     "//best/memory:allocator",
     "//best/memory:bytes",
     "//best/memory:layout",
-    "//best/meta:concepts",
     "//best/meta:init",
     "//best/meta:tags",
   ],
@@ -216,4 +213,7 @@ cc_library(
   name = "simple_option",
   hdrs = ["internal/simple_option.h"],
   visibility = ["//best:__subpackages__"],
+  deps = [
+    "//best/meta:taxonomy",
+  ]
 )

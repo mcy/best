@@ -1,18 +1,33 @@
-#ifndef BEST_META_EBO_H_
-#define BEST_META_EBO_H_
+#ifndef BEST_META_EMPTY_H_
+#define BEST_META_EMPTY_H_
 
 #include <stddef.h>
 
+#include <compare>
 #include <type_traits>
 
-#include "best/meta/concepts.h"
 #include "best/meta/init.h"
 #include "best/meta/internal/init.h"
 #include "best/meta/tags.h"
+#include "best/meta/taxonomy.h"
 
-//! A helper for the empty base class optimization.
+//! Utilities for empty types.
 
 namespace best {
+/// An empty type with minimal dependencies.
+struct empty final {
+  constexpr bool operator==(const empty& that) const = default;
+  constexpr std::strong_ordering operator<=>(const empty& that) const = default;
+};
+
+/// # `best::is_empty`
+///
+/// Whether this type counts as "empty", i.e., if it will trigger the empty
+/// base class optimization. (Ish. Some compilers (MSVC) will lie about when
+/// they will do the optimization.)
+template <typename T>
+concept is_empty = best::is_void<T> || std::is_empty_v<T>;
+
 /// # `best::ebo`
 ///
 /// A wrapper type over a `T` that is an empty type if `T` is empty. This allows
@@ -34,12 +49,9 @@ namespace best {
 ///
 /// Doing a CTRP-type here ensures that this base is reasonably unique among
 /// other potential bases of `MyClass`.
-template <best::object_type T, typename Tag, auto ident = 0,
+template <best::is_object T, typename Tag, auto ident = 0,
           bool compressed =
-              std::is_empty_v<T> &&
-              // Use our intrinsic instead of the full init.h machinery, because
-              // this type gets hammered by every best::object!
-              best::init_internal::trivially_relocatable<T>>
+              best::is_empty<T> && best::relocatable<T, trivially>>
 class ebo /* not final! */ {
  public:
   /// # `ebo::ebo(...)`
@@ -65,7 +77,7 @@ class ebo /* not final! */ {
 #define BEST_EBO_VALUE_ _private
 };
 
-template <best::object_type T, typename Tag, auto ident>
+template <best::is_object T, typename Tag, auto ident>
 class ebo<T, Tag, ident, true> /* not final! */ {
  public:
   constexpr ebo(best::in_place_t, auto&&... args) {
@@ -94,4 +106,4 @@ class ebo<T, Tag, ident, true> /* not final! */ {
 
 }  // namespace best
 
-#endif  // BEST_META_EBO_H_
+#endif  // BEST_META_EMPTY_H_

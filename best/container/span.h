@@ -1,11 +1,8 @@
 #ifndef BEST_CONTAINER_SPAN_H_
 #define BEST_CONTAINER_SPAN_H_
 
-#include <compare>
-#include <concepts>
 #include <cstddef>
 #include <initializer_list>
-#include <type_traits>
 
 #include "best/base/port.h"
 #include "best/container/internal/span.h"
@@ -14,9 +11,7 @@
 #include "best/log/location.h"
 #include "best/math/overflow.h"
 #include "best/memory/bytes.h"
-#include "best/meta/concepts.h"
 #include "best/meta/init.h"
-#include "best/meta/ops.h"
 #include "best/meta/tags.h"
 #include "best/meta/tlist.h"
 
@@ -36,8 +31,8 @@ namespace best {
 /// This is defined as a type that enables calls to std::data and std::size().
 template <typename T>
 concept contiguous = requires(T&& t) {
-  { *std::data(t) } -> best::ref_type;
-  { std::size(t) } -> std::convertible_to<size_t>;
+  { *std::data(t) } -> best::is_ref;
+  { std::size(t) } -> best::converts_to<size_t>;
 };
 
 /// # `best::static_size<T>`
@@ -66,22 +61,21 @@ concept static_contiguous = static_size<T>.has_value();
 ///
 /// Represents whether T is best::span<U, n> for some U, n.
 template <typename T>
-concept is_span = best::same<std::remove_cvref_t<T>,
-                             best::span<typename std::remove_cvref_t<T>::type,
-                                        std::remove_cvref_t<T>::extent>>;
+concept is_span =
+    best::same<best::as_auto<T>, best::span<typename best::as_auto<T>::type,
+                                            best::as_auto<T>::extent>>;
 
 /// # `best::span_type<T>`
 ///
 /// Given T = best::span<U, n>, returns U.
 template <is_span T>
-using span_type = typename std::remove_cvref_t<T>::type;
+using span_type = typename best::as_auto<T>::type;
 
 /// # `best::span_extent<T>`
 ///
 /// Given T = best::span<U, n>, returns n.
 template <is_span T>
-inline constexpr best::option<size_t> span_extent =
-    std::remove_cvref_t<T>::extent;
+inline constexpr best::option<size_t> span_extent = best::as_auto<T>::extent;
 
 /// # `best::span<T, n>`
 ///
@@ -118,14 +112,14 @@ inline constexpr best::option<size_t> span_extent =
 ///
 /// Unfortunately, it is not possible to make `best::span<T>` work when `T` is
 /// not an object type.
-template <best::object_type T,
+template <best::is_object T,
           // NOTE: This default is in the fwd decl in option.h.
           best::option<size_t> n /* = best::none */>
 class span final {
  public:
   /// Helper type aliases.
   using type = T;
-  using value_type = std::remove_cv_t<T>;
+  using value_type = best::unqual<T>;
   using cref = best::as_ref<const type>;
   using ref = best::as_ref<type>;
   using crref = best::as_rref<const type>;
@@ -151,7 +145,7 @@ class span final {
   /// # `span::is_const`
   ///
   /// Whether it is possible to mutate through this span.
-  static constexpr bool is_const = std::is_const_v<T>;
+  static constexpr bool is_const = best::is_const<T>;
 
   /// # `span::with_extent`
   ///
@@ -219,8 +213,7 @@ class span final {
         extent.value_or() == best::static_size<Range>.value_or()))
       span(Range&& range,  //
            best::location loc = best::here)
-    requires best::qualifies_to<best::as_deref<decltype(*std::data(range))>,
-                                T> &&
+    requires best::qualifies_to<best::unref<decltype(*std::data(range))>, T> &&
              (is_dynamic || best::static_size<Range>.is_empty() ||
               extent == best::static_size<Range>)
       : span(std::data(range), std::size(range), loc) {}
@@ -302,16 +295,16 @@ class span final {
   ///
   /// Returns the first, or first `m`, elements of this span, and the remaining
   /// elements, or `best::none` if there are not enough elements.
-  constexpr best::option<std::pair<T&, span<T, minus<1>>>> split_first() const {
+  constexpr best::option<best::row<T&, span<T, minus<1>>>> split_first() const {
     return split_first(best::index<1>).map([](auto pair) {
-      return std::pair<T&, span<T, minus<1>>>{pair.first[0], pair.second};
+      return best::row<T&, span<T, minus<1>>>{pair.first()[0], pair.second()};
     });
   }
   template <size_t m>
-  constexpr best::option<std::pair<span<T, m>, span<T, minus<m>>>> split_first(
+  constexpr best::option<best::row<span<T, m>, span<T, minus<m>>>> split_first(
       best::index_t<m> = {}) const {
     return at({.end = m}).map(best::ctor<span<T, m>>).map([&](auto ch) {
-      return std::pair{ch, span<T, minus<m>>(operator[]({.start = m}))};
+      return best::row{ch, span<T, minus<m>>(operator[]({.start = m}))};
     });
   }
 
@@ -319,18 +312,18 @@ class span final {
   ///
   /// Returns the last, or last `m`, elements of this span, and the remaining
   /// elements, or `best::none` if there are not enough elements.
-  constexpr best::option<std::pair<T&, span<T, minus<1>>>> split_last() const {
+  constexpr best::option<best::row<T&, span<T, minus<1>>>> split_last() const {
     return split_last(best::index<1>).map([](auto pair) {
-      return std::pair<T&, span<T, minus<1>>>{pair.first[0], pair.second};
+      return best::row<T&, span<T, minus<1>>>{pair.first()[0], pair.second()};
     });
   }
   template <size_t m>
-  constexpr best::option<std::pair<span<T, m>, span<T, minus<m>>>> split_last(
+  constexpr best::option<best::row<span<T, m>, span<T, minus<m>>>> split_last(
       best::index_t<m> = {}) const {
     return at({.start = size() - m})
         .map(best::ctor<span<T, m>>)
         .map([&](auto ch) {
-          return std::pair{
+          return best::row{
               ch,
               span<T, minus<m>>(operator[]({.end = size() - m})),
           };
@@ -575,8 +568,7 @@ class span final {
     requires best::comparable<T> && (!is_const);
   void sort(best::callable<void(const T&)> auto&&) const
     requires(!is_const);
-  void sort(
-      best::callable<std::partial_ordering(const T&, const T&)> auto&&) const
+  void sort(best::callable<best::partial_ord(const T&, const T&)> auto&&) const
     requires(!is_const);
 
   /// # `span::stable_sort()`
@@ -589,7 +581,7 @@ class span final {
   void stable_sort(best::callable<void(const T&)> auto&&) const
     requires(!is_const);
   void stable_sort(
-      best::callable<std::partial_ordering(const T&, const T&)> auto&&) const
+      best::callable<best::partial_ord(const T&, const T&)> auto&&) const
     requires(!is_const);
 
   /// # `span::copy_from()`
@@ -674,7 +666,7 @@ class span final {
     requires(!is_const) && is_dynamic;
 
   // All spans are comparable.
-  template <object_type U, best::option<size_t> m>
+  template <best::is_object U, best::option<size_t> m>
   constexpr bool operator==(best::span<U, m> that) const
     requires best::equatable<T, U>;
   template <contiguous R>
@@ -684,7 +676,7 @@ class span final {
     return *this == best::span(range);
   }
 
-  template <object_type U, best::option<size_t> m>
+  template <best::is_object U, best::option<size_t> m>
   constexpr auto operator<=>(best::span<U, m> that) const
     requires best::comparable<T, U>;
   template <contiguous R>
@@ -709,8 +701,7 @@ span(best::object_ptr<T>, size_t) -> span<T>;
 template <typename T>
 span(std::initializer_list<T>) -> span<const T>;
 template <contiguous R>
-span(R&& r) -> span<std::remove_reference_t<decltype(*std::data(r))>,
-                    best::static_size<R>>;
+span(R&& r) -> span<best::unref<decltype(*std::data(r))>, best::static_size<R>>;
 }  // namespace best
 
 /******************************************************************************/
@@ -720,7 +711,7 @@ span(R&& r) -> span<std::remove_reference_t<decltype(*std::data(r))>,
 /******************************************************************************/
 
 namespace best {
-template <best::object_type T, best::option<size_t> n>
+template <best::is_object T, best::option<size_t> n>
 struct span<T, n>::iter final {
   constexpr iter() = default;
 
@@ -771,8 +762,8 @@ inline constexpr size_t BestStaticSize(auto, std::array<T, n>*) {
   return n;
 }
 
-template <object_type T, best::option<size_t> n>
-template <object_type U, best::option<size_t> m>
+template <best::is_object T, best::option<size_t> n>
+template <best::is_object U, best::option<size_t> m>
 constexpr bool span<T, n>::operator==(span<U, m> that) const
   requires best::equatable<T, U>
 {
@@ -792,8 +783,8 @@ constexpr bool span<T, n>::operator==(span<U, m> that) const
   return true;
 }
 
-template <object_type T, best::option<size_t> n>
-template <object_type U, best::option<size_t> m>
+template <best::is_object T, best::option<size_t> n>
+template <best::is_object U, best::option<size_t> m>
 constexpr auto span<T, n>::operator<=>(span<U, m> that) const
   requires best::comparable<T, U>
 {
@@ -814,7 +805,7 @@ constexpr auto span<T, n>::operator<=>(span<U, m> that) const
   return best::order_type<T, U>(size() <=> that.size());
 }
 
-template <object_type T, option<size_t> n>
+template <best::is_object T, option<size_t> n>
 constexpr void span<T, n>::shift_within(unsafe u, size_t dst, size_t src,
                                         size_t count) const
   requires(!is_const) && is_dynamic

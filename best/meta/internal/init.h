@@ -1,97 +1,265 @@
 #ifndef BEST_META_INTERNAL_INIT_H_
 #define BEST_META_INTERNAL_INIT_H_
 
-#include <stddef.h>
+#include "best/base/fwd.h"
+#include "best/base/port.h"
+#include "best/meta/taxonomy.h"
 
-#include <type_traits>
-
-#include "best/meta/concepts.h"
-
-//! Concepts for determining when a type can be initialized in a particular
-//! way.
+//! Rule-based implementation of constructable/convertible/assignable, using
+//! overload resolution as a reasonably fast lookup.
+//!
+//! Clang is usually able to build good lookup structures for doing overload
+//! resolution fast, so this is going to be much faster than letting the
+//! constexpr interpreter do it.
 
 namespace best {
-class trivially;
+class trivially final {
+ private:
+  ~trivially();
+};
 
 namespace init_internal {
+/// Helper type that is *not* tlist, since this is much cheaper to instantiate.
+template <typename>
+struct tag {};
+
+// ========================================================================== //
+
+template <best::is_object T, typename... Args>
+void ctor(tag<T>, tag<Args>...)
+  requires std::is_constructible_v<T, Args...>;
+
+template <best::is_object T, typename... Args>
+void ctor(tag<T>, tag<trivially>, tag<Args>...)
+  requires std::is_trivially_constructible_v<T, Args...>;
+
+template <best::is_object T, best::is_void V>
+void ctor(tag<T>, tag<V>)
+  requires std::is_constructible_v<T>;
+
+template <best::is_object T, best::is_void V>
+void ctor(tag<T>, tag<trivially>, tag<V>)
+  requires std::is_trivially_constructible_v<T>;
+
+// -------------------------------------------------------------------------- //
+
+template <best::is_object T, best::is_object U, size_t n>
+void ctor(tag<T[n]>, tag<U[n]>)
+  requires std::is_constructible_v<T, U>;
+
+template <best::is_object T, best::is_object U, size_t n>
+void ctor(tag<T[n]>, tag<trivially>, tag<U[n]>)
+  requires std::is_trivially_constructible_v<T, U>;
+
+template <best::is_object T, best::is_object U, size_t n>
+void ctor(tag<T[n]>, tag<U (&)[n]>)
+  requires std::is_constructible_v<T, U&>;
+
+template <best::is_object T, best::is_object U, size_t n>
+void ctor(tag<T[n]>, tag<trivially>, tag<U (&)[n]>)
+  requires std::is_trivially_constructible_v<T, U&>;
+
+template <best::is_object T, best::is_object U, size_t n>
+void ctor(tag<T[n]>, tag<U (&&)[n]>)
+  requires std::is_constructible_v<T, U&&>;
+
+template <best::is_object T, best::is_object U, size_t n>
+void ctor(tag<T[n]>, tag<trivially>, tag<U (&&)[n]>)
+  requires std::is_trivially_constructible_v<T, U&&>;
+
+// -------------------------------------------------------------------------- //
+
+template <best::is_lref T, best::is_ref R>
+void ctor(tag<T>, tag<R>)
+  requires std::is_convertible_v<best::as_ptr<R>, best::as_ptr<T>>;
+
+template <best::is_lref T, best::is_ref R>
+void ctor(tag<T>, tag<trivially>, tag<R>)
+  requires std::is_convertible_v<best::as_ptr<R>, best::as_ptr<T>>;
+
+template <best::is_rref T, best::is_rref R>
+void ctor(tag<T>, tag<R>)
+  requires std::is_convertible_v<best::as_ptr<R>, best::as_ptr<T>>;
+
+template <best::is_rref T, best::is_rref R>
+void ctor(tag<T>, tag<trivially>, tag<R>)
+  requires std::is_convertible_v<best::as_ptr<R>, best::as_ptr<T>>;
+
+// -------------------------------------------------------------------------- //
+
+template <best::is_func T, typename F>
+void ctor(tag<T>, tag<F>)
+  requires std::is_convertible_v<F, best::as_ref<T>>;
+
+template <best::is_func T, typename F>
+void ctor(tag<T>, tag<trivially>, tag<F>)
+  requires std::is_convertible_v<F, best::as_ref<T>>;
+
+// -------------------------------------------------------------------------- //
+
+template <best::is_void T>
+void ctor(tag<T>);
+
+template <best::is_void T>
+void ctor(tag<T>, tag<trivially>);
+
+template <best::is_void T, typename U>
+void ctor(tag<T>, tag<U>);
+
+template <best::is_void T, typename U>
+void ctor(tag<T>, tag<trivially>, tag<U>);
+
+// -------------------------------------------------------------------------- //
+
+template <typename T, typename... Args>
+void ctor(tag<T>, tag<best::row_forward<Args...>>)
+  requires requires { ctor(tag<T>{}, tag<Args>{}...); };
+
+template <typename T, typename... Args>
+void ctor(tag<T>, tag<trivially>, tag<best::row_forward<Args...>>)
+  requires requires { ctor(tag<T>{}, tag<trivially>{}, tag<Args>{}...); };
+
+template <typename T, typename... Args>
+void ctor(tag<T>, tag<best::row_forward<Args...>&&>)
+  requires requires { ctor(tag<T>{}, tag<Args>{}...); };
+
+template <typename T, typename... Args>
+void ctor(tag<T>, tag<trivially>, tag<best::row_forward<Args...>&&>)
+  requires requires { ctor(tag<T>{}, tag<trivially>{}, tag<Args>{}...); };
+
+// ========================================================================== //
+
+template <best::is_object T, typename Arg>
+void conv(tag<T>, tag<Arg>)
+  requires std::is_convertible_v<Arg, T>;
+
+template <best::is_object T, typename Arg>
+void conv(tag<T>, tag<trivially>, tag<Arg>)
+  requires std::is_convertible_v<Arg, T> &&
+           requires { ctor(tag<T>{}, tag<trivially>{}, tag<Arg>()); };
+
+template <best::is_object T, best::is_object U, size_t n>
+void conv(tag<T[n]>, tag<U[n]>)
+  requires std::is_convertible_v<T, U>;
+
+template <best::is_object T, best::is_object U, size_t n>
+void conv(tag<T[n]>, tag<trivially>, tag<U[n]>)
+  requires std::is_convertible_v<T, U> &&
+           requires { ctor(tag<T>{}, tag<trivially>{}, tag<U>()); };
+
+template <best::is_object T, best::is_object U, size_t n>
+void conv(tag<T[n]>, tag<U (&)[n]>)
+  requires std::is_convertible_v<T, U&>;
+
+template <best::is_object T, best::is_object U, size_t n>
+void conv(tag<T[n]>, tag<trivially>, tag<U (&)[n]>)
+  requires std::is_convertible_v<T, U> &&
+           requires { ctor(tag<T>{}, tag<trivially>{}, tag<U>()); };
+
+template <best::is_object T, best::is_object U, size_t n>
+void conv(tag<T[n]>, tag<U (&&)[n]>)
+  requires std::is_convertible_v<T, U&&>;
+
+template <best::is_object T, best::is_object U, size_t n>
+void conv(tag<T[n]>, tag<trivially>, tag<U (&&)[n]>)
+  requires std::is_convertible_v<T, U> &&
+           requires { ctor(tag<T>{}, tag<trivially>{}, tag<U>()); };
+
+template <typename T, typename Arg>
+void conv(tag<T>, tag<Arg>)
+  requires(!best::is_object<T> && !best::is_rref<T>) &&
+          requires { ctor(tag<T>{}, tag<Arg>()); };
+
+template <typename T, typename Arg>
+void conv(tag<T>, tag<trivially>, tag<Arg>)
+  requires(!best::is_object<T> && !best::is_rref<T>) &&
+          requires { ctor(tag<T>{}, tag<trivially>{}, tag<Arg>()); };
+
+// ========================================================================== //
+
+template <best::is_object T, typename Arg>
+void assign(tag<T>, tag<Arg>)
+  requires std::is_assignable_v<T&, Arg>;
+
+template <best::is_object T, typename Arg>
+void assign(tag<T>, tag<trivially>, tag<Arg>)
+  requires std::is_trivially_assignable_v<T&, Arg>;
+
+template <best::is_object T, best::is_object U, size_t n>
+void assign(tag<T[n]>, tag<U[n]>)
+  requires std::is_assignable_v<T&, U>;
+
+template <best::is_object T, best::is_object U, size_t n>
+void assign(tag<T[n]>, tag<trivially>, tag<U[n]>)
+  requires std::is_trivially_assignable_v<T&, U>;
+
+template <best::is_object T, best::is_object U, size_t n>
+void assign(tag<T[n]>, tag<U (&)[n]>)
+  requires std::is_assignable_v<T&, U&>;
+
+template <best::is_object T, best::is_object U, size_t n>
+void assign(tag<T[n]>, tag<trivially>, tag<U (&)[n]>)
+  requires std::is_trivially_assignable_v<T&, U&>;
+
+template <best::is_object T, best::is_object U, size_t n>
+void assign(tag<T[n]>, tag<U (&&)[n]>)
+  requires std::is_assignable_v<T&, U&&>;
+
+template <best::is_object T, best::is_object U, size_t n>
+void assign(tag<T[n]>, tag<trivially>, tag<U (&&)[n]>)
+  requires std::is_trivially_assignable_v<T&, U&&>;
+
+// -------------------------------------------------------------------------- //
+
+template <typename T, typename Arg>
+void assign(tag<T>, tag<Arg>)
+  requires(!best::is_object<T>) && requires { ctor(tag<T>{}, tag<Arg>{}); };
+
+template <typename T, typename Arg>
+void assign(tag<T>, tag<trivially>, tag<Arg>)
+  requires(!best::is_object<T>) &&
+          requires { ctor(tag<T>{}, tag<trivially>{}, tag<Arg>{}); };
+
+// -------------------------------------------------------------------------- //
+
+template <best::is_void T>
+void assign(tag<T>);
+
+template <best::is_void T>
+void assign(tag<T>, tag<trivially>);
+
+// -------------------------------------------------------------------------- //
+
+template <typename T, typename... Args>
+void assign(tag<T>, tag<best::row_forward<Args...>>)
+  requires requires { assign(tag<T>{}, tag<Args>{}...); };
+
+template <typename T, typename... Args>
+void assign(tag<T>, tag<trivially>, tag<best::row_forward<Args...>>)
+  requires requires { assign(tag<T>{}, tag<trivially>{}, tag<Args>{}...); };
+
+template <typename T, typename... Args>
+void assign(tag<T>, tag<best::row_forward<Args...>&&>)
+  requires requires { assign(tag<T>{}, tag<Args>{}...); };
+
+template <typename T, typename... Args>
+void assign(tag<T>, tag<trivially>, tag<best::row_forward<Args...>&&>)
+  requires requires { assign(tag<T>{}, tag<trivially>{}, tag<Args>{}...); };
+
+// ========================================================================== //
+
+void triv();
+void triv(tag<trivially>);
 template <typename... Args>
-concept only_trivial = types<Args...> <= types<trivially>;
+concept only_trivial = requires { triv(tag<Args>{}...); };
 
-template <auto args>
-concept is_void = args == types<void>;
-
-template <typename T, bool trivial, typename... Args>
-constexpr bool ctor_by_row(best::tlist<best::row_forward<Args...>>);
-template <typename T, bool trivial>
-constexpr bool ctor_by_row(auto&&) {
-  return false;
-}
-
-template <typename T, bool trivial, auto args,
-          typename _0 = decltype(args)::template type<0, void>,
-          typename p0 = best::as_ptr<_0>>
-concept ctor =
-    ctor_by_row<T, trivial>(
-        args.template map<std::remove_cvref_t>()) ||  // Recurse if this is a
-                                                      // row_forward.
-    (best::object_type<T> &&
-     (trivial
-          ? (args == types<void>
-                 ? std::is_trivially_default_constructible_v<T>
-                 : args.apply([]<typename... Args> {
-                     return std::is_trivially_constructible_v<T, Args...>;
-                   }))
-
-          : (args == types<void> ? std::is_default_constructible_v<T>
-                                 : args.template apply([]<typename... Args> {
-                                     return std::is_constructible_v<T, Args...>;
-                                   })))) ||
-    //
-    (best::ref_type<T> && args.size() == 1 &&
-     // References can only be constructed from references.
-     best::ref_type<_0> &&
-     // Rvalue references cannot be constructed from lvalue references.
-     !(best::ref_type<T, ref_kind::Rvalue> &&
-       best::ref_type<_0, ref_kind::Lvalue>)&&args.size() == 1 &&
-     std::is_convertible_v<p0, best::as_ptr<T>>) ||
-    //
-    (best::abominable_func_type<T> && args.size() == 1 &&
-     std::is_same_v<p0, std::add_pointer_t<T>>) ||
-    //
-    (best::void_type<T> && args.size() <= 1);
-
-template <typename T, bool trivial, typename... Args>
-constexpr bool ctor_by_row(best::tlist<best::row_forward<Args...>>) {
-  return ctor<T, trivial, best::types<Args...>>;
-}
-
-template <typename T, bool trivial, typename... Args>
-constexpr bool assign_by_row(best::tlist<best::row_forward<Args...>>);
-template <typename T, bool trivial>
-constexpr bool assign_by_row(auto) {
-  return false;
-}
-
-template <typename T, bool trivial, auto args,
-          typename _0 = decltype(args)::template type<0, void>>
-concept assign =
-    assign_by_row<T, trivial>(
-        args.template map<std::remove_cvref_t>()) ||  // Recurse if this is a
-                                                      // row_forward.
-    ((best::object_type<T>
-          ? args.size() == 1 &&
-                (trivial ? std::is_trivially_assignable_v<best::as_ref<T>, _0>
-                         : std::is_assignable_v<best::as_ref<T>, _0>)
-          : ctor<T, trivial, args, _0>));
-
-template <typename T, bool trivial, typename... Args>
-constexpr bool assign_by_row(best::tlist<best::row_forward<Args...>>) {
-  return assign<T, trivial, best::types<Args...>>;
-}
+void is_triv(tag<trivially>);
+template <typename... Args>
+concept is_trivial = requires { is_triv(tag<Args>{}...); };
 
 template <typename T>
 concept trivially_relocatable =
-#if __has_builtin(__is_trivially_relocatable)
+#if BEST_HAS_BUILTIN(__is_trivially_relocatable)
     __is_trivially_relocatable(T);
 #else
     std::is_trivial_v<T>;

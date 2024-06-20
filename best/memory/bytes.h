@@ -76,8 +76,7 @@ BEST_INLINE_ALWAYS bool equate_bytes(best::span<T> lhs, best::span<U> rhs)
 /// A typed wrapper over `memcmp()`. This performs total lexicographic
 /// comparison between two spans.
 template <typename T, typename U = const T>
-BEST_INLINE_ALWAYS std::strong_ordering compare_bytes(best::span<T> lhs,
-                                                      best::span<U> rhs)
+BEST_INLINE_ALWAYS best::ord compare_bytes(best::span<T> lhs, best::span<U> rhs)
   requires(sizeof(T) == sizeof(U))
 {
   if (lhs.data() == rhs.data() || lhs.is_empty() || rhs.is_empty()) {

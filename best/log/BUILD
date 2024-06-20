@@ -5,6 +5,8 @@ cc_library(
   hdrs = ["location.h"],
   deps = [
     "//best/base:port",
+    "//best/base:fwd",
+    "//best/meta:taxonomy",
   ],
 )
 

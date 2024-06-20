@@ -1,11 +1,9 @@
 #include "best/container/row.h"
 
-#include <type_traits>
-
 #include "best/test/test.h"
 
 namespace best::row_test {
-static_assert(std::is_empty_v<best::row<>>);
+static_assert(best::is_empty<best::row<>>);
 
 best::test Nums = [](auto& t) {
   best::row<int, float, bool> x0(42, 1.5, true);

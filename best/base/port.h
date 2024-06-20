@@ -44,14 +44,6 @@ inline constexpr bool is_debug() {
 /// Helper macro for generating more readable pragma definitions.
 #define BEST_PRAGMA(...) _Pragma(BEST_STRINGIFY(__VA_ARGS__))
 
-/// # `BEST_FWD()`
-///
-/// Macro implementation of `std::forward`.
-///
-/// Intended to improve compile times and gdb debugging by eliminating an
-/// extremely common function that must be inlined.
-#define BEST_FWD(expr_) (static_cast<decltype(expr_)&&>(expr_))
-
 /// # `BEST_WEAK`
 ///
 /// Marks a symbol as weak.

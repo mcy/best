@@ -2,37 +2,19 @@
 #define BEST_CONTAINER_INTERNAL_CHOICE_H_
 
 #include <array>
-#include <cassert>
 #include <cstddef>
-#include <memory>
-#include <type_traits>
-#include <utility>
 
-#include "best/base/port.h"
 #include "best/container/internal/pun.h"
 #include "best/container/object.h"
 #include "best/container/pun.h"
 #include "best/math/int.h"
-#include "best/meta/concepts.h"
 #include "best/meta/init.h"
-#include "best/meta/ops.h"
+#include "best/meta/internal/init.h"
 #include "best/meta/tags.h"
 
 //! Internal implementation of best::choice.
 
 namespace best::choice_internal {
-template <typename T, template <typename> typename Trait>
-using if_not_void = std::conditional_t<std::is_void_v<T>, std::type_identity<T>,
-                                       Trait<T>>::type;
-
-template <typename T, template <typename> typename Trait>
-inline constexpr bool if_void_or_ref_or =
-    std::disjunction_v<std::is_void<T>, std::is_reference<T>, Trait<T>>;
-
-template <template <typename> typename Trait, typename L, typename R>
-inline constexpr bool if_impl_fails =
-    !if_void_or_ref_or<L, Trait> || !if_void_or_ref_or<R, Trait>;
-
 template <typename... Ts>
 class tagged {
  public:
@@ -76,7 +58,7 @@ class niched {
   using type = decltype(types)::template type<n>;
 
   static constexpr size_t NonEmpty =
-      *types.index([]<typename T> { return best::has_niche<T>; });
+      *types.find([]<typename T> { return best::has_niche<T>; });
   static constexpr size_t Empty = NonEmpty == 0 ? 1 : 0;
 
   constexpr niched() = default;
@@ -131,14 +113,10 @@ tagged<Ts...> which_storage(best::tlist<Ts...>, best::rank<0>);
 
 template <typename A, typename B>
 niched<A, B> which_storage(best::tlist<A, B>, best::rank<1>)
-    // This is a compile-time performance hot-spot: use the compiler intrinsics
-    // directly.
-  requires(has_niche<A> && (best::void_type<B> ||
-                            (std::is_empty_v<B> &&
-                             std::is_trivially_default_constructible_v<B>))) ||
-          (has_niche<B> && (best::void_type<A> ||
-                            (std::is_empty_v<A> &&
-                             std::is_trivially_default_constructible_v<A>)));
+  requires(has_niche<A> && best::is_empty<B> &&
+           best::constructible<B, trivially>) ||
+          (has_niche<B> && best::is_empty<A> &&
+           best::constructible<A, trivially>);
 
 template <typename... Ts>
 using storage = decltype(which_storage(types<Ts...>, best::rank<1>{}));
@@ -176,9 +154,7 @@ class impl : public storage<Ts...> {
   constexpr impl& operator=(const impl& that)
     requires(!info.trivial_copy)
   {
-    that.match([&](auto tag, auto&... value) {
-      emplace<decltype(tag)::value, best::Assign>(value...);
-    });
+    that.match([&](auto tag, auto&... value) { emplace<tag.value>(value...); });
     return *this;
   }
 
@@ -189,7 +165,7 @@ class impl : public storage<Ts...> {
     requires(!info.trivial_move)
   {
     that.match([&](auto tag, auto&... value) {
-      std::construct_at(this, tag, std::move(value)...);
+      std::construct_at(this, tag, BEST_MOVE(value)...);
     });
   }
 
@@ -200,7 +176,7 @@ class impl : public storage<Ts...> {
     requires(!info.trivial_move)
   {
     that.match([&](auto tag, auto&... value) {
-      emplace<decltype(tag)::value, best::init_by::Assign>(std::move(value)...);
+      emplace<tag.value>(BEST_MOVE(value)...);
     });
     return *this;
   }
@@ -212,16 +188,14 @@ class impl : public storage<Ts...> {
     requires(!info.trivial_dtor)
   {
     match([](auto, auto&... value) {
-      (std::destroy_at(std::addressof(value)), ...);
+      (std::destroy_at(best::addr(value)), ...);
     });
   }
 
-  template <size_t which, best::init_by by, typename... Args>
-  constexpr void emplace(Args&&... args)
-    requires best::init_from<type<which>, by, Args&&...>
-  {
+  template <size_t which, typename... Args>
+  constexpr void emplace(Args&&... args) {
     if (which == tag()) {
-      if constexpr (best::object_type<type<which>> &&
+      if constexpr (best::is_object<type<which>> &&
                     best::assignable<type<which>, Args&&...>) {
         get(unsafe{"checked tag() before this"}, best::index<which>)
             .as_ptr()
@@ -242,16 +216,6 @@ class impl : public storage<Ts...> {
   BEST_INLINE_SYNTHETIC constexpr best::as_ref<type<n>> deref(
       unsafe u, best::index_t<n> i = {}) {
     return *get(u, i);
-  }
-  template <size_t n>
-  BEST_INLINE_SYNTHETIC constexpr best::as_rref<const type<n>> move(
-      unsafe u, best::index_t<n> i = {}) const {
-    return static_cast<best::as_rref<const type<n>>>(*get(u, i));
-  }
-  template <size_t n>
-  BEST_INLINE_SYNTHETIC constexpr best::as_rref<type<n>> move(
-      unsafe u, best::index_t<n> i = {}) {
-    return static_cast<best::as_rref<type<n>>>(*get(u, i));
   }
   template <size_t n>
   BEST_INLINE_SYNTHETIC constexpr best::as_ptr<type<n>> ptr(
@@ -289,22 +253,22 @@ class impl : public storage<Ts...> {
   }
   template <typename F>
   BEST_INLINE_SYNTHETIC constexpr decltype(auto) match(F&& callback) const&& {
-    return JumpTable<decltype(make_match_arm(static_cast<const impl&&>(*this),
+    return JumpTable<decltype(make_match_arm(BEST_MOVE(*this),
                                              BEST_FWD(callback)))>[tag()](
-        make_match_arm(static_cast<const impl&&>(*this), BEST_FWD(callback)));
+        make_match_arm(BEST_MOVE(*this), BEST_FWD(callback)));
   }
   template <typename F>
   BEST_INLINE_SYNTHETIC constexpr decltype(auto) match(F&& callback) && {
-    return JumpTable<decltype(make_match_arm(static_cast<impl&&>(*this),
+    return JumpTable<decltype(make_match_arm(BEST_MOVE(*this),
                                              BEST_FWD(callback)))>[tag()](
-        make_match_arm(static_cast<impl&&>(*this), BEST_FWD(callback)));
+        make_match_arm(BEST_MOVE(*this), BEST_FWD(callback)));
   }
 
  private:
   template <typename F, size_t... i>
   constexpr static auto make_jump_table(std::index_sequence<i...>) {
     // TODO(mcyoung): It'd be nice to use common_type here...
-    using Output = decltype(best::call(std::declval<F>(), best::index<0>));
+    using Output = best::call_result<F, best::index_t<0>>;
 
     return std::array<Output (*)(F&&), sizeof...(Ts)>{
         {+[](F&& callback) -> Output {
@@ -316,16 +280,16 @@ class impl : public storage<Ts...> {
   constexpr static auto make_match_arm(auto&& self, F&& callback) {
     return [&]<size_t n>(best::index_t<n> tag) -> decltype(auto) {
       using I = decltype(tag);
-      using Type = best::copy_ref<type<n>, decltype(self)&&>;
+      using Type = best::refcopy<type<n>, decltype(self)&&>;
 
       // This needs to be dependent on tag, even trivially, so that the call
       // of callback(empty) in one of the if statements below uses two-phase
       // lookup.
-      using Empty = best::copy_ref<
-          std::conditional_t<sizeof(tag) == 0, best::empty, best::empty>,
+      using Empty = best::refcopy<
+          best::select<sizeof(tag) == 0, best::empty, best::empty>,
           decltype(self)&&>;
 
-      if constexpr (best::void_type<Type>) {
+      if constexpr (best::is_void<Type>) {
         if constexpr (best::callable<F, void(I)>) {
           return best::call(BEST_FWD(callback), tag);
         } else if constexpr (best::callable<F, void()>) {

@@ -44,6 +44,5 @@ cc_library(
   srcs = ["bytes.cc"],
   deps = [
     "//best/container:option",
-    "//best/meta:concepts",
   ]
 )

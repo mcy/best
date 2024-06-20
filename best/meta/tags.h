@@ -3,23 +3,13 @@
 
 #include <stddef.h>
 
-#include <compare>
-#include <utility>
-
 //! Commonly-used tag types.
 //!
 //! These overlap with some of the ones from the STL; where possible,
 //! they are aliases!
 ///
 /// See https://abseil.io/tips/198 to get to know tag types better.
-
 namespace best {
-/// An empty type with minimal dependencies.
-struct empty {
-  constexpr bool operator==(const empty& that) const = default;
-  constexpr std::strong_ordering operator<=>(const empty& that) const = default;
-};
-
 /// A helper for ranked overloading. See https://abseil.io/tips/229.
 template <size_t n>
 struct rank : rank<n - 1> {};
@@ -29,18 +19,15 @@ struct rank<0> {};
 /// An alias for std::in_place.
 ///
 /// Use this to tag variadic constructors that represent constructing a value
-/// in place, to
-struct in_place_t : std::in_place_t {
-  in_place_t() = default;
-};
-inline constexpr in_place_t in_place;
+/// in place.
+inline constexpr struct in_place_t {
+} in_place;
 
 /// An alias for std::in_place_index.
 ///
 /// Use this to tag things that want to take a size_t.
 template <size_t n>
-struct index_t : std::in_place_index_t<n> {
-  index_t() = default;
+struct index_t {
   static constexpr size_t value = n;
 };
 template <size_t n>

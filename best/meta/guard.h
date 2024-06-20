@@ -1,7 +1,7 @@
 #ifndef BEST_META_GUARD_H_
 #define BEST_META_GUARD_H_
 
-#include "best/meta/tlist.h"
+#include "best/meta/tags.h"
 
 //! A middling approximation of Rust's `?` operator.
 //!
@@ -16,13 +16,10 @@ namespace best {
 ///
 /// Guardable types can be used with `BEST_GUARD()`.
 template <typename R>
-concept guardable = requires(const R& r) {
-  { static_cast<bool>(r) };
-  { BestGuardResidual(best::types<best::tlist_internal::secret, R>, r) };
-  {
-    BestGuardReturn(best::types<best::tlist_internal::secret, R>, r,
-                    BestGuardResidual(best::types<R>, r))
-  };
+concept guardable = requires(best::ftadle f, const R& r) {
+  static_cast<bool>(r);
+  BestGuardResidual(f, r);
+  BestGuardReturn(f, r, BestGuardResidual(f, r));
 };
 
 /// # `BEST_GUARD()`
@@ -53,10 +50,10 @@ namespace guard_internal {
 template <guardable R>
 struct impl {
   constexpr decltype(auto) residual() {
-    return BestGuardResidual(best::types<impl>, BEST_FWD(result));
+    return BestGuardResidual(best::ftadle{}, BEST_FWD(result));
   }
   constexpr decltype(auto) operator,(auto&& residual) {
-    return BestGuardReturn(best::types<impl>, BEST_FWD(result), residual);
+    return BestGuardReturn(best::ftadle{}, BEST_FWD(result), residual);
   }
   constexpr explicit operator bool() { return static_cast<bool>(result); }
 

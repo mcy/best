@@ -1,17 +1,10 @@
 #ifndef BEST_TEXT_STR_H_
 #define BEST_TEXT_STR_H_
 
-#include <compare>
 #include <cstddef>
-#include <cstring>
-#include <iterator>
-#include <string_view>
-#include <type_traits>
-#include <utility>
 
 #include "best/container/span.h"
 #include "best/memory/bytes.h"
-#include "best/meta/ops.h"
 #include "best/text/encoding.h"
 #include "best/text/rune.h"
 #include "best/text/utf.h"
@@ -26,7 +19,7 @@
 //! the UTF-8/16/32 specializations of the above.
 
 namespace best {
-template <best::encoding>
+template <typename>
 class text;
 
 /// # `best::str`
@@ -72,7 +65,7 @@ using str32 = best::text<utf32>;
 /// A `best::text` may not point to invalidly-text data. Constructors from
 /// unauthenticated strings must go through factories that return
 /// `best::optional`.
-template <best::encoding E>
+template <typename E>  // Not best::encoding so we can forward-declare it.
 class text final {
  public:
   /// # `text::encoding`
@@ -141,7 +134,7 @@ class text final {
   ///
   /// Creates a new string by decoding the longest valid prefix of `data`.
   /// Returns the valid prefix, and the rest of `data`.
-  constexpr static std::pair<text, best::span<const best::code<E>>>
+  constexpr static best::row<text, best::span<const best::code<E>>>
   from_partial(best::span<const code> data, encoding enc = {});
 
   /// # `text::from_nul()`
@@ -271,21 +264,21 @@ class text final {
   /// If any invalidly text characters are encountered during the search, in
   /// either the haystack or the needle, this function returns `best::none`.
   constexpr best::option<size_t> find(rune r) const {
-    return split_on(r).map([](auto r) { return r.first.size(); });
+    return split_on(r).map([](auto r) { return r.first().size(); });
   }
   constexpr best::option<size_t> find(const string_type auto& s) const {
-    return split_on(s).map([](auto r) { return r.first.size(); });
+    return split_on(s).map([](auto r) { return r.first().size(); });
   }
   constexpr best::option<size_t> find(
       best::callable<bool(rune)> auto&& p) const {
-    return split_on(BEST_FWD(p)).map([](auto r) { return r.first.size(); });
+    return split_on(BEST_FWD(p)).map([](auto r) { return r.first().size(); });
   }
 
   /// # `text::split_at()`
   ///
   /// Splits this string into two on the given index. If the desired split point
   /// is out of bounds, returns `best::none`.
-  constexpr best::option<std::pair<text, text>> split_at(size_t n) const {
+  constexpr best::option<best::row<text, text>> split_at(size_t n) const {
     auto prefix = at({.end = n});
     if (!prefix) return best::none;
     return {{*prefix, operator[]({.start = n})}};
@@ -296,17 +289,17 @@ class text final {
   /// Splits this string into two on the first occurrence of the given substring
   /// or rune, or when the callback returns true. If the desired split point
   /// is not found, returns `best::none`.
-  constexpr best::option<std::pair<text, text>> split_on(rune) const;
-  constexpr best::option<std::pair<text, text>> split_on(
+  constexpr best::option<best::row<text, text>> split_on(rune) const;
+  constexpr best::option<best::row<text, text>> split_on(
       const string_type auto&) const;
-  constexpr best::option<std::pair<text, text>> split_on(
+  constexpr best::option<best::row<text, text>> split_on(
       best::callable<bool(rune)> auto&& p) const;
 
   /// # `text::break_off()`
   ///
   /// Parses the first rune in this string and returns it and a substring with
   /// that rune removed. Returns `best::none` if the string is empty.
-  constexpr best::option<std::pair<rune, text>> break_off() const;
+  constexpr best::option<best::row<rune, text>> break_off() const;
 
   /// # `text::rune_iter`, `text::runes()`.
   ///
@@ -333,13 +326,12 @@ class text final {
     return span_ == best::span<const code>::from_nul(lit);
   }
 
-  constexpr std::strong_ordering operator<=>(rune) const;
-  constexpr std::strong_ordering operator<=>(const string_type auto&) const;
-  constexpr std::strong_ordering operator<=>(
-      best::span<const code> span) const {
+  constexpr best::ord operator<=>(rune) const;
+  constexpr best::ord operator<=>(const string_type auto&) const;
+  constexpr best::ord operator<=>(best::span<const code> span) const {
     return span_ <=> span;
   }
-  constexpr std::strong_ordering operator<=>(const code* lit) const {
+  constexpr best::ord operator<=>(const code* lit) const {
     return span_ <=> best::span<const code>::from_nul(lit);
   }
 
@@ -357,7 +349,7 @@ class text final {
 
   constexpr bool can_memeq(const auto& that) const {
     return !std::is_constant_evaluated() &&
-           (best::addr_eq(this, std::addressof(that)) ||
+           (best::equal(this, best::addr(that)) ||
             best::same_encoding(*this, that));
   }
 
@@ -385,7 +377,7 @@ class text final {
 /******************************************************************************/
 
 namespace best {
-template <encoding E>
+template <typename E>
 constexpr best::option<text<E>> text<E>::from(best::span<const code> data,
                                               encoding enc) {
   if (!rune::validate(data, enc)) {
@@ -395,8 +387,8 @@ constexpr best::option<text<E>> text<E>::from(best::span<const code> data,
   return text(best::in_place, data, std::move(enc));
 }
 
-template <encoding E>
-constexpr std::pair<text<E>, best::span<const code<E>>> text<E>::from_partial(
+template <typename E>
+constexpr best::row<text<E>, best::span<const code<E>>> text<E>::from_partial(
     best::span<const code> data, encoding enc) {
   auto orig = data;
   while (!data.is_empty()) {
@@ -409,12 +401,12 @@ constexpr std::pair<text<E>, best::span<const code<E>>> text<E>::from_partial(
   return {text{in_place, orig, std::move(enc)}, {}};
 }
 
-template <encoding E>
+template <typename E>
 constexpr bool text<E>::is_rune_boundary(size_t idx) const {
   return rune::is_boundary(*this, idx, enc());
 }
 
-template <encoding E>
+template <typename E>
 constexpr text<E> text<E>::operator[](best::bounds::with_location range) const {
   // First, perform a bounds check.
   auto chunk = span_[range];
@@ -433,7 +425,7 @@ constexpr text<E> text<E>::operator[](best::bounds::with_location range) const {
   return text{in_place, chunk, enc()};
 }
 
-template <encoding E>
+template <typename E>
 constexpr option<text<E>> text<E>::at(best::bounds range) const {
   auto chunk = span_.at(range);
   if (!chunk) return best::none;
@@ -445,12 +437,12 @@ constexpr option<text<E>> text<E>::at(best::bounds range) const {
   return text{in_place, *chunk, enc()};
 }
 
-template <encoding E>
+template <typename E>
 constexpr option<text<E>> text<E>::trim_prefix(rune r) const {
   return trim_prefix([=](rune r2) { return r == r2; });
 }
 
-template <encoding E>
+template <typename E>
 constexpr option<text<E>> text<E>::trim_prefix(
     const string_type auto& str) const {
   rune::iter needle(str);
@@ -473,17 +465,17 @@ constexpr option<text<E>> text<E>::trim_prefix(
   return text{in_place, haystack.rest(), enc()};
 }
 
-template <encoding E>
+template <typename E>
 constexpr option<text<E>> text<E>::trim_prefix(
     best::callable<bool(rune)> auto&& r) const {
   return break_off().then([&](auto x) -> option<text> {
-    if (best::call(BEST_FWD(r), x.first)) return x.second;
+    if (best::call(BEST_FWD(r), x.first())) return x.second();
     return best::none;
   });
 }
 
-template <encoding E>
-constexpr best::option<std::pair<text<E>, text<E>>> text<E>::split_on(
+template <typename E>
+constexpr best::option<best::row<text<E>, text<E>>> text<E>::split_on(
     rune r1) const {
   if (can_memmem(*this)) {
     code buf[About.max_codes_per_rune];
@@ -501,8 +493,8 @@ constexpr best::option<std::pair<text<E>, text<E>>> text<E>::split_on(
   return split_on([=](rune r2) { return r1 == r2; });
 }
 
-template <encoding E>
-constexpr best::option<std::pair<text<E>, text<E>>> text<E>::split_on(
+template <typename E>
+constexpr best::option<best::row<text<E>, text<E>>> text<E>::split_on(
     const string_type auto& str) const {
   rune::iter haystack_start(*this);
   rune::iter needle_start(str);
@@ -538,8 +530,8 @@ constexpr best::option<std::pair<text<E>, text<E>>> text<E>::split_on(
   }};
 }
 
-template <encoding E>
-constexpr best::option<std::pair<text<E>, text<E>>> text<E>::split_on(
+template <typename E>
+constexpr best::option<best::row<text<E>, text<E>>> text<E>::split_on(
     best::callable<bool(rune)> auto&& pred) const {
   best::rune::iter iter(*this);
   size_t prev = 0;
@@ -558,21 +550,21 @@ constexpr best::option<std::pair<text<E>, text<E>>> text<E>::split_on(
   return best::none;
 }
 
-template <encoding E>
+template <typename E>
 constexpr bool text<E>::operator==(rune r) const {
   if (is_empty()) return false;
   auto [r2, rest] = *break_off();
   return rest.is_empty() && r == r2;
 }
 
-template <encoding E>
+template <typename E>
 constexpr bool text<E>::operator==(const string_type auto& s) const {
   return trim_prefix(s).has_value(&text::is_empty);
 }
 
-template <encoding E>
-constexpr std::strong_ordering text<E>::operator<=>(rune r) const {
-  if (is_empty()) return std::strong_ordering::less;
+template <typename E>
+constexpr best::ord text<E>::operator<=>(rune r) const {
+  if (is_empty()) return best::ord::less;
 
   auto [r2, rest] = *break_off();
   if (auto result = r <=> r2; result != 0) {
@@ -581,9 +573,8 @@ constexpr std::strong_ordering text<E>::operator<=>(rune r) const {
   return 0 <=> rest;
 }
 
-template <encoding E>
-constexpr std::strong_ordering text<E>::operator<=>(
-    const string_type auto& str) const {
+template <typename E>
+constexpr best::ord text<E>::operator<=>(const string_type auto& str) const {
   rune::iter a(*this);
   rune::iter b(str);
 
@@ -595,7 +586,7 @@ constexpr std::strong_ordering text<E>::operator<=>(
     auto r1 = a.next();
     auto r2 = b.next();
     if (r1.is_empty() && r2.is_empty()) {
-      return std::strong_ordering::equal;
+      return best::ord::equal;
     }
 
     if (auto result = r1 <=> r2; result != 0) {
@@ -604,8 +595,8 @@ constexpr std::strong_ordering text<E>::operator<=>(
   }
 }
 
-template <encoding E>
-constexpr best::option<std::pair<rune, text<E>>> text<E>::break_off() const {
+template <typename E>
+constexpr best::option<best::row<rune, text<E>>> text<E>::break_off() const {
   if (is_empty()) return best::none;
 
   auto suffix = *this;
