@@ -39,4 +39,25 @@ best::test ToString = [](auto& t) {
   t.expect_eq(best::format("{:?}", x2), "(1, 2)");
   t.expect_eq(best::format("{:?}", x3), "(1, void, 3)");
 };
+
+struct Tag {
+  using BestRowKey = Tag;
+  bool operator==(const Tag&) const = default;
+};
+struct Tagged1 {
+  using BestRowKey = Tag;
+  bool operator==(const Tagged1&) const = default;
+};
+
+best::test Select = [](auto& t) {
+  best::row<int, long, int*, int> x0{1, 2, nullptr, 4};
+
+  t.expect_eq(x0.select<int>(), best::row(1, 4));
+  t.expect_eq(x0.select<int*>(), best::row(nullptr));
+  t.expect_eq(x0.select<void*>(), best::row());
+
+  best::row<int, Tagged1, Tag> x1{42, {}, {}};
+  t.expect_eq(x1.select<Tagged1>(), best::row(Tagged1()));
+  t.expect_eq(x1.select<Tag>(), best::row(Tagged1(), Tag()));
+};
 }  // namespace best::row_test
