@@ -425,8 +425,9 @@ constexpr best::option<typename choice<A...>::template crref<n>>
 choice<A...>::at(best::index_t<n> i) const&& {
   if (which() != n) return {};
   return best::call_devoid([&]() -> decltype(auto) {
-    return static_cast<crref<n>>(
-        impl().deref(unsafe{"checked which() before this"}, i));
+    return best::option(best::bind,
+                        static_cast<crref<n>>(impl().deref(
+                            unsafe{"checked which() before this"}, i)));
   });
 }
 template <typename... A>
@@ -435,8 +436,9 @@ constexpr best::option<typename choice<A...>::template rref<n>>
 choice<A...>::at(best::index_t<n> i) && {
   if (which() != n) return {};
   return best::call_devoid([&]() -> decltype(auto) {
-    return static_cast<rref<n>>(
-        impl().deref(unsafe{"checked which() before this"}, i));
+    return best::option(best::bind,
+                        static_cast<rref<n>>(impl().deref(
+                            unsafe{"checked which() before this"}, i)));
   });
 }
 

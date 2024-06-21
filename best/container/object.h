@@ -371,7 +371,7 @@ class object_ptr final {
 
  public:
   // Public for structural-ness.
-  pointee* BEST_OBJECT_PTR_;
+  pointee* BEST_OBJECT_PTR_ = nullptr;
 #define BEST_OBJECT_PTR_ _private
 };
 

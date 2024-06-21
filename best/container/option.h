@@ -8,6 +8,7 @@
 #include "best/log/internal/crash.h"
 #include "best/log/location.h"
 #include "best/meta/init.h"
+#include "best/meta/internal/init.h"
 #include "best/meta/tags.h"
 
 //! An optional type, like `std::optional`.
@@ -143,19 +144,29 @@ class option final {
   ///
   /// This converts a value into a non-empty option containing it.
   template <typename U>
-  constexpr option(U&& arg)
-    requires not_forbidden_conversion<U> && best::constructible<T, U&&>
+  constexpr explicit(!best::convertible<T, U&&>) option(U&& arg)
+    requires not_forbidden_conversion<U> && best::constructible<T, U&&> &&
+             (!best::copyable<U, trivially> || !best::is_object<T>)
       : option(best::in_place, BEST_FWD(arg)) {}
   constexpr option(best::devoid<T> arg)
     requires best::moveable<T>
       : option(best::in_place, BEST_MOVE(arg)) {}
   template <typename U>
-  constexpr option(best::bind_t, U&& arg)
+  constexpr explicit(!best::convertible<T, U&&>) option(best::bind_t, U&& arg)
     requires not_forbidden_conversion<U> && best::constructible<T, U&&>
       : option(best::in_place, BEST_FWD(arg)) {}
   constexpr option(best::bind_t, best::devoid<T> arg)
     requires best::moveable<T>
       : option(best::in_place, BEST_MOVE(arg)) {}
+
+  // This constructor exists because otherwise, converting e.g. int to long
+  // makes the compiler think there's a reference to temporary being bound that
+  // doesn't need to be.
+  template <typename U>
+  constexpr explicit(!best::convertible<T, U>) option(U arg)
+    requires not_forbidden_conversion<U> && best::constructible<T, U> &&
+             best::copyable<U, trivially>
+      : option(best::in_place, BEST_FWD(arg)) {}
 
   /// # `option::option(option<U>&)`
   ///

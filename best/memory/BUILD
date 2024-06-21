@@ -46,3 +46,14 @@ cc_library(
     "//best/container:option",
   ]
 )
+
+cc_test(
+  name = "bytes_test",
+  srcs = ["bytes_test.cc"],
+  linkopts = ["-rdynamic"],
+  deps = [
+    ":bytes",
+    "//best/container:span",
+    "//best/test",
+  ]
+)

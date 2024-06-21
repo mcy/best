@@ -5,6 +5,7 @@
 #include <cstdlib>
 
 #include "best/container/object.h"
+#include "best/meta/tlist.h"
 
 // This header contains implementations of the layout algorithms for structs and
 // unions; they are implemented as variable templates to encourage the compiler

@@ -33,6 +33,15 @@ inline constexpr bool is_debug() {
 #define BEST_HAS_ATTRIBUTE(x_) __has_attribute(x_)
 #endif
 
+/// # BEST_HAS_FEATURE()`
+///
+/// Tests whether a particular GCC-like feature test is available.
+#ifndef __has_feature
+#define BEST_HAS_FEATURE(x_) 0
+#else
+#define BEST_HAS_FEATURE(x_) __has_feature(x_)
+#endif
+
 /// # `BEST_STRINGIFY()`
 ///
 /// Stringifies a token string.

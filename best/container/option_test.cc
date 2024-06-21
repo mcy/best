@@ -222,7 +222,7 @@ best::test Refs = [](auto& t) {
   best::option<int> x3 = x1;
   t.expect_eq(x3, 42);
 
-  best::option<std::unique_ptr<int>> x4 = new int(42);
+  best::option<std::unique_ptr<int>> x4(new int(42));
   best::option<std::unique_ptr<int>&&> x5 = std::move(x4).as_ref();
   best::option<std::unique_ptr<int>> x6 = std::move(x5);
   t.expect_eq(**x6, 42);
@@ -272,7 +272,7 @@ best::test Map = [](auto& t) {
   t.expect_eq(x3.map([] { return 42; }), 42);
 
   best::option<std::unique_ptr<int>> x4;
-  best::option<std::unique_ptr<int>> x5 = new int(42);
+  best::option<std::unique_ptr<int>> x5(new int(42));
 
   t.expect_eq(std::move(x4).map([](auto&& x) { return std::move(x); }),
               best::none);
