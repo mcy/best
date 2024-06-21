@@ -382,11 +382,9 @@ void eprintln(best::format_template<Args...> templ = "", const Args&... args);
 decltype(auto) make_formattable(const auto& value);
 }  // namespace best
 
-/******************************************************************************/
-
-///////////////////// !!! IMPLEMENTATION DETAILS BELOW !!! /////////////////////
-
-/******************************************************************************/
+/* ////////////////////////////////////////////////////////////////////////// *\
+ * ////////////////// !!! IMPLEMENTATION DETAILS BELOW !!! ////////////////// *
+\* ////////////////////////////////////////////////////////////////////////// */
 
 namespace best {
 void formatter::write(const best::string_type auto& string) {

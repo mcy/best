@@ -43,9 +43,9 @@ using str32 = best::text<utf32>;
 /// literal for `enc_`.
 ///
 /// This is intended to be placed after any `requires` clauses.
-#define BEST_IS_VALID_LITERAL(literal_, enc_)                              \
-  BEST_ENABLE_IF_CONSTEXPR(literal_)                                       \
-  BEST_ENABLE_IF(                                                          \
+#define BEST_IS_VALID_LITERAL(literal_, enc_)                               \
+  BEST_ENABLE_IF_CONSTEXPR(literal_)                                        \
+  BEST_ENABLE_IF(                                                           \
       rune::validate(best::span(literal_, best::size(literal_) - 1), enc_), \
       "string literal must satisfy rune::validate() for the chosen encoding")
 
@@ -370,11 +370,9 @@ class text final {
 };
 }  // namespace best
 
-/******************************************************************************/
-
-///////////////////// !!! IMPLEMENTATION DETAILS BELOW !!! /////////////////////
-
-/******************************************************************************/
+/* ////////////////////////////////////////////////////////////////////////// *\
+ * ////////////////// !!! IMPLEMENTATION DETAILS BELOW !!! ////////////////// *
+\* ////////////////////////////////////////////////////////////////////////// */
 
 namespace best {
 template <typename E>

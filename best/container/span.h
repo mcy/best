@@ -571,7 +571,8 @@ class span final {
 
  private:
   best::object_ptr<T> data_ = nullptr;
-  [[no_unique_address]] best::select<n.has_value(), best::empty, size_t> size_{};
+  [[no_unique_address]] best::select<n.has_value(), best::empty, size_t>
+      size_{};
 };
 
 template <typename T>
@@ -584,11 +585,9 @@ template <contiguous R>
 span(R&& r) -> span<best::data_type<R>>;
 }  // namespace best
 
-/******************************************************************************/
-
-///////////////////// !!! IMPLEMENTATION DETAILS BELOW !!! /////////////////////
-
-/******************************************************************************/
+/* ////////////////////////////////////////////////////////////////////////// *\
+ * ////////////////// !!! IMPLEMENTATION DETAILS BELOW !!! ////////////////// *
+\* ////////////////////////////////////////////////////////////////////////// */
 
 namespace best {
 template <best::is_object T, best::option<size_t> n>
@@ -644,7 +643,8 @@ inline constexpr size_t BestStaticSize(auto, std::array<T, n>*) {
 
 template <best::is_object T, best::option<size_t> n>
 constexpr span<T, n>::span(best::object_ptr<T> data, size_t size,
-                           best::location loc) : data_(data) {
+                           best::location loc)
+    : data_(data) {
   if constexpr (is_static) {
     best::bounds bounds_check = {.start = this->size(), .count = 0};
     bounds_check.compute_count(this->size(), loc);
@@ -726,7 +726,8 @@ constexpr span<T, n> span<T, n>::from_nul(T* data) {
   }
 
   auto ptr = data;
-  while (*ptr++ != T{0});
+  while (*ptr++ != T{0})
+    ;
   return best::span(data, ptr - data - 1);
 }
 
