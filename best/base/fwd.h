@@ -53,7 +53,7 @@ class pun;
 template <typename>
 class track_location;
 
-// best/meta/ebo.h
+// best/meta/empty.h
 struct empty;
 
 // best/meta/tlist.h

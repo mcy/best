@@ -65,7 +65,7 @@ concept convertible = requires {
 /// For object types, this is simply `std::is_assignable` and
 /// `std::is_trivially_assignable`.
 ///
-/// For all other types, this is  `base::constructible` on single types. For
+/// For all other types, this is `best::constructible` on single types. For
 /// compatibility reasons, void types are assignable from nothing.
 template <typename T, typename... Args>
 concept assignable = requires {
