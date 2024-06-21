@@ -43,10 +43,10 @@ using str32 = best::text<utf32>;
 /// literal for `enc_`.
 ///
 /// This is intended to be placed after any `requires` clauses.
-#define BEST_IS_VALID_LITERAL(literal_, enc_)                              \
-  BEST_ENABLE_IF_CONSTEXPR(literal_)                                       \
-  BEST_ENABLE_IF(                                                          \
-      rune::validate(best::span(literal_, std::size(literal_) - 1), enc_), \
+#define BEST_IS_VALID_LITERAL(literal_, enc_)                               \
+  BEST_ENABLE_IF_CONSTEXPR(literal_)                                        \
+  BEST_ENABLE_IF(                                                           \
+      rune::validate(best::span(literal_, best::size(literal_) - 1), enc_), \
       "string literal must satisfy rune::validate() for the chosen encoding")
 
 /// # `best::text`
@@ -126,7 +126,7 @@ class text final {
   constexpr static best::option<text> from(best::span<const code> data,
                                            encoding enc = {});
   constexpr static best::option<text> from(const string_type auto& that) {
-    return from(span(std::data(that), std::size(that)),
+    return from(span(best::data(that), best::size(that)),
                 best::encoding_of(that));
   }
 
@@ -370,11 +370,9 @@ class text final {
 };
 }  // namespace best
 
-/******************************************************************************/
-
-///////////////////// !!! IMPLEMENTATION DETAILS BELOW !!! /////////////////////
-
-/******************************************************************************/
+/* ////////////////////////////////////////////////////////////////////////// *\
+ * ////////////////// !!! IMPLEMENTATION DETAILS BELOW !!! ////////////////// *
+\* ////////////////////////////////////////////////////////////////////////// */
 
 namespace best {
 template <typename E>

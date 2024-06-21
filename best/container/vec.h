@@ -97,7 +97,7 @@ class vec final {
   /// Constructs an owned copy of a range.
   template <contiguous Range>
   explicit vec(Range&& range)
-    requires best::constructible<T, decltype(*std::data(BEST_FWD(range)))> &&
+    requires best::constructible<T, decltype(*best::data(BEST_FWD(range)))> &&
              (!best::is_ref<T, best::ref_kind::Rvalue>) &&
              best::constructible<alloc>
       : vec(alloc{}, BEST_FWD(range)) {}
@@ -107,7 +107,7 @@ class vec final {
   /// Constructs an owned copy of a range using the given allocator.
   template <contiguous Range>
   vec(alloc alloc, Range&& range)
-    requires best::constructible<T, decltype(*std::data(BEST_FWD(range)))> &&
+    requires best::constructible<T, decltype(*best::data(BEST_FWD(range)))> &&
              (!best::is_ref<T, best::ref_kind::Rvalue>)
   {
     assign(range);
@@ -452,7 +452,7 @@ class vec final {
   /// Appends a range by copying to the end of this vector.
   template <best::contiguous Range = best::span<const T>>
   void append(const Range& range)
-    requires best::constructible<T, decltype(*std::data(range))>
+    requires best::constructible<T, decltype(*best::data(range))>
   {
     splice(size(), range);
   }
@@ -462,11 +462,11 @@ class vec final {
   /// Splices a range by copying into this vector, starting at idx.
   template <best::contiguous Range = best::span<const T>>
   void splice(size_t idx, const Range& range)
-    requires best::constructible<T, decltype(*std::data(range))>
+    requires best::constructible<T, decltype(*best::data(range))>
   {
     auto ptr = insert_uninit(unsafe("we call copy_from immediately after this"),
-                             idx, std::size(range));
-    best::span(ptr, std::size(range)).copy_from(best::span(range));
+                             idx, best::size(range));
+    best::span(ptr, best::size(range)).copy_from(best::span(range));
   }
 
   /// # `vec::clear()`.
@@ -563,12 +563,12 @@ class vec final {
   void spill_to_heap(best::option<size_t> capacity_hint = best::none);
 
   bool operator==(const contiguous auto& range) const
-    requires best::equatable<T, decltype(*std::data(range))>
+    requires best::equatable<T, decltype(*best::data(range))>
   {
     return as_span() == best::span(range);
   }
   auto operator<=>(const contiguous auto& range) const
-    requires best::equatable<T, decltype(*std::data(range))>
+    requires best::equatable<T, decltype(*best::data(range))>
   {
     return as_span() <=> best::span(range);
   }
@@ -647,11 +647,9 @@ template <typename T>
 vec(std::initializer_list<T>) -> vec<T>;
 }  // namespace best
 
-/******************************************************************************/
-
-///////////////////// !!! IMPLEMENTATION DETAILS BELOW !!! /////////////////////
-
-/******************************************************************************/
+/* ////////////////////////////////////////////////////////////////////////// *\
+ * ////////////////// !!! IMPLEMENTATION DETAILS BELOW !!! ////////////////// *
+\* ////////////////////////////////////////////////////////////////////////// */
 
 namespace best {
 template <best::relocatable T, size_t max_inline, best::allocator A>
@@ -790,11 +788,11 @@ void vec<T, max_inline, A>::assign(const contiguous auto& that) {
   }
 
   auto old_size = size();
-  auto new_size = std::size(that);
+  auto new_size = best::size(that);
   resize_uninit(new_size);
 
   for (size_t i = 0; i < new_size; ++i) {
-    (data() + i).copy_from(std::data(that) + i, /*is_init=*/i < old_size);
+    (data() + i).copy_from(best::data(that) + i, /*is_init=*/i < old_size);
   }
   set_size(unsafe("updating size to that of the memcpy'd range"), new_size);
 }

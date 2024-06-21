@@ -10,8 +10,8 @@ static_assert(best::is_span<best::span<int, 4>>);
 static_assert(best::contiguous<best::span<int>>);
 static_assert(best::contiguous<best::span<int, 4>>);
 
-static_assert(best::span<int>::extent.is_empty());
-static_assert(best::span<int, 4>::extent.has_value());
+static_assert(best::static_size<best::span<int>>.is_empty());
+static_assert(best::static_size<best::span<int, 4>>.has_value());
 
 best::test Empty = [](auto& t) {
   best::span<int> empty;
@@ -29,7 +29,7 @@ best::test Empty = [](auto& t) {
 
 best::test Convert = [](auto& t) {
   int arr[] = {1, 2, 3};
-  best::span dfixed = arr;
+  auto dfixed = best::from_static(arr);
   static_assert(best::same<decltype(dfixed), best::span<int, 3>>);
   t.expect(!dfixed.is_empty());
   t.expect_eq(dfixed.size(), 3);
@@ -124,7 +124,7 @@ best::test Ordering = [](auto& t) {
 
 best::test Indexing = [](auto& t) {
   int arr[] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
-  best::span sp = arr;
+  best::span sp = best::from_static(arr);
 
   auto tests = [&](auto sp) {
     t.expect_eq(sp.size(), 10);

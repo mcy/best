@@ -8,7 +8,7 @@ void* memmem(const void* a, size_t an, const void* b, size_t bn) noexcept {
 
   const char* ap = reinterpret_cast<const char*>(a);
   const char* bp = reinterpret_cast<const char*>(b);
-  while (an >= bn && an > 0) {
+  while (an >= bn) {
     if (bytes_internal::memcmp(ap, bp, bn) == 0) {
       return const_cast<char*>(ap);
     }

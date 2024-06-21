@@ -49,7 +49,7 @@ constexpr best::result<Int, best::atoi_error> atoi(const string_type auto &str,
   // to the maximum number if nybbles, it will not overflow. However, if it
   // is a signed type, we need to subtract off one extra code unit, since
   // e.g. `80` will overflow `int8_t`.
-  size_t total_codes = std::size(str);
+  size_t total_codes = best::size(str);
   size_t maximum_codes_without_overflow =
       sizeof(Int) * 2 - best::signed_int<Int>;
   size_t cannot_overflow =

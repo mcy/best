@@ -65,11 +65,6 @@ constexpr void BestFmtQuery(auto& query, T** range) {
   query.uses_method = [](rune r) { return r == 'p'; };
 }
 
-template <typename A, typename B>
-void BestFmt(auto& fmt, const best::row<A, B> value) {
-  fmt.format(best::row<const A&, const B&>(value.first, value.second()));
-}
-
 void BestFmt(auto& fmt, integer auto value) {
   // Taken liberally from Rust's implementation of Formatter::pad_integral().
 

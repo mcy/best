@@ -238,27 +238,26 @@ class choice final {
     return *at(t);
   }
 
-  /// # `choice::match()`
+  /// # `choice::match()`, `choice::index_match()`
   ///
   /// Calls one of `cases` (chosen by overload resolution) on the currently
   /// chosen alternative.
   ///
   /// The chosen callback is, where `n` is the current alternative, the callback
-  /// that matches the first concept in this list:
+  /// that matches the concept `best::callable<void(ref<n>)>`. However, if
+  /// `choice::type<n>` is void, it instead tests for `best::callable<void()>`,
+  /// if that fails, `best::callable<void(best::empty)>`.
   ///
-  /// - `best::callable<void(best::index_t<n>, ref<n>)>`
-  /// - `best::callable<void(ref<n>)>`
-  ///
-  /// If `choice::type<n>` is void, the list is instead:
-  ///
-  /// - `best::callable<void(best::index_t<n>)>`
-  /// - `best::callable<void()>`
-  /// - `best::callable<void(best::index_t<n>, best::empty)>`
-  /// - `best::callable<void(best::empty)>`
+  /// `best::index_match()` is identical, except that callbacks are expected to
+  /// accept a `best::index_t` as their first argument.
   constexpr decltype(auto) match(auto... cases) const&;
   constexpr decltype(auto) match(auto... cases) &;
   constexpr decltype(auto) match(auto... cases) const&&;
   constexpr decltype(auto) match(auto... cases) &&;
+  constexpr decltype(auto) index_match(auto... cases) const&;
+  constexpr decltype(auto) index_match(auto... cases) &;
+  constexpr decltype(auto) index_match(auto... cases) const&&;
+  constexpr decltype(auto) index_match(auto... cases) &&;
 
   /// # `choice::permute()`
   ///
@@ -274,7 +273,7 @@ class choice final {
       best::vlist<p...> permutation = {}) const&
     requires(inverse.has_value())
   {
-    return match([&](auto tag, auto&&... value) {
+    return index_match([&](auto tag, auto&&... value) {
       return best::choice<type<p>...>(best::index<(*inverse)[tag.value]>,
                                       BEST_FWD(value)...);
     });
@@ -290,7 +289,7 @@ class choice final {
 #undef BEST_CHOICE_CLANG_FORMAT_HACK_
     requires(inverse.has_value())
   {
-    return match([&](auto tag, auto&&... value) {
+    return index_match([&](auto tag, auto&&... value) {
       return best::choice<type<p>...>(best::index<(*inverse)[tag.value]>,
                                       BEST_FWD(value)...);
     });
@@ -299,11 +298,10 @@ class choice final {
   friend void BestFmt(auto& fmt, const choice& ch)
     requires requires(best::object<Alts>... alts) { (fmt.format(alts), ...); }
   {
-    ch.match(
-        [&]<size_t n>(best::index_t<n>) { fmt.format("choice<{}>(void)", n); },
-        [&](auto idx, const auto& value) {
-          fmt.format("choice<{}>({:!})", idx.value, value);
-        });
+    ch.index_match([&](auto idx) { fmt.format("choice<{}>(void)", idx.value); },
+                   [&](auto idx, const auto& value) {
+                     fmt.format("choice<{}>({:!})", idx.value, value);
+                   });
   }
 
   template <typename Q>
@@ -321,8 +319,8 @@ class choice final {
     requires(best::equatable<Alts, Us> && ...)
   {
     return which() == that.which() &&  //
-           match(
-               [] { return true; },  // void case.
+           index_match(
+               [&](auto) { return true; },  // void case.
                [&](auto tag, const auto& value) { return value == that[tag]; });
   }
 
@@ -333,10 +331,11 @@ class choice final {
   {
     return (which() <=> that.which())->*best::or_cmp([&] {
       using Output = best::common_ord<best::order_type<Alts, Us>...>;
-      return match([]() -> Output { return best::Equal; },  // void case.
-                   [&](auto tag, const auto& value) -> Output {
-                     return value <=> that[tag];
-                   });
+      return index_match(
+          [&](auto) -> Output { return best::Equal; },  // void case.
+          [&](auto tag, const auto& value) -> Output {
+            return value <=> that[tag];
+          });
     });
   }
 
@@ -364,11 +363,9 @@ class choice final {
 };
 }  // namespace best
 
-/******************************************************************************/
-
-///////////////////// !!! IMPLEMENTATION DETAILS BELOW !!! /////////////////////
-
-/******************************************************************************/
+/* ////////////////////////////////////////////////////////////////////////// *\
+ * ////////////////// !!! IMPLEMENTATION DETAILS BELOW !!! ////////////////// *
+\* ////////////////////////////////////////////////////////////////////////// */
 
 namespace best {
 template <typename... A>
@@ -426,8 +423,9 @@ constexpr best::option<typename choice<A...>::template crref<n>>
 choice<A...>::at(best::index_t<n> i) const&& {
   if (which() != n) return {};
   return best::call_devoid([&]() -> decltype(auto) {
-    return static_cast<crref<n>>(
-        impl().deref(unsafe{"checked which() before this"}, i));
+    return best::option(best::bind,
+                        static_cast<crref<n>>(impl().deref(
+                            unsafe{"checked which() before this"}, i)));
   });
 }
 template <typename... A>
@@ -436,8 +434,9 @@ constexpr best::option<typename choice<A...>::template rref<n>>
 choice<A...>::at(best::index_t<n> i) && {
   if (which() != n) return {};
   return best::call_devoid([&]() -> decltype(auto) {
-    return static_cast<rref<n>>(
-        impl().deref(unsafe{"checked which() before this"}, i));
+    return best::option(best::bind,
+                        static_cast<rref<n>>(impl().deref(
+                            unsafe{"checked which() before this"}, i)));
   });
 }
 
@@ -513,6 +512,25 @@ constexpr decltype(auto) choice<A...>::match(auto... cases) const&& {
 template <typename... A>
 constexpr decltype(auto) choice<A...>::match(auto... cases) && {
   return BEST_MOVE(*this).impl().match(
+      choice_internal::Overloaded(BEST_FWD(cases)...));
+}
+
+template <typename... A>
+constexpr decltype(auto) choice<A...>::index_match(auto... cases) const& {
+  return impl().index_match(choice_internal::Overloaded(BEST_FWD(cases)...));
+}
+template <typename... A>
+constexpr decltype(auto) choice<A...>::index_match(auto... cases) & {
+  return impl().index_match(choice_internal::Overloaded(BEST_FWD(cases)...));
+}
+template <typename... A>
+constexpr decltype(auto) choice<A...>::index_match(auto... cases) const&& {
+  return BEST_MOVE(*this).impl().index_match(
+      choice_internal::Overloaded(BEST_FWD(cases)...));
+}
+template <typename... A>
+constexpr decltype(auto) choice<A...>::index_match(auto... cases) && {
+  return BEST_MOVE(*this).impl().index_match(
       choice_internal::Overloaded(BEST_FWD(cases)...));
 }
 }  // namespace best

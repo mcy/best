@@ -347,11 +347,9 @@ class [[nodiscard(
 };
 }  // namespace best
 
-/******************************************************************************/
-
-///////////////////// !!! IMPLEMENTATION DETAILS BELOW !!! /////////////////////
-
-/******************************************************************************/
+/* ////////////////////////////////////////////////////////////////////////// *\
+ * ////////////////// !!! IMPLEMENTATION DETAILS BELOW !!! ////////////////// *
+\* ////////////////////////////////////////////////////////////////////////// */
 
 namespace best {
 template <typename T, typename E>
@@ -440,44 +438,44 @@ constexpr auto result<T, E>::err() && -> option<err_rref> {
 template <typename T, typename E>
 constexpr auto result<T, E>::map(auto&& f) const& {
   using U = best::call_result<decltype(f), ok_cref>;
-  return impl().match(
+  return impl().index_match(
       [&](best::index_t<0>, auto&&... args) -> result<U, E> {
         return best::ok(best::call(BEST_FWD(f), BEST_FWD(args)...));
       },
-      [](best::index_t<1>, auto&&... args) -> result<U, E> {
+      [&](best::index_t<1>, auto&&... args) -> result<U, E> {
         return best::err(BEST_FWD(args)...);
       });
 }
 template <typename T, typename E>
 constexpr auto result<T, E>::map(auto&& f) & {
   using U = best::call_result<decltype(f), ok_ref>;
-  return impl().match(
+  return impl().index_match(
       [&](best::index_t<0>, auto&&... args) -> result<U, E> {
         return best::ok(best::call(BEST_FWD(f), BEST_FWD(args)...));
       },
-      [](best::index_t<1>, auto&&... args) -> result<U, E> {
+      [&](best::index_t<1>, auto&&... args) -> result<U, E> {
         return best::err(BEST_FWD(args)...);
       });
 }
 template <typename T, typename E>
 constexpr auto result<T, E>::map(auto&& f) const&& {
   using U = best::call_result<decltype(f), ok_crref>;
-  return BEST_MOVE(*this).impl().match(
+  return BEST_MOVE(*this).impl().index_match(
       [&](best::index_t<0>, auto&&... args) -> result<U, E> {
         return best::ok(best::call(BEST_FWD(f), BEST_FWD(args)...));
       },
-      [](best::index_t<1>, auto&&... args) -> result<U, E> {
+      [&](best::index_t<1>, auto&&... args) -> result<U, E> {
         return best::err(BEST_FWD(args)...);
       });
 }
 template <typename T, typename E>
 constexpr auto result<T, E>::map(auto&& f) && {
   using U = best::call_result<decltype(f), ok_rref>;
-  return BEST_MOVE(*this).impl().match(
+  return BEST_MOVE(*this).impl().index_match(
       [&](best::index_t<0>, auto&&... args) -> result<U, E> {
         return best::ok(best::call(BEST_FWD(f), BEST_FWD(args)...));
       },
-      [](best::index_t<1>, auto&&... args) -> result<U, E> {
+      [&](best::index_t<1>, auto&&... args) -> result<U, E> {
         return best::err(BEST_FWD(args)...);
       });
 }
@@ -485,44 +483,44 @@ constexpr auto result<T, E>::map(auto&& f) && {
 template <typename T, typename E>
 constexpr auto result<T, E>::map_err(auto&& f) const& {
   using U = best::call_result<decltype(f), err_cref>;
-  return impl().match(
+  return impl().index_match(
       [&](best::index_t<1>, auto&&... args) -> result<T, U> {
         return best::err(best::call(BEST_FWD(f), BEST_FWD(args)...));
       },
-      [](best::index_t<0>, auto&&... args) -> result<T, U> {
+      [&](best::index_t<0>, auto&&... args) -> result<T, U> {
         return best::ok(BEST_FWD(args)...);
       });
 }
 template <typename T, typename E>
 constexpr auto result<T, E>::map_err(auto&& f) & {
   using U = best::call_result<decltype(f), err_ref>;
-  return impl().match(
+  return impl().index_match(
       [&](best::index_t<1>, auto&&... args) -> result<T, U> {
         return best::err(best::call(BEST_FWD(f), BEST_FWD(args)...));
       },
-      [](best::index_t<0>, auto&&... args) -> result<T, U> {
+      [&](best::index_t<0>, auto&&... args) -> result<T, U> {
         return best::ok(BEST_FWD(args)...);
       });
 }
 template <typename T, typename E>
 constexpr auto result<T, E>::map_err(auto&& f) const&& {
   using U = best::call_result<decltype(f), err_crref>;
-  return BEST_MOVE(*this).impl().match(
+  return BEST_MOVE(*this).impl().index_match(
       [&](best::index_t<1>, auto&&... args) -> result<T, U> {
         return best::err(best::call(BEST_FWD(f), BEST_FWD(args)...));
       },
-      [](best::index_t<0>, auto&&... args) -> result<T, U> {
+      [&](best::index_t<0>, auto&&... args) -> result<T, U> {
         return best::ok(BEST_FWD(args)...);
       });
 }
 template <typename T, typename E>
 constexpr auto result<T, E>::map_err(auto&& f) && {
   using U = best::call_result<decltype(f), err_rref>;
-  return BEST_MOVE(*this).impl().match(
+  return BEST_MOVE(*this).impl().index_match(
       [&](best::index_t<1>, auto&&... args) -> result<T, U> {
         return best::err(best::call(BEST_FWD(f), BEST_FWD(args)...));
       },
-      [](best::index_t<0>, auto&&... args) -> result<T, U> {
+      [&](best::index_t<0>, auto&&... args) -> result<T, U> {
         return best::ok(BEST_FWD(args)...);
       });
 }
@@ -530,44 +528,44 @@ constexpr auto result<T, E>::map_err(auto&& f) && {
 template <typename T, typename E>
 constexpr auto result<T, E>::then(auto&& f) const& {
   using U = best::unref<best::call_result<decltype(f), ok_cref>>;
-  return impl().match(
+  return impl().index_match(
       [&](best::index_t<0>, auto&&... args) -> U {
         return best::call(BEST_FWD(f), BEST_FWD(args)...);
       },
-      [](best::index_t<1>, auto&&... args) -> U {
+      [&](best::index_t<1>, auto&&... args) -> U {
         return best::err(BEST_FWD(args)...);
       });
 }
 template <typename T, typename E>
 constexpr auto result<T, E>::then(auto&& f) & {
   using U = best::unref<best::call_result<decltype(f), ok_ref>>;
-  return impl().match(
+  return impl().index_match(
       [&](best::index_t<0>, auto&&... args) -> U {
         return best::call(BEST_FWD(f), BEST_FWD(args)...);
       },
-      [](best::index_t<1>, auto&&... args) -> U {
+      [&](best::index_t<1>, auto&&... args) -> U {
         return best::err(BEST_FWD(args)...);
       });
 }
 template <typename T, typename E>
 constexpr auto result<T, E>::then(auto&& f) const&& {
   using U = best::unref<best::call_result<decltype(f), ok_crref>>;
-  return BEST_MOVE(*this).impl().match(
+  return BEST_MOVE(*this).impl().index_match(
       [&](best::index_t<0>, auto&&... args) -> U {
         return best::call(BEST_FWD(f), BEST_FWD(args)...);
       },
-      [](best::index_t<1>, auto&&... args) -> U {
+      [&](best::index_t<1>, auto&&... args) -> U {
         return best::err(BEST_FWD(args)...);
       });
 }
 template <typename T, typename E>
 constexpr auto result<T, E>::then(auto&& f) && {
   using U = best::unref<best::call_result<decltype(f), ok_rref>>;
-  return BEST_MOVE(*this).impl().match(
+  return BEST_MOVE(*this).impl().index_match(
       [&](best::index_t<0>, auto&&... args) -> U {
         return best::call(BEST_FWD(f), BEST_FWD(args)...);
       },
-      [](best::index_t<1>, auto&&... args) -> U {
+      [&](best::index_t<1>, auto&&... args) -> U {
         return best::err(BEST_FWD(args)...);
       });
 }

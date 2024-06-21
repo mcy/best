@@ -143,7 +143,7 @@ class impl : public storage<Ts...> {
   constexpr impl(const impl& that)
     requires(!info.trivial_copy)
   {
-    that.match([&](auto tag, auto&... value) {
+    that.index_match([&](auto tag, auto&... value) {
       std::construct_at(this, tag, value...);
     });
   }
@@ -154,7 +154,8 @@ class impl : public storage<Ts...> {
   constexpr impl& operator=(const impl& that)
     requires(!info.trivial_copy)
   {
-    that.match([&](auto tag, auto&... value) { emplace<tag.value>(value...); });
+    that.index_match(
+        [&](auto tag, auto&... value) { emplace<tag.value>(value...); });
     return *this;
   }
 
@@ -164,7 +165,7 @@ class impl : public storage<Ts...> {
   constexpr impl(impl&& that)
     requires(!info.trivial_move)
   {
-    that.match([&](auto tag, auto&... value) {
+    that.index_match([&](auto tag, auto&... value) {
       std::construct_at(this, tag, BEST_MOVE(value)...);
     });
   }
@@ -175,7 +176,7 @@ class impl : public storage<Ts...> {
   constexpr impl& operator=(impl&& that)
     requires(!info.trivial_move)
   {
-    that.match([&](auto tag, auto&... value) {
+    that.index_match([&](auto tag, auto&... value) {
       emplace<tag.value>(BEST_MOVE(value)...);
     });
     return *this;
@@ -187,9 +188,7 @@ class impl : public storage<Ts...> {
   constexpr ~impl()
     requires(!info.trivial_dtor)
   {
-    match([](auto, auto&... value) {
-      (std::destroy_at(best::addr(value)), ...);
-    });
+    match([](auto&... value) { (std::destroy_at(best::addr(value)), ...); });
   }
 
   template <size_t which, typename... Args>
@@ -264,6 +263,33 @@ class impl : public storage<Ts...> {
         make_match_arm(BEST_MOVE(*this), BEST_FWD(callback)));
   }
 
+  template <typename F>
+  BEST_INLINE_SYNTHETIC constexpr decltype(auto) index_match(
+      F&& callback) const& {
+    return JumpTable<decltype(make_index_match_arm(*this,
+                                                   BEST_FWD(callback)))>[tag()](
+        make_index_match_arm(*this, BEST_FWD(callback)));
+  }
+  template <typename F>
+  BEST_INLINE_SYNTHETIC constexpr decltype(auto) index_match(F&& callback) & {
+    return JumpTable<decltype(make_index_match_arm(*this,
+                                                   BEST_FWD(callback)))>[tag()](
+        make_index_match_arm(*this, BEST_FWD(callback)));
+  }
+  template <typename F>
+  BEST_INLINE_SYNTHETIC constexpr decltype(auto) index_match(
+      F&& callback) const&& {
+    return JumpTable<decltype(make_index_match_arm(BEST_MOVE(*this),
+                                                   BEST_FWD(callback)))>[tag()](
+        make_index_match_arm(BEST_MOVE(*this), BEST_FWD(callback)));
+  }
+  template <typename F>
+  BEST_INLINE_SYNTHETIC constexpr decltype(auto) index_match(F&& callback) && {
+    return JumpTable<decltype(make_index_match_arm(BEST_MOVE(*this),
+                                                   BEST_FWD(callback)))>[tag()](
+        make_index_match_arm(BEST_MOVE(*this), BEST_FWD(callback)));
+  }
+
  private:
   template <typename F, size_t... i>
   constexpr static auto make_jump_table(std::index_sequence<i...>) {
@@ -279,24 +305,16 @@ class impl : public storage<Ts...> {
   template <typename F>
   constexpr static auto make_match_arm(auto&& self, F&& callback) {
     return [&]<size_t n>(best::index_t<n> tag) -> decltype(auto) {
-      using I = decltype(tag);
       using Type = best::refcopy<type<n>, decltype(self)&&>;
 
       // This needs to be dependent on tag, even trivially, so that the call
       // of callback(empty) in one of the if statements below uses two-phase
       // lookup.
-      using Empty = best::refcopy<
-          best::select<sizeof(tag) == 0, best::empty, best::empty>,
-          decltype(self)&&>;
+      using Empty = best::dependent<best::empty, decltype(tag)>;
 
       if constexpr (best::is_void<Type>) {
-        if constexpr (best::callable<F, void(I)>) {
-          return best::call(BEST_FWD(callback), tag);
-        } else if constexpr (best::callable<F, void()>) {
+        if constexpr (best::callable<F, void()>) {
           return best::call(BEST_FWD(callback));
-        } else if constexpr (best::callable<F, void(I, Empty)>) {
-          best::empty arg;
-          return best::call(BEST_FWD(callback), tag, static_cast<Empty>(arg));
         } else {
           best::empty arg;
           return best::call(BEST_FWD(callback), static_cast<Empty>(arg));
@@ -305,13 +323,35 @@ class impl : public storage<Ts...> {
         unsafe u(
             "this function is only called after"
             "checking tag() via the jump table.");
-        if constexpr (best::callable<F, void(I, Type)>) {
-          return best::call(BEST_FWD(callback), tag,
-                            static_cast<Type>(*self.get(u, tag)));
+        return best::call(BEST_FWD(callback),
+                          static_cast<Type>(*self.get(u, tag)));
+      }
+    };
+  }
+
+  template <typename F>
+  constexpr static auto make_index_match_arm(auto&& self, F&& callback) {
+    return [&]<size_t n>(best::index_t<n> tag) -> decltype(auto) {
+      using Type = best::refcopy<type<n>, decltype(self)&&>;
+
+      // This needs to be dependent on tag, even trivially, so that the call
+      // of callback(empty) in one of the if statements below uses two-phase
+      // lookup.
+      using Empty = best::dependent<best::empty, decltype(callback)>;
+
+      if constexpr (best::is_void<Type>) {
+        if constexpr (best::callable<F, void(decltype(tag))>) {
+          return best::call(BEST_FWD(callback), tag);
         } else {
-          return best::call(BEST_FWD(callback),
-                            static_cast<Type>(*self.get(u, tag)));
+          best::empty arg;
+          return best::call(BEST_FWD(callback), tag, static_cast<Empty>(arg));
         }
+      } else {
+        unsafe u(
+            "this function is only called after"
+            "checking tag() via the jump table.");
+        return best::call(BEST_FWD(callback), tag,
+                          static_cast<Type>(*self.get(u, tag)));
       }
     };
   }

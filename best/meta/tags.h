@@ -23,6 +23,15 @@ struct rank<0> {};
 inline constexpr struct in_place_t {
 } in_place;
 
+/// # `best::bind`
+///
+/// A tag for overriding the standard CTAD behavior of types like `best::row`
+/// and `best::option`. By default, these types strip references off of their
+/// arguments during CTAD, but if you pass `best::refs` as the first
+/// constructor, it will cause them to keep the references.
+inline constexpr struct bind_t {
+} bind;
+
 /// An alias for std::in_place_index.
 ///
 /// Use this to tag things that want to take a size_t.

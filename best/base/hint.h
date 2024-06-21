@@ -78,7 +78,7 @@ BEST_INLINE_ALWAYS constexpr void assume(bool truth) {
 /// Hides a value from the compiler's optimizer.
 [[nodiscard]] BEST_INLINE_SYNTHETIC constexpr auto&& black_box(auto&& value) {
   if (!std::is_constant_evaluated()) {
-    asm volatile("" : "+r"(value));
+    asm volatile("" ::"m,r"(value));
   }
   return decltype(value)(value);
 }

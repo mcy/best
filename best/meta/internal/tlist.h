@@ -7,6 +7,7 @@
 #include <utility>
 
 #include "best/base/fwd.h"
+#include "best/base/port.h"
 #include "best/container/bounds.h"
 
 #if !__has_builtin(__type_pack_element)
@@ -78,6 +79,27 @@ constexpr auto concat(tlist<Those...>, auto... rest) {
   return concat<Buffer..., Those...>(rest...);
 }
 
+template <typename T>
+struct entry {};
+
+struct fail : std::false_type {
+  constexpr auto operator+(auto) { return fail{}; }
+};
+
+template <typename... Ts>
+struct set final : std::true_type, entry<Ts>... {
+  template <typename T>
+  constexpr auto operator+(entry<T>) {
+    if constexpr (std::is_base_of_v<entry<T>, set>) {
+      return fail{};
+    } else {
+      return set<Ts..., T>{};
+    }
+  }
+};
+
+template <typename... Ts>
+concept uniq = (set<>{} + ... + entry<Ts>{}).value;
 }  // namespace best::tlist_internal
 
 #endif  // BEST_META_INTERNAL_TLIST_H_

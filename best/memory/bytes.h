@@ -1,6 +1,8 @@
 #ifndef BEST_MEMORY_BYTES_H_
 #define BEST_MEMORY_BYTES_H_
 
+#include <type_traits>
+
 #include "best/base/hint.h"
 #include "best/container/option.h"
 #include "best/memory/internal/bytes.h"
@@ -11,14 +13,29 @@
 //! functions.
 
 namespace best {
+/// # `BEST_CONSTEXPR_MEMCMP`
+///
+/// Whether constexpr `memcmp()` is known to be available.
+#define BEST_CONSTEXPR_MEMCMP BEST_CONSTEXPR_MEMCMP_
+
 /// # `best::byte_comparable`
 ///
 /// Whether a pair of types' equality is modeled by `memcmp()`.
 template <typename T, typename U = T>
-concept byte_comparable =
-    (std::is_integral_v<T> || std::is_enum_v<T> ||
-     std::is_pointer_v<T>)&&(std::is_integral_v<U> || std::is_enum_v<U> ||
-                             std::is_pointer_v<U>)&&sizeof(T) == sizeof(U);
+concept byte_comparable = requires {
+  best::bytes_internal::can_memcmp(best::bytes_internal::tag<T>{},
+                                   best::bytes_internal::tag<U>{});
+};
+
+/// # `best::constexpr_byte_comparable`
+///
+/// Whether a pair of types can be `memcmp`'d in constexpr.
+template <typename T, typename U = T>
+concept constexpr_byte_comparable = requires {
+  requires byte_comparable<T, U>;
+  requires bytes_internal::is_char<T> && bytes_internal::is_char<U>;
+  requires bool(BEST_CONSTEXPR_MEMCMP);
+};
 
 /// # `best::copy_bytes()`
 ///
@@ -60,35 +77,28 @@ BEST_INLINE_ALWAYS void fill_bytes(best::span<T> dst, uint8_t fill) {
 ///
 /// A typed wrapper over `memcmp()` that is optimized for performing equality
 /// comparisons.
+///
+/// If T and U are both `char`, this function is constexpr.
 template <typename T, typename U = const T>
-BEST_INLINE_ALWAYS bool equate_bytes(best::span<T> lhs, best::span<U> rhs)
-  requires(sizeof(T) == sizeof(U))
+BEST_INLINE_ALWAYS constexpr bool equate_bytes(best::span<T> lhs,
+                                               best::span<U> rhs)
+  requires best::byte_comparable<T, U>
 {
-  if (lhs.size() != rhs.size()) return false;
-  if (lhs.data() == rhs.data() || lhs.is_empty()) return true;
-
-  return 0 ==
-         bytes_internal::memcmp(lhs.data(), rhs.data(), lhs.size() * sizeof(T));
+  return bytes_internal::equate(lhs, rhs);
 }
 
 /// # `best::compare_bytes()`
 ///
 /// A typed wrapper over `memcmp()`. This performs total lexicographic
 /// comparison between two spans.
+///
+/// If T and U are both `char`, this function is constexpr.
 template <typename T, typename U = const T>
-BEST_INLINE_ALWAYS best::ord compare_bytes(best::span<T> lhs, best::span<U> rhs)
-  requires(sizeof(T) == sizeof(U))
+BEST_INLINE_ALWAYS constexpr best::ord compare_bytes(best::span<T> lhs,
+                                                     best::span<U> rhs)
+  requires best::byte_comparable<T, U>
 {
-  if (lhs.data() == rhs.data() || lhs.is_empty() || rhs.is_empty()) {
-    return lhs.size() <=> rhs.size();
-  }
-
-  auto to_compare = best::min(lhs.size(), rhs.size()) * sizeof(T);
-  int result = bytes_internal::memcmp(lhs.data(), rhs.data(), to_compare);
-  if (result == 0) {
-    return lhs.size() <=> rhs.size();
-  }
-  return result <=> 0;
+  return bytes_internal::compare(lhs, rhs);
 }
 
 /// # `best::search_bytes()`
@@ -100,28 +110,21 @@ BEST_INLINE_ALWAYS best::ord compare_bytes(best::span<T> lhs, best::span<U> rhs)
 /// Note that this will find the first *aligned* index, which is to say that
 /// calls to `memmem()` will continue until it either fails or returns an
 /// aligned index.
+///
+/// If T and U are both `char`, this function is constexpr.
 template <typename T, typename U = const T>
-BEST_INLINE_ALWAYS best::option<size_t> search_bytes(best::span<T> haystack,
-                                                     best::span<U> needle)
-  requires(sizeof(T) == sizeof(U))
+BEST_INLINE_ALWAYS constexpr best::option<size_t> search_bytes(
+    best::span<T> haystack, best::span<U> needle)
+  requires best::byte_comparable<T, U>
 {
-  auto* data =
-      reinterpret_cast<const char*>(static_cast<const void*>(haystack.data()));
-  size_t size = haystack.size() * sizeof(T);
-  size_t travel = 0;
-
-  do {
-    void* found = bytes_internal::memmem(data, size, needle.data(),
-                                         needle.size() * sizeof(T));
-    if (!found) return best::none;
-
-    size_t offset = static_cast<const char*>(found) - data;
-    travel += offset;
-    data += offset;
-    size -= offset;
-  } while (travel % alignof(T) != 0);
-
-  return travel / sizeof(T);
+  if (!std::is_constant_evaluated()) {
+    return bytes_internal::search(haystack, needle);
+  } else if constexpr (best::constexpr_byte_comparable<T, U>) {
+    return bytes_internal::search_constexpr(haystack, needle);
+  } else {
+    best::crash_internal::crash(
+        "cannot call best::search_bytes() in constexpr for this type");
+  }
 }
 }  // namespace best
 

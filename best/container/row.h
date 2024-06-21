@@ -8,6 +8,7 @@
 #include "best/meta/empty.h"
 #include "best/meta/init.h"
 #include "best/meta/tags.h"
+#include "best/meta/taxonomy.h"
 #include "best/meta/tlist.h"
 
 //! A product type, like `std::tuple`.
@@ -24,7 +25,8 @@ namespace best {
 template <typename T>
 concept is_row = requires {
   {
-    best::unref<T>::types.apply([]<typename... U>() -> best::row<U...> {})
+    best::unref<T>::types.apply(
+        []<typename... U>() -> best::row<U...> { std::abort(); })
   } -> best::same<T>;
 };
 
@@ -100,6 +102,15 @@ class row final
   template <size_t n> using ptr = best::as_ptr<type<n>>;
   // clang-format on
 
+  /// # `row::selectable<T>`
+  ///
+  /// Whether an element of this row can be selected by the type `T`, in other
+  /// words, if `T` is among `Elems`, *or* there is a type `U` among `Elems`
+  /// such that `U::BestRowKey` is `T`.
+  template <typename T>
+  static constexpr bool selectable =
+      row_internal::lookup<T>.template count<T>() > 0;
+
  private:
   using impl = row_internal::impl<decltype(indices), Elems...>;
 
@@ -123,8 +134,30 @@ class row final
   /// Constructs a row by initializing each element from the corresponding
   /// argument.
   constexpr row(auto&&... args)
-    requires(best::constructible<Elems, decltype(args)> && ...)
+    requires(best::constructible<Elems, decltype(args)> && ...) &&
+            (!best::same<decltype(args), best::as_rref<Elems>> || ...)
       : impl{{best::in_place, best::in_place, BEST_FWD(args)}...} {}
+  constexpr row(devoid<Elems>&&... args)
+    requires(sizeof...(args) > 0)
+      : impl{{best::in_place, best::in_place, BEST_FWD(args)}...} {}
+
+  constexpr row(best::bind_t, auto&&... args)
+    requires(best::constructible<Elems, decltype(args)> && ...) &&
+            (!best::same<decltype(args), best::as_rref<Elems>> || ...)
+      : impl{{best::in_place, best::in_place, BEST_FWD(args)}...} {}
+  constexpr row(best::bind_t, devoid<Elems>&&... args)
+    requires(sizeof...(args) > 0)
+      : impl{{best::in_place, best::in_place, BEST_FWD(args)}...} {}
+
+  /// # `row::size()`
+  ///
+  /// Returns the number of elements in this row.
+  constexpr static size_t size() { return types.size(); }
+
+  /// # `row::is_empty()`
+  ///
+  /// Returns whether this is the empty row `best::row<>`.
+  constexpr static bool is_empty() { return types.size() == 0; }
 
   /// # `row[index<n>]`
   ///
@@ -167,6 +200,18 @@ class row final
   template <size_t n> constexpr decltype(auto) get(best::index_t<n> = {}) &;
   template <size_t n> constexpr decltype(auto) get(best::index_t<n> = {}) const&&;
   template <size_t n> constexpr decltype(auto) get(best::index_t<n> = {}) &&;
+  // clang-format on
+
+  /// # `row::select()`
+  ///
+  /// Returns a row containing all types in this row that are either of that
+  /// type, or which have a member alias named `BestRowKey` of that type. They
+  /// are returned in the order they occur in this row.
+  // clang-format off
+  template <typename T> constexpr decltype(auto) select(best::tlist<T> idx = {}) const&;
+  template <typename T> constexpr decltype(auto) select(best::tlist<T> idx = {}) & ;
+  template <typename T> constexpr decltype(auto) select(best::tlist<T> idx = {}) const&& ; 
+  template <typename T> constexpr decltype(auto) select(best::tlist<T> idx = {}) &&;
   // clang-format on
 
   /// # `row::first()`, `row::second()`, `row::last()`
@@ -253,6 +298,8 @@ class row final
 
 template <typename... Elems>
 row(Elems&&...) -> row<best::as_auto<Elems>...>;
+template <typename... Elems>
+row(best::bind_t, Elems&&...) -> row<Elems&&...>;
 
 /// # `best::row_forward`
 ///
@@ -271,11 +318,9 @@ struct row_forward final {
 };
 }  // namespace best
 
-/******************************************************************************/
-
-///////////////////// !!! IMPLEMENTATION DETAILS BELOW !!! /////////////////////
-
-/******************************************************************************/
+/* ////////////////////////////////////////////////////////////////////////// *\
+ * ////////////////// !!! IMPLEMENTATION DETAILS BELOW !!! ////////////////// *
+\* ////////////////////////////////////////////////////////////////////////// */
 
 namespace best {
 template <typename... A>
@@ -438,6 +483,39 @@ constexpr decltype(auto) row<A...>::get(best::index_t<n> idx) && {
   } else {
     return BEST_MOVE(*this).at(idx);
   }
+}
+
+template <typename... A>
+template <typename T>
+constexpr decltype(auto) row<A...>::select(best::tlist<T> idx) const& {
+  return row_internal::apply_lookup<T, A...>(
+      [&]<size_t... i>(index_t<i>... idx) {
+        return best::row<cref<i>...>(at(idx)...);
+      });
+}
+template <typename... A>
+template <typename T>
+constexpr decltype(auto) row<A...>::select(best::tlist<T> idx) & {
+  return row_internal::apply_lookup<T, A...>(
+      [&]<size_t... i>(index_t<i>... idx) {
+        return best::row<ref<i>...>(at(idx)...);
+      });
+}
+template <typename... A>
+template <typename T>
+constexpr decltype(auto) row<A...>::select(best::tlist<T> idx) const&& {
+  return row_internal::apply_lookup<T, A...>(
+      [&]<size_t... i>(index_t<i>... idx) {
+        return best::row<crref<i>...>(BEST_MOVE(*this).at(idx)...);
+      });
+}
+template <typename... A>
+template <typename T>
+constexpr decltype(auto) row<A...>::select(best::tlist<T> idx) && {
+  return row_internal::apply_lookup<T, A...>(
+      [&]<size_t... i>(index_t<i>... idx) {
+        return best::row<rref<i>...>(BEST_MOVE(*this).at(idx)...);
+      });
 }
 
 // XXX: This code tickles a clang-format bug.
