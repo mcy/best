@@ -6,7 +6,6 @@
 #include <type_traits>
 
 #include "best/base/port.h"
-#include "best/container/internal/span.h"
 #include "best/container/object.h"
 #include "best/container/option.h"
 #include "best/log/location.h"
@@ -25,16 +24,54 @@
 //! ranges, i.e., ranges that can be represented as spans.
 
 namespace best {
+/// # `best::data()`
+///
+/// Returns the data pointer of a contiguous range.
+constexpr auto data(auto&& range)
+  requires requires { range.data(); }
+{
+  return BEST_FWD(range).data();
+}
+template <typename T, size_t n>
+constexpr T* data(T (&range)[n]) {
+  return range;
+}
+template <typename T>
+constexpr const T* data(const std::initializer_list<T>& il) {
+  return il.begin();
+}
+
+/// # `best::size()`
+///
+/// Returns the size of a contiguous range.
+constexpr size_t size(const auto& range)
+  requires requires { range.size(); }
+{
+  return range.size();
+}
+template <size_t n>
+constexpr size_t size(const auto (&)[n]) {
+  return n;
+}
+
 /// # `best::contiguous`
 ///
 /// Whether T is a contiguous range that can be converted into a span.
 ///
-/// This is defined as a type that enables calls to std::data and std::size().
+/// This is defined as a type that enables calls to best::data and best::size().
 template <typename T>
-concept contiguous = requires(T&& t) {
-  { *std::data(t) } -> best::is_ref;
-  { std::size(t) } -> best::converts_to<size_t>;
+concept contiguous = requires(const T& ct, T&& t) {
+  best::size(ct);
+  { *best::data(ct) } -> best::is_ref;
+  { *best::data(t) } -> best::is_ref;
 };
+
+/// # `best::data_type<T>`
+///
+/// Extracts the referent type of a contiguous range. For example,
+/// `best::data_type<int[4]>` is `int`.
+template <best::contiguous R>
+using data_type = best::unref<decltype(*best::data(best::lie<R>))>;
 
 /// # `best::static_size<T>`
 ///
@@ -46,9 +83,9 @@ concept contiguous = requires(T&& t) {
 ///
 /// friend constexpr best::option<size_t> BestStaticSize(auto, MyType*);
 ///
-/// The returned size must equal the unique size returned by std::size when
+/// The returned size must equal the unique size returned by best::size when
 /// applied to this type, or best::none.
-template <contiguous T>
+template <best::contiguous T>
 inline constexpr best::option<size_t> static_size =
     BestStaticSize(best::types<T>, best::as_ptr<T>{});
 
@@ -63,14 +100,7 @@ concept static_contiguous = static_size<T>.has_value();
 /// Represents whether T is best::span<U, n> for some U, n.
 template <typename T>
 concept is_span =
-    best::same<best::as_auto<T>, best::span<typename best::as_auto<T>::type,
-                                            best::as_auto<T>::extent>>;
-
-/// # `best::span_type<T>`
-///
-/// Given T = best::span<U, n>, returns U.
-template <is_span T>
-using span_type = typename best::as_auto<T>::type;
+    best::same<best::as_auto<T>, best::span<data_type<T>, static_size<T>>>;
 
 /// # `best::from_nul`
 ///
@@ -81,11 +111,19 @@ constexpr best::span<T> from_nul(T* ptr) {
   return best::span<T>::from_nul(ptr);
 }
 
-/// # `best::span_extent<T>`
+/// # `best::from_static`
 ///
-/// Given T = best::span<U, n>, returns n.
-template <is_span T>
-inline constexpr best::option<size_t> span_extent = best::as_auto<T>::extent;
+/// Constructs the best possible static span pointing to `range`. If `range`
+/// does not have a static size, this returns a dynamic span.
+///
+/// Notably, this is not the behavior of `best::span`'s deduction guides:
+/// `best::span(range)` will never deduce a static extent, because doing this by
+/// default turns out to be very annoying.
+template <best::contiguous R>
+constexpr best::span<best::data_type<R>, best::static_size<R>> from_static(
+    R&& range) {
+  return {BEST_FWD(range)};
+}
 
 /// # `best::span<T, n>`
 ///
@@ -137,20 +175,15 @@ class span final {
   using cptr = best::as_ptr<const type>;
   using ptr = best::as_ptr<type>;
 
-  /// # `span::extent`
-  ///
-  /// The extent of this span, if it is statically known.
-  static constexpr best::option<size_t> extent = n;
-
   /// # `span::is_static`
   ///
   /// Whether this is a static span.
-  static constexpr bool is_static = extent.has_value();
+  static constexpr bool is_static = n.has_value();
 
   /// # `span::is_dynamic`
   ///
   /// Whether this is a dynamic span.
-  static constexpr bool is_dynamic = extent.is_empty();
+  static constexpr bool is_dynamic = n.is_empty();
 
   /// # `span::is_const`
   ///
@@ -174,7 +207,7 @@ class span final {
   ///
   /// This span's data pointer is always null.
   constexpr span()
-    requires is_dynamic || (extent == 0)
+    requires is_dynamic || (n == 0)
   = default;
 
   /// # `span::span(span)`
@@ -194,31 +227,21 @@ class span final {
   constexpr explicit(is_static) span(best::object_ptr<T> data, size_t size,
                                      best::location loc = best::here);
 
-  /// # `span::span(contiguous)`
+  /// # `span::span(range)`
   ///
   /// Constructs a new span from a contiguous range.
   ///
   /// If this would construct a fixed-size span, and the list being constructed
   /// from has a different length, this constructor will crash. However, if
   /// this constructor can crash, it is explicit.
-  template <contiguous Range>
-  constexpr explicit(
-      is_static &&
-      // XXX: For some god-forsaken reason Clang 17 seems to think that this is
-      // not a constant expression inside of this explicit(): `extent ==
-      // best::static_size<Range>`, even though it's perfectly ok with it in the
-      // requires() that follows. This seems to be a bug (either in the
-      // compiler or in the standard). Either way, this ate an hour of my time.
-      //
-      // We work around it by inlining the optional equality here.
-      !(extent.has_value() == best::static_size<Range>.has_value() &&
-        extent.value_or() == best::static_size<Range>.value_or()))
-      span(Range&& range,  //
-           best::location loc = best::here)
-    requires best::qualifies_to<best::unref<decltype(*std::data(range))>, T> &&
-             (is_dynamic || best::static_size<Range>.is_empty() ||
-              extent == best::static_size<Range>)
-      : span(std::data(range), std::size(range), loc) {}
+  template <best::contiguous R>
+  constexpr explicit(is_static && n != static_size<R>)
+      span(R&& range, best::location loc = best::here)
+    requires best::qualifies_to<best::unref<best::data_type<R>>, T> &&
+             (is_dynamic ||                       //
+              best::static_size<R>.is_empty() ||  //
+              best::static_size<span> == best::static_size<R>)
+      : span(best::data(range), best::size(range), loc) {}
 
   /// # `span::span{...}`
   ///
@@ -231,7 +254,7 @@ class span final {
   constexpr explicit(is_static) span(std::initializer_list<value_type> il,
                                      best::location loc = best::here)
     requires is_const
-      : span(std::data(il), std::size(il), loc) {}
+      : span(best::data(il), best::size(il), loc) {}
 
   /// # `span::from_nul()`
   ///
@@ -253,12 +276,21 @@ class span final {
   /// # `span::data()`
   ///
   /// Returns the data pointer for this span.
-  constexpr best::object_ptr<T> data() const { return repr_.data; }
+  constexpr best::object_ptr<T> data() const { return data_; }
 
   /// # `span::size()`
   ///
   /// Returns the size (length) of this span.
-  constexpr size_t size() const { return repr_.size; }
+  constexpr static size_t size()
+    requires is_static
+  {
+    return *n;
+  }
+  constexpr size_t size() const
+    requires is_dynamic
+  {
+    return size_;
+  }
 
   /// # `span::is_empty()`
   ///
@@ -328,7 +360,7 @@ class span final {
   /// compile time error; otherwise crashes.
   template <size_t idx>
   constexpr T& operator[](best::index_t<idx>) const
-    requires is_dynamic || ((idx < *extent));
+    requires is_dynamic || ((idx < size()));
 
   /// # `span[{.start = ...}]`
   ///
@@ -341,7 +373,7 @@ class span final {
   /// and `this->is_static`, produces a compile time error; otherwise crashes.
   template <best::bounds range>
   constexpr auto operator[](best::vlist<range>) const
-    requires(range.try_compute_count(extent).has_value());
+    requires(range.try_compute_count(best::static_size<span>).has_value());
 
   /// # `span::at(idx)`
   ///
@@ -518,7 +550,7 @@ class span final {
     requires best::equatable<T, U>;
   template <contiguous R>
   constexpr bool operator==(const R& range) const
-    requires best::equatable<T, decltype(*std::data(range))> && (!is_span<R>)
+    requires best::equatable<T, best::data_type<R>> && (!is_span<R>)
   {
     return *this == best::span(range);
   }
@@ -528,17 +560,18 @@ class span final {
     requires best::comparable<T, U>;
   template <contiguous R>
   constexpr auto operator<=>(const R& range) const
-    requires best::comparable<T, decltype(*std::data(range))> && (!is_span<R>)
+    requires best::comparable<T, best::data_type<R>> && (!is_span<R>)
   {
     return *this <=> best::span(range);
   }
 
   constexpr friend best::option<size_t> BestStaticSize(auto, span*) {
-    return extent;
+    return n;
   }
 
  private:
-  span_internal::repr<T, n> repr_;
+  best::object_ptr<T> data_ = nullptr;
+  [[no_unique_address]] best::select<n.has_value(), best::empty, size_t> size_{};
 };
 
 template <typename T>
@@ -548,10 +581,7 @@ span(best::object_ptr<T>, size_t) -> span<T>;
 template <typename T>
 span(std::initializer_list<T>) -> span<const T>;
 template <contiguous R>
-span(R&& r) -> span<best::unref<decltype(*std::data(r))>,
-                    // TODO(mcyoung): This part of the deduction guide has
-                    // proven to be a pain in the ass. It should be opt-in.
-                    best::static_size<R>>;
+span(R&& r) -> span<best::data_type<R>>;
 }  // namespace best
 
 /******************************************************************************/
@@ -614,13 +644,12 @@ inline constexpr size_t BestStaticSize(auto, std::array<T, n>*) {
 
 template <best::is_object T, best::option<size_t> n>
 constexpr span<T, n>::span(best::object_ptr<T> data, size_t size,
-                           best::location loc) {
-  repr_.data = data;
+                           best::location loc) : data_(data) {
   if constexpr (is_static) {
-    best::bounds bounds_check = {.start = *extent, .count = 0};
+    best::bounds bounds_check = {.start = this->size(), .count = 0};
     bounds_check.compute_count(this->size(), loc);
   } else {
-    repr_.size = size;
+    size_ = size;
   }
 }
 
@@ -697,8 +726,7 @@ constexpr span<T, n> span<T, n>::from_nul(T* data) {
   }
 
   auto ptr = data;
-  while (*ptr++ != T{0})
-    ;
+  while (*ptr++ != T{0});
   return best::span(data, ptr - data - 1);
 }
 
@@ -733,7 +761,7 @@ constexpr T& span<T, n>::operator[](best::track_location<size_t> idx) const {
 template <best::is_object T, best::option<size_t> n>
 template <size_t idx>
 constexpr T& span<T, n>::operator[](best::index_t<idx>) const
-  requires is_dynamic || ((idx < *extent))
+  requires is_dynamic || ((idx < size()))
 {
   return (*this)[idx];
 }
@@ -748,9 +776,9 @@ constexpr best::span<T> span<T, n>::operator[](
 template <best::is_object T, best::option<size_t> n>
 template <best::bounds range>
 constexpr auto span<T, n>::operator[](best::vlist<range>) const
-  requires(range.try_compute_count(extent).has_value())
+  requires(range.try_compute_count(best::static_size<span>).has_value())
 {
-  constexpr auto count = range.try_compute_count(extent);
+  constexpr auto count = range.try_compute_count(best::static_size<span>);
   return with_extent<count>(data() + range.start, *count);
 }
 
@@ -765,7 +793,7 @@ constexpr best::option<T&> span<T, n>::at(size_t idx) const {
 template <best::is_object T, best::option<size_t> n>
 constexpr best::option<best::span<T>> span<T, n>::at(best::bounds range) const {
   if (auto count = range.try_compute_count(size())) {
-    return span<T>{data() + range.start, *count};
+    return {{data() + range.start, *count}};
   }
   return best::none;
 }
@@ -781,7 +809,7 @@ constexpr best::span<T> span<T, n>::at(unsafe, best::bounds range) const {
     count = *range.count;
   }
 
-  return best::span<T>(data() + range.start, count);
+  return {data() + range.start, count};
 }
 
 template <best::is_object T, best::option<size_t> n>
@@ -806,8 +834,8 @@ constexpr best::option<std::array<best::span<T>, 2>> span<T, n>::split_at(
     size_t idx) const {
   if (auto prefix = at({.end = idx})) {
     auto rest = *this;
-    rest.repr_.data += idx;
-    rest.repr_.size -= idx;
+    rest.data_ += idx;
+    rest.size_ -= idx;
     return {{*prefix, rest}};
   }
 
@@ -967,11 +995,11 @@ constexpr bool span<T, n>::operator==(span<U, m> that) const
 {
   if (std::is_constant_evaluated()) {
     if constexpr (best::constexpr_byte_comparable<T, U>) {
-      return best::equate_bytes(span<T>(*this), span<U>(that));
+      return best::equate_bytes(best::span<T>(*this), best::span<U>(that));
     }
   } else {
     if constexpr (best::byte_comparable<T, U>) {
-      return best::equate_bytes(span<T>(*this), span<U>(that));
+      return best::equate_bytes(best::span<T>(*this), best::span<U>(that));
     }
   }
 
@@ -992,11 +1020,11 @@ constexpr auto span<T, n>::operator<=>(span<U, m> that) const
 {
   if (std::is_constant_evaluated()) {
     if constexpr (best::constexpr_byte_comparable<T, U>) {
-      return best::compare_bytes(span<T>(*this), span<U>(that));
+      return best::compare_bytes(best::span(*this), best::span(that));
     }
   } else {
     if constexpr (best::byte_comparable<T, U>) {
-      return best::compare_bytes(span<T>(*this), span<U>(that));
+      return best::compare_bytes(best::span(*this), best::span(that));
     }
   }
 

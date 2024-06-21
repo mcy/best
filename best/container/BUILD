@@ -161,7 +161,6 @@ cc_library(
   name = "span",
   hdrs = [
     "span.h",
-    "internal/span.h",
     "span_sort.h",
   ],
   deps = [

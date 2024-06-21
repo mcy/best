@@ -136,7 +136,7 @@ concept string_type =
     best::contiguous<T> && requires(best::ftadle& tag, const T& value) {
       { BestEncoding(tag, value) } -> best::encoding;
       {
-        std::data(value)
+        best::data(value)
       } -> best::same<code<decltype(BestEncoding(tag, value))> const*>;
     };
 

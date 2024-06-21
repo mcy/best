@@ -155,7 +155,7 @@ class textbuf final {
     return from(alloc{}, that);
   }
   static best::option<textbuf> from(alloc alloc, const string_type auto& that) {
-    return from(std::move(alloc), span(std::data(that), std::size(that)),
+    return from(std::move(alloc), span(best::data(that), best::size(that)),
                 best::encoding_of(that));
   }
 
