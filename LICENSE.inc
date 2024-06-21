@@ -16,18 +16,3 @@
   under the License.
 
 \* ////////////////////////////////////////////////////////////////////////// */
-
-#include "best/log/location.h"
-
-#include "best/test/test.h"
-
-best::test Smoke = [](auto& t) {
-// Explicitly set line info to make this test somewhat more stable.
-#line 42 "best/log/location_test.cc"
-  best::location loc = best::here;
-  t.expect_eq(loc.file(), "best/log/location_test.cc");
-  t.expect_eq(loc.line(), 42);
-  t.expect_eq(best::format("{:?}", loc), "best/log/location_test.cc:42");
-
-  // Can't easily test col() and func().
-};
