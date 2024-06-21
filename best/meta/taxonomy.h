@@ -1,6 +1,7 @@
 #ifndef BEST_META_TAXONOMY_H_
 #define BEST_META_TAXONOMY_H_
 
+#include <concepts>
 #include <type_traits>
 
 #include "best/meta/internal/abominable.h"
@@ -199,10 +200,43 @@ using as_ptr = std::add_pointer_t<best::tame<T>>;
 template <typename T>
 using unptr = std::remove_pointer_t<T>;
 
+/// # `best::is_deref<T>`
+///
+/// Whether a type `T` is "properly dereferenceable", that is, it has an
+/// `operator*` that returns some type, and an `operator->` that returns a
+/// pointer. If `Target` is `void`, the types of these operators is not checked.
+/// Otherwise, both operators must yield reference/pointer to `Target`,
+/// respectively.
+template <typename T, typename Target = void>
+concept is_deref =
+    (is_ptr<T> && (is_void<Target> ||
+                   std::is_same_v<Target, best::unqual<best::unptr<T>>>)) ||
+    (is_void<T> && requires(T& r) {
+      operator*(r);
+      r.operator->();
+    }) || requires(const T& cr) {
+      { operator*(cr) } -> std::convertible_to<const Target&>;
+      { cr.operator->() } -> std::convertible_to<const Target*>;
+    };
+
 /// # `best::addr()`
 ///
 /// Obtains the address of a reference without hitting `operator&`.
 constexpr auto addr(auto&& ref) { return __builtin_addressof(ref); }
+
+/// # `best::is_struct`
+///
+/// Identifies a "struct type". In our highly narrow definition, this is a
+/// final class type that is an aggregate.
+template <typename T>
+concept is_struct =
+    std::is_class_v<T> && std::is_aggregate_v<T> && std::is_final_v<T>;
+
+/// # `best::is_enum`
+///
+/// Identifies an enumeration type.
+template <typename T>
+concept is_enum = std::is_enum_v<T>;
 }  // namespace best
 
 #endif  // BEST_META_TAXONOMY_H_

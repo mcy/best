@@ -10,6 +10,7 @@
 #include "best/meta/internal/init.h"
 #include "best/meta/tags.h"
 #include "best/meta/taxonomy.h"
+#include "best/meta/traits.h"
 
 //! Utilities for empty types.
 
@@ -27,6 +28,12 @@ struct empty final {
 /// they will do the optimization.)
 template <typename T>
 concept is_empty = best::is_void<T> || std::is_empty_v<T>;
+
+/// # `best::devoid<T>`
+///
+/// If `T` is void, produces `best::empty`. Otherwise produces `T`.
+template <typename T>
+using devoid = best::select<best::is_void<T>, empty, T>;
 
 /// # `best::ebo`
 ///
@@ -50,8 +57,8 @@ concept is_empty = best::is_void<T> || std::is_empty_v<T>;
 /// Doing a CTRP-type here ensures that this base is reasonably unique among
 /// other potential bases of `MyClass`.
 template <best::is_object T, typename Tag, auto ident = 0,
-          bool compressed =
-              best::is_empty<T> && best::relocatable<T, trivially>>
+          bool empty = best::is_empty<T>, bool open = !std::is_final_v<T>,
+          bool relo = best::relocatable<T, trivially>>
 class ebo /* not final! */ {
  public:
   /// # `ebo::ebo(...)`
@@ -77,8 +84,25 @@ class ebo /* not final! */ {
 #define BEST_EBO_VALUE_ _private
 };
 
+template <best::is_object T, typename Tag, auto ident, bool relo>
+class ebo<T, Tag, ident, true, true, relo> /* not final! */ : T {
+ public:
+  constexpr ebo(best::in_place_t, auto&&... args) : T(BEST_FWD(args)...) {}
+
+  constexpr ebo()
+    requires best::constructible<T>
+  = default;
+  constexpr ebo(const ebo&) = default;
+  constexpr ebo& operator=(const ebo&) = default;
+  constexpr ebo(ebo&&) = default;
+  constexpr ebo& operator=(ebo&&) = default;
+
+  constexpr const T& get() const { return *this; }
+  constexpr T& get() { return *this; }
+};
+
 template <best::is_object T, typename Tag, auto ident>
-class ebo<T, Tag, ident, true> /* not final! */ {
+class ebo<T, Tag, ident, true, false, true> /* not final! */ {
  public:
   constexpr ebo(best::in_place_t, auto&&... args) {
     (void)T(BEST_FWD(args)...);

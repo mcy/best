@@ -56,6 +56,15 @@ class track_location;
 // best/meta/ebo.h
 struct empty;
 
+// best/meta/reflect.h
+class mirror;
+template <auto&>
+class reflected_field;
+template <auto&>
+class reflected_value;
+template <auto&>
+class reflected_type;
+
 // best/meta/tlist.h
 template <typename...>
 class tlist;

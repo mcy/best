@@ -60,4 +60,12 @@ best::test Select = [](auto& t) {
   t.expect_eq(x1.select<Tagged1>(), best::row(Tagged1()));
   t.expect_eq(x1.select<Tag>(), best::row(Tagged1(), Tag()));
 };
+
+best::test refs = [](auto& t) {
+  int x = 0;
+  const int y = 2;
+  best::row x0(best::bind, x, y);
+
+  static_assert(best::same<decltype(x0), best::row<int&, const int&>>);
+};
 }  // namespace best::row_test

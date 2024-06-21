@@ -2,7 +2,6 @@
 #define BEST_CONTAINER_OPTION_H_
 
 #include <initializer_list>
-#include <type_traits>
 
 #include "best/base/fwd.h"
 #include "best/container/choice.h"
@@ -143,15 +142,19 @@ class option final {
   /// # `option::option(T)`
   ///
   /// This converts a value into a non-empty option containing it.
-  template <typename U = T>
+  template <typename U>
   constexpr option(U&& arg)
-    requires not_forbidden_conversion<U> && best::constructible<T, U&&> &&
-             (!best::moveable<best::as_auto<U>> || best::is_ref<T>)
+    requires not_forbidden_conversion<U> && best::constructible<T, U&&>
       : option(best::in_place, BEST_FWD(arg)) {}
-  template <typename U = T>
-  constexpr option(U arg)
-    requires not_forbidden_conversion<U> && best::constructible<T, U> &&
-             best::moveable<U> && (!best::is_ref<T>)
+  constexpr option(best::devoid<T> arg)
+    requires best::moveable<T>
+      : option(best::in_place, BEST_MOVE(arg)) {}
+  template <typename U>
+  constexpr option(best::bind_t, U&& arg)
+    requires not_forbidden_conversion<U> && best::constructible<T, U&&>
+      : option(best::in_place, BEST_FWD(arg)) {}
+  constexpr option(best::bind_t, best::devoid<T> arg)
+    requires best::moveable<T>
       : option(best::in_place, BEST_MOVE(arg)) {}
 
   /// # `option::option(option<U>&)`
@@ -248,10 +251,11 @@ class option final {
   /// a value *and* it satisfies the predicate.
   constexpr bool has_value() const { return !is_empty(); }
   constexpr bool has_value(auto&& p) const {
-    return impl().match([](best::index_t<0>) { return false; },
-                        [&](best::index_t<1>, auto&&... args) {
-                          return best::call(BEST_FWD(p), BEST_FWD(args)...);
-                        });
+    return impl().index_match([&](best::index_t<0>) { return false; },
+                              [&](best::index_t<1>, auto&&... args) {
+                                return best::call(BEST_FWD(p),
+                                                  BEST_FWD(args)...);
+                              });
   }
   constexpr explicit operator bool() const { return has_value(); }
 
@@ -802,6 +806,8 @@ class option final {
 
 template <typename T>
 option(T&&) -> option<best::as_auto<T>>;
+template <typename T>
+option(best::bind_t, T&&) -> option<T&&>;
 option(best::none_t) -> option<void>;
 
 inline constexpr best::option<void> VoidOption{best::in_place};
@@ -841,24 +847,26 @@ constexpr option<T>::rref option<T>::value(best::location loc) && {
 template <typename T>
 constexpr auto option<T>::map(auto&& f) const& {
   using U = best::call_result<decltype(f), cref>;
-  return impl().match([](best::index_t<0>) -> option<U> { return best::none; },
-                      [&](best::index_t<1>, auto&&... args) -> option<U> {
-                        return best::call(BEST_FWD(f), BEST_FWD(args)...);
-                      });
+  return impl().index_match(
+      [&](best::index_t<0>) -> option<U> { return best::none; },
+      [&](best::index_t<1>, auto&&... args) -> option<U> {
+        return best::call(BEST_FWD(f), BEST_FWD(args)...);
+      });
 }
 template <typename T>
 constexpr auto option<T>::map(auto&& f) & {
   using U = best::call_result<decltype(f), ref>;
-  return impl().match([](best::index_t<0>) -> option<U> { return best::none; },
-                      [&](best::index_t<1>, auto&&... args) -> option<U> {
-                        return best::call(BEST_FWD(f), BEST_FWD(args)...);
-                      });
+  return impl().index_match(
+      [&](best::index_t<0>) -> option<U> { return best::none; },
+      [&](best::index_t<1>, auto&&... args) -> option<U> {
+        return best::call(BEST_FWD(f), BEST_FWD(args)...);
+      });
 }
 template <typename T>
 constexpr auto option<T>::map(auto&& f) const&& {
   using U = best::call_result<decltype(f), crref>;
-  return BEST_MOVE(*this).impl().match(
-      [](best::index_t<0>) -> option<U> { return best::none; },
+  return BEST_MOVE(*this).impl().index_match(
+      [&](best::index_t<0>) -> option<U> { return best::none; },
       [&](best::index_t<1>, auto&&... args) -> option<U> {
         return best::call(BEST_FWD(f), BEST_FWD(args)...);
       });
@@ -866,8 +874,8 @@ constexpr auto option<T>::map(auto&& f) const&& {
 template <typename T>
 constexpr auto option<T>::map(auto&& f) && {
   using U = best::call_result<decltype(f), rref>;
-  return BEST_MOVE(*this).impl().match(
-      [](best::index_t<0>) -> option<U> { return best::none; },
+  return BEST_MOVE(*this).impl().index_match(
+      [&](best::index_t<0>) -> option<U> { return best::none; },
       [&](best::index_t<1>, auto&&... args) -> option<U> {
         return best::call(BEST_FWD(f), BEST_FWD(args)...);
       });
@@ -892,58 +900,60 @@ constexpr auto option<T>::map(auto&& d, auto&& f) && {
 
 template <typename T>
 constexpr const option<T>& option<T>::inspect(auto&& f) const& {
-  impl().match([](best::index_t<0>) {},
-               [&](best::index_t<1>, auto&&... args) {
-                 best::call(BEST_FWD(f), BEST_FWD(args)...);
-               });
+  impl().index_match([&](best::index_t<0>) {},
+                     [&](best::index_t<1>, auto&&... args) {
+                       best::call(BEST_FWD(f), BEST_FWD(args)...);
+                     });
   return *this;
 }
 template <typename T>
 constexpr option<T>& option<T>::inspect(auto&& f) & {
-  impl().match([](best::index_t<0>) {},
-               [&](best::index_t<1>, auto&&... args) {
-                 best::call(BEST_FWD(f), BEST_FWD(args)...);
-               });
+  impl().index_match([&](best::index_t<0>) {},
+                     [&](best::index_t<1>, auto&&... args) {
+                       best::call(BEST_FWD(f), BEST_FWD(args)...);
+                     });
   return *this;
 }
 template <typename T>
 constexpr const option<T>&& option<T>::inspect(auto&& f) const&& {
-  BEST_MOVE(*this).impl().match([](best::index_t<0>) {},
-                                [&](best::index_t<1>, auto&&... args) {
-                                  best::call(BEST_FWD(f), BEST_FWD(args)...);
-                                });
+  BEST_MOVE(*this).impl().index_match([&](best::index_t<0>) {},
+                                      [&](best::index_t<1>, auto&&... args) {
+                                        best::call(BEST_FWD(f),
+                                                   BEST_FWD(args)...);
+                                      });
   return BEST_MOVE(*this);
 }
 template <typename T>
 constexpr option<T>&& option<T>::inspect(auto&& f) && {
-  BEST_MOVE(*this).impl().match([](best::index_t<0>) {},
-                                [&](best::index_t<1>, auto&&... args) {
-                                  best::call(BEST_FWD(f), BEST_FWD(args)...);
-                                });
+  BEST_MOVE(*this).impl().index_match([&](best::index_t<0>) {},
+                                      [&](best::index_t<1>, auto&&... args) {
+                                        best::call(BEST_FWD(f),
+                                                   BEST_FWD(args)...);
+                                      });
   return BEST_MOVE(*this);
 }
 
 template <typename T>
 constexpr auto option<T>::then(auto&& f) const& {
   using U = best::unref<best::call_result<decltype(f), cref>>;
-  return impl().match([](best::index_t<0>) -> U { return best::none; },
-                      [&](best::index_t<1>, auto&&... args) -> U {
-                        return best::call(BEST_FWD(f), BEST_FWD(args)...);
-                      });
+  return impl().index_match([&](best::index_t<0>) -> U { return best::none; },
+                            [&](best::index_t<1>, auto&&... args) -> U {
+                              return best::call(BEST_FWD(f), BEST_FWD(args)...);
+                            });
 }
 template <typename T>
 constexpr auto option<T>::then(auto&& f) & {
   using U = best::unref<best::call_result<decltype(f), ref>>;
-  return impl().match([](best::index_t<0>) -> U { return best::none; },
-                      [&](best::index_t<1>, auto&&... args) -> U {
-                        return best::call(BEST_FWD(f), BEST_FWD(args)...);
-                      });
+  return impl().index_match([&](best::index_t<0>) -> U { return best::none; },
+                            [&](best::index_t<1>, auto&&... args) -> U {
+                              return best::call(BEST_FWD(f), BEST_FWD(args)...);
+                            });
 }
 template <typename T>
 constexpr auto option<T>::then(auto&& f) const&& {
   using U = best::unref<best::call_result<decltype(f), crref>>;
-  return BEST_MOVE(*this).impl().match(
-      [](best::index_t<0>) -> U { return best::none; },
+  return BEST_MOVE(*this).impl().index_match(
+      [&](best::index_t<0>) -> U { return best::none; },
       [&](best::index_t<1>, auto&&... args) -> U {
         return best::call(BEST_FWD(f), BEST_FWD(args)...);
       });
@@ -951,8 +961,8 @@ constexpr auto option<T>::then(auto&& f) const&& {
 template <typename T>
 constexpr auto option<T>::then(auto&& f) && {
   using U = best::unref<best::call_result<decltype(f), rref>>;
-  return BEST_MOVE(*this).impl().match(
-      [](best::index_t<0>) -> U { return best::none; },
+  return BEST_MOVE(*this).impl().index_match(
+      [&](best::index_t<0>) -> U { return best::none; },
       [&](best::index_t<1>, auto&&... args) -> U {
         return best::call(BEST_FWD(f), BEST_FWD(args)...);
       });

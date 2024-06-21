@@ -110,6 +110,14 @@ class tlist final {
     return tlist_internal::concat<Elems...>(those...);
   }
 
+  /// # `best::unique_pack`
+  ///
+  /// Whether this pack of types is a
+  template <typename... Ts>
+  static constexpr bool is_unique() {
+    return tlist_internal::uniq<Ts...>;
+  };
+
  private:
   template <typename F>
   static constexpr bool type_callable = (... && callable<F, void(), Elems>);

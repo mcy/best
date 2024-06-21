@@ -2,7 +2,9 @@
 #define BEST_TEXT_INTERNAL_FORMAT_IMPLS_H_
 
 #include <cstddef>
+#include <type_traits>
 
+#include "best/meta/reflect.h"
 #include "best/text/rune.h"
 #include "best/text/str.h"
 
@@ -63,11 +65,6 @@ template <typename T>
 constexpr void BestFmtQuery(auto& query, T** range) {
   query.requires_debug = false;
   query.uses_method = [](rune r) { return r == 'p'; };
-}
-
-template <typename A, typename B>
-void BestFmt(auto& fmt, const best::row<A, B> value) {
-  fmt.format(best::row<const A&, const B&>(value.first, value.second()));
 }
 
 void BestFmt(auto& fmt, integer auto value) {
@@ -166,6 +163,23 @@ constexpr void BestFmtQuery(auto& query, R* range)
 {
   query = query.template of<decltype(*std::begin(*range))>;
   query.requires_debug = false;
+}
+
+void BestFmt(auto& fmt, const best::is_reflected_struct auto& value) {
+  auto refl = best::reflect<decltype(value)>;
+  auto rec = fmt.record(refl.name());
+  refl.fields(
+      [&](auto... field) { (rec.field(field.name(), value->*field), ...); });
+}
+
+void BestFmt(auto& fmt, const best::is_reflected_enum auto& value) {
+  auto refl = best::reflect<decltype(value)>;
+  refl.find(
+      value, [&](auto& val) { fmt.format("{}::{}", refl.name(), val.name()); },
+      [&] {
+        using U = std::underlying_type_t<best::as_auto<decltype(value)>>;
+        fmt.format("{}({})", refl.name(), U(value));
+      });
 }
 
 namespace format_internal {

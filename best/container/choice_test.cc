@@ -115,13 +115,13 @@ best::test Match = [](auto& t) {
   best::choice<int, int> x2(best::index<0>, 42);
   best::choice<int, int> x3(best::index<1>, 45);
 
-  t.expect_eq(x2.match(                                           //
+  t.expect_eq(x2.index_match(                                     //
                   [](best::index_t<0>, int x) { return x * 2; },  //
-                  [](int x) { return x; }),
+                  [](auto, int x) { return x; }),
               84);
-  t.expect_eq(x3.match(                                           //
+  t.expect_eq(x3.index_match(                                     //
                   [](best::index_t<0>, int x) { return x * 2; },  //
-                  [](int x) { return x; }),
+                  [](auto, int x) { return x; }),
               45);
 };
 
