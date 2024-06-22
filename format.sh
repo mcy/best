@@ -2,6 +2,7 @@
 
 # Formats the repository.
 
+
 usage() {
   echo "usage: $0 [OPTIONS]"
   echo "Format the repository."
@@ -41,9 +42,32 @@ CLANG_FORMAT=$(./bazel cquery \
 echo
 set +e
 
+LICENSE_LINES=$(wc -l < ./LICENSE.inc)
+
+function license() {
+  local f=$1
+  if [[ $in_place != 0 ]]; then
+    # For all C++ the first interesting line is a #directive.
+    local first=$(grep -oahnm 1 "^#" "$f" | grep -oP '\d+')
+    local rest=$(tail -n +$first "$f")
+    cat LICENSE.inc > $f
+    echo >> $f
+    echo "$rest" >> $f
+  else
+    head -n $LICENSE_LINES "$f" |
+    git --no-pager \
+      diff --color=always --no-index --exit-code \
+      ./LICENSE.inc - 
+    return $?
+  fi
+}
+
 bad=0
 total=0
 for file in $(find . -name '*.cc' -or -name '*.h'); do
+  license "$file"
+  bad=$((bad + $?))
+
   if [[ $in_place != 0 ]]; then
     $CLANG_FORMAT -i "$file"
   else
