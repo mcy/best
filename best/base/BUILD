@@ -3,6 +3,10 @@ package(default_visibility = ["//visibility:public"])
 cc_library(
   name = "fwd",
   hdrs = ["fwd.h"],
+  deps = [
+    "//best/meta:taxonomy",
+    "//best/meta:tags",
+  ]
 )
 
 cc_library(

@@ -12,3 +12,21 @@ cc_library(
     "//best/meta:init",
   ],
 )
+
+cc_library(
+  name = "tap",
+  hdrs = ["tap.h"],
+  deps = [
+    ":call",
+  ],
+)
+
+cc_test(
+  name = "tap_test",
+  srcs = ["tap_test.cc"],
+  linkopts = ["-rdynamic"],
+  deps = [
+    ":tap",
+    "//best/test",
+  ],
+)
