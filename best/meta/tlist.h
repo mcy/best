@@ -89,6 +89,21 @@ inline constexpr best::tlist<Elems...> types;
 template <auto... elems>
 inline constexpr best::vlist<elems...> vals;
 
+/// # `best::index_t<n>`, `best::indices_t<n...>`
+///
+/// A aliases of `vals`/`vlist` for constraining it to `size_t` elements.
+template <size_t n>
+using index_t = val<n>;
+template <size_t... n>
+using indices_t = vlist<n...>;
+
+/// # `best::index<n>`
+///
+/// Helper for constructing `best::index_t`. Note that `best::val<0>` is not
+/// `best::index_t<0>`, because the former is `best::val<int(0)>`.
+template <size_t n>
+inline constexpr index_t<n> index;
+
 /// # `best::indices<...>`
 ///
 /// Constructs a `vlist` containing the elements from `0` to `n`, exclusive.
@@ -210,12 +225,19 @@ class tlist final {
   static constexpr auto join(best::is_tlist auto... those);
   auto operator+(best::is_tlist auto that) { return join(that); }
 
+#define BEST_TLIST_MUST_USE(func_)                            \
+  [[nodiscard("best::tlist::" #func_                          \
+              "() does not mutate its argument; instead, it " \
+              "returns a new best::tlist")]]
+
   /// # `tlist::push()`
   ///
   /// Inserts a new value at the end of the list.
   template <typename T>
+  BEST_TLIST_MUST_USE(push)
   static constexpr auto push();
   template <auto v>
+  BEST_TLIST_MUST_USE(push)
   static constexpr auto push();
 
   /// # `tlist::insert()`
@@ -225,8 +247,10 @@ class tlist final {
   /// Produces an SFINAE error when out-of-bounds, unless `Default` is
   /// specified, in which case that is returned instead.
   template <size_t n, typename T, typename Default = strict>
+  BEST_TLIST_MUST_USE(insert)
   static constexpr auto insert();
   template <size_t n, auto v, typename Default = strict>
+  BEST_TLIST_MUST_USE(insert)
   static constexpr auto insert();
 
   /// # `tlist::splice()`
@@ -237,6 +261,7 @@ class tlist final {
   /// Produces an SFINAE error when out-of-bounds, unless `Default` is
   /// specified, in which case that is returned instead.
   template <best::bounds bounds, typename Default = strict>
+  BEST_TLIST_MUST_USE(splice)
   static constexpr auto splice(best::is_tlist auto that);
 
   /// # `tlist::scatter()`
@@ -245,6 +270,7 @@ class tlist final {
   ///
   /// Ouf-of-bounds "writes" are discarded.
   template <auto those, size_t... ns>
+  BEST_TLIST_MUST_USE(scatter)
   static constexpr auto scatter()
     requires best::is_tlist_of_size<decltype(those), sizeof...(ns)>
   {
@@ -257,8 +283,10 @@ class tlist final {
   ///
   /// Ouf-of-bounds "writes" are discarded.
   template <size_t n, typename T>
+  BEST_TLIST_MUST_USE(update)
   static constexpr auto update();
   template <size_t n, auto v>
+  BEST_TLIST_MUST_USE(update)
   static constexpr auto update();
 
   /// # `tlist::remove()`
@@ -268,6 +296,7 @@ class tlist final {
   /// Produces an SFINAE error when out-of-bounds, unless `Default` is
   /// specified.
   template <size_t n, typename Default = strict>
+  BEST_TLIST_MUST_USE(remove)
   static constexpr auto remove();
 
   /// # `tlist::erase()`
@@ -278,6 +307,7 @@ class tlist final {
   /// Produces an SFINAE error when out-of-bounds, unless `Default` is
   /// specified.
   template <best::bounds bounds, typename Default = strict>
+  BEST_TLIST_MUST_USE(erase)
   static constexpr auto erase();
 
   /// # `tlist::trim_prefix()`
@@ -285,6 +315,7 @@ class tlist final {
   /// If `list` is a prefix of this tlist, returns a new tlist with those
   /// elements chopped off.
   template <typename Default = strict>
+  BEST_TLIST_MUST_USE(trim_prefix)
   static constexpr auto trim_prefix(best::is_tlist auto prefix);
 
   /// # `tlist::trim_prefix()`
@@ -292,7 +323,10 @@ class tlist final {
   /// If `list` is a suffix of this tlist, returns a new tlist with those
   /// elements chopped off.
   template <typename Default = strict>
+  BEST_TLIST_MUST_USE(trim_suffix)
   static constexpr auto trim_suffix(best::is_tlist auto suffix);
+
+#undef BEST_TLIST_MUST_USE
 
   /// # `tlist::find()`
   ///
