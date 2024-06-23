@@ -19,9 +19,12 @@
 
 #include "best/container/row.h"
 
+#include "best/test/fodder.h"
 #include "best/test/test.h"
 
 namespace best::row_test {
+using ::best_fodder::MoveOnly;
+
 static_assert(best::is_empty<best::row<>>);
 
 best::test Nums = [](auto& t) {
@@ -80,11 +83,20 @@ best::test Select = [](auto& t) {
   t.expect_eq(x1.select<Tag>(), best::row(Tagged1(), Tag()));
 };
 
-best::test refs = [](auto& t) {
+best::test Refs = [](auto& t) {
   int x = 0;
   const int y = 2;
   best::row x0(best::bind, x, y);
 
   static_assert(best::same<decltype(x0), best::row<int&, const int&>>);
+};
+
+best::test Join = [](auto& t) {
+  best::row<int, long, int*, int> x0{1, 2, nullptr, 4};
+  t.expect_eq(x0 + x0, best::row(1, 2, nullptr, 4, 1, 2, nullptr, 4));
+
+  best::row x1{MoveOnly()};
+  best::row<MoveOnly> x2 = BEST_MOVE(x1) + best::row();
+  x2 = best::row() + BEST_MOVE(x1);
 };
 }  // namespace best::row_test

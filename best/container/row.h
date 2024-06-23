@@ -42,11 +42,10 @@ namespace best {
 ///
 /// Whether this is a specialization of `best::row`.
 template <typename T>
-concept is_row = requires {
+concept is_row = requires(T t) {
   {
-    best::unref<T>::types.apply(
-        []<typename... U>() -> best::row<U...> { std::abort(); })
-  } -> best::same<T>;
+    t.types.apply([]<typename... U>() -> best::row<U...> { std::abort(); })
+  } -> best::same<best::as_auto<T>>;
 };
 
 /// # `best::row`
@@ -232,6 +231,22 @@ class row final
   template <typename T> constexpr decltype(auto) select(best::tlist<T> idx = {}) const&& ; 
   template <typename T> constexpr decltype(auto) select(best::tlist<T> idx = {}) &&;
   // clang-format on
+
+  /// # `tlist::join()`, `tlist::operator+`
+  ///
+  /// Concatenates several rows with this one.
+  ///
+  /// This is also made available via `operator+`, but beware: using a fold with
+  /// `operator+` here is quadratic; you should generally prefer `join()` for
+  /// variadic cases.
+  constexpr auto join(best::is_row auto&&...) const&;
+  constexpr auto join(best::is_row auto&&...) &;
+  constexpr auto join(best::is_row auto&&...) const&&;
+  constexpr auto join(best::is_row auto&&...) &&;
+  constexpr auto operator+(best::is_row auto&&) const&;
+  constexpr auto operator+(best::is_row auto&&) &;
+  constexpr auto operator+(best::is_row auto&&) const&&;
+  constexpr auto operator+(best::is_row auto&&) &&;
 
   /// # `row::first()`, `row::second()`, `row::last()`
   ///
@@ -502,6 +517,39 @@ constexpr decltype(auto) row<A...>::get(best::index_t<n> idx) && {
   } else {
     return BEST_MOVE(*this).at(idx);
   }
+}
+
+template <typename... A>
+constexpr auto row<A...>::join(best::is_row auto&&... those) const& {
+  return row_internal::join(*this, BEST_FWD(those)...);
+}
+template <typename... A>
+constexpr auto row<A...>::join(best::is_row auto&&... those) & {
+  return row_internal::join(*this, BEST_FWD(those)...);
+}
+template <typename... A>
+constexpr auto row<A...>::join(best::is_row auto&&... those) const&& {
+  return row_internal::join(BEST_MOVE(*this), BEST_FWD(those)...);
+}
+template <typename... A>
+constexpr auto row<A...>::join(best::is_row auto&&... those) && {
+  return row_internal::join(BEST_MOVE(*this), BEST_FWD(those)...);
+}
+template <typename... A>
+constexpr auto row<A...>::operator+(best::is_row auto&& that) const& {
+  return join(BEST_FWD(that));
+}
+template <typename... A>
+constexpr auto row<A...>::operator+(best::is_row auto&& that) & {
+  return join(BEST_FWD(that));
+}
+template <typename... A>
+constexpr auto row<A...>::operator+(best::is_row auto&& that) const&& {
+  return BEST_MOVE(*this).join(BEST_FWD(that));
+}
+template <typename... A>
+constexpr auto row<A...>::operator+(best::is_row auto&& that) && {
+  return BEST_MOVE(*this).join(BEST_FWD(that));
 }
 
 template <typename... A>

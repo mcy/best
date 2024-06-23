@@ -24,7 +24,7 @@
 
 #include "best/container/object.h"
 #include "best/meta/empty.h"
-#include "best/meta/tags.h"
+#include "best/meta/internal/tlist.h"
 #include "best/meta/tlist.h"
 
 namespace best::row_internal {
@@ -124,6 +124,21 @@ struct impl;
 template <size_t... i, typename... Elems>
 struct impl<const best::vlist<i...>, Elems...>
     : best::ebo<best::object<Elems>, Elems, i>... {};
+
+using ::best::tlist_internal::fast_nth;
+using ::best::tlist_internal::join_lut;
+
+constexpr auto join(auto&&... those) {
+  return [&]<auto... i>(best::vlist<i...>) {
+    auto rowrow = best::row{best::bind, BEST_FWD(those)...};
+    constexpr auto lut = join_lut<sizeof...(i), decltype(those.types)...>;
+
+    return row<typename fast_nth<lut[i * 2], decltype(those.types)...>  //
+               ::template type<lut[i * 2 + 1]>...>{
+        BEST_MOVE(rowrow)[best::index<lut[i * 2]>]  //
+            .get(best::index<lut[i * 2 + 1]>)...};
+  }(best::indices<(0 + ... + best::as_auto<decltype(those)>::size())>);
+}
 }  // namespace best::row_internal
 
 #endif  // BEST_CONTAINER_INTERNAL_ROW_H_

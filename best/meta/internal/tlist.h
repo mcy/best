@@ -200,7 +200,7 @@ using scatter =
 // for each element of the `n`th list. The odd elements are then `{0, 1, 2, 0,
 // 1, 2, 0, 1, 2}`: for each list `l`, the sequence `{.count = l.size() - 1}`.
 template <size_t total, typename... Packs>
-constexpr auto join_lut() {
+constexpr inline auto join_lut = [] {
   std::array<size_t, total * 2> lut;
 
   size_t running_total = 0;
@@ -215,10 +215,11 @@ constexpr auto join_lut() {
   };
   (fill(Packs::size()), ...);
   return lut;
-}
+}();
+
 template <typename... Packs, size_t... i>
 auto join_impl(std::index_sequence<i...>, Packs...) {
-  constexpr auto lut = join_lut<sizeof...(i), Packs...>();
+  constexpr auto lut = join_lut<sizeof...(i), Packs...>;
   return tlist<typename fast_nth<lut[i * 2], Packs...>  //
                ::template type<lut[i * 2 + 1]>...>{};
 }

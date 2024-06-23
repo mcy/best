@@ -92,6 +92,17 @@ class TrivialCopy final {
   constexpr TrivialCopy& operator=(const TrivialCopy&) = default;
 };
 
+class MoveOnly final {
+ public:
+  constexpr MoveOnly() {}
+  constexpr MoveOnly(const MoveOnly&) = delete;
+  constexpr MoveOnly& operator=(const MoveOnly&) = delete;
+  constexpr MoveOnly(MoveOnly&&) = default;
+  constexpr MoveOnly& operator=(MoveOnly&&) = default;
+
+  constexpr int frob() && { return 42; }
+};
+
 class Stuck final {
  public:
   constexpr Stuck() {}

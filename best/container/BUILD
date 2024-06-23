@@ -154,6 +154,7 @@ cc_test(
   deps = [
     ":row",
     "//best/test",
+    "//best/test:fodder",
   ],
 )
 

@@ -216,8 +216,7 @@ class tlist final {
 
   /// # `tlist::join()`, `tlist::operator+`
   ///
-  /// Concatenates several tlists with this one. If an argument to this type is
-  /// not a tlist, it is treated as a one-element tlist.
+  /// Concatenates several tlists with this one.
   ///
   /// This is also made available via `operator+`, but beware: using a fold with
   /// `operator+` here is quadratic; you should generally prefer `join()` for
@@ -433,6 +432,14 @@ class tlist final {
   static constexpr decltype(auto) apply(
       tlist_internal::vs_callable<Elems...> auto cb) {
     return best::call(cb, Elems::value...);
+  };
+  template <template <typename...> typename Trait>
+  static constexpr Trait<Elems...> apply() {
+    return {};
+  }
+  template <template <auto...> typename Trait, typename delay = void>
+  static constexpr Trait<best::dependent<Elems, delay>::value...> apply() {
+    return {};
   };
 
   /// # `tlist::reduce()`
