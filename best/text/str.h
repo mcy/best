@@ -106,7 +106,8 @@ class text final {
   /// # `text::text()`
   ///
   /// Creates a new, empty string with the given encoding.
-  constexpr explicit text(encoding enc = {})
+  constexpr text() : text(encoding{}) {}
+  constexpr explicit text(encoding enc)
       : text(in_place, best::span(&empty, 0), std::move(enc)) {}
 
   /// # `text::text(text)`

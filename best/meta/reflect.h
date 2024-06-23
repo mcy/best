@@ -1,7 +1,27 @@
+/* //-*- C++ -*-///////////////////////////////////////////////////////////// *\
+
+  Copyright 2024
+  Miguel Young de la Sota and the Best Contributors 🧶🐈‍⬛
+
+  Licensed under the Apache License, Version 2.0 (the "License"); you may not
+  use this file except in compliance with the License. You may obtain a copy
+  of the License at
+
+                https://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+  WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+  License for the specific language governing permissions and limitations
+  under the License.
+
+\* ////////////////////////////////////////////////////////////////////////// */
+
 #ifndef BEST_META_REFLECT_H_
 #define BEST_META_REFLECT_H_
 
 #include "best/container/row.h"
+#include "best/log/internal/crash.h"
 #include "best/meta/internal/reflect.h"
 #include "best/meta/taxonomy.h"
 #include "best/text/str.h"
@@ -23,7 +43,6 @@
 //! ```
 
 namespace best {
-
 /// # `best::reflected`, `best::is_reflected_struct`,
 ///   `best::is_reflected_enum`
 ///
@@ -53,10 +72,30 @@ inline constexpr auto reflect =
 /// # `best::mirror`
 ///
 /// A value of this type is passed to the `BestReflect` FTADLE. This type
-/// cannot be constructed by users and exists only for exposition.
+/// cannot be constructed by users; it is constructed for them by the reflection
+/// framework.
+///
+/// A mirror can be used to construct reflections of a type. The actual type of
+/// these reflections is an implementation detail, since they have complex type
+/// parameters. The mirror provides a friendlier API for manipulating these
+/// reflections.
+template <typename T>
 class mirror final {
  public:
-  /// # `mirror()`
+  /// # `mirror::empty()`
+  ///
+  /// Returns an empty reflection for `T`, with no fields attached.
+  constexpr auto empty() const;
+
+  /// # `mirror::infer()`
+  ///
+  /// Infers the default reflection for the type `T`. This value can be updated
+  /// using the taps returned by other methods
+  constexpr auto infer() const;
+
+  /// # `mirror::with()`
+  ///
+  /// Updates a reflection object to set
   ///
   /// Reflects that there exists a type with the given name, the given members,
   /// and optionally, a row of tag types.
@@ -66,20 +105,34 @@ class mirror final {
 
   /// # `mirror.field()`
   ///
-  /// Reflects that `Struct` has a data member with the given name, the
-  /// given type, and optionally, a row of tag types. The result of this call
-  /// should be passed to `reflect()`.
-  template <best::is_struct Struct, best::is_object Type>
-  constexpr auto field(best::str name, Type Struct::*member,
-                       auto... tags) const;
+  /// Reflects that `T` has the given data member.
+  ///
+  /// This returns a tap that can be applied to a reflection returned by
+  /// e.g. `infer()`. This is primarily intended for adding tags to the field.
+  template <best::same<T> Struct, best::is_object Type>
+  constexpr auto field(Type Struct::*, auto... tags) const
+    requires best::is_struct<T>;
 
   /// # `mirror.value()`
   ///
-  /// Reflects that Enum `Struct` has an enumerator with the given name, the
-  /// given value, and optionally, a row of tag types. The result of this call
-  /// should be passed to `reflect()`.
-  template <best::is_enum Enum>
-  constexpr auto value(best::str name, Enum value, auto... tags) const;
+  /// Reflects that `T` has the given enum value.
+  ///
+  /// This returns a tap that can be applied to a reflection returned by
+  /// e.g. `infer()`. This is primarily intended for adding tags to the value.
+  template <best::same<T> Enum>
+  constexpr auto value(best::str name, Enum value, auto... tags) const
+    requires best::is_enum<T>;
+
+  /// # `mirror.hide()`
+  ///
+  /// Returns a tap that causes the given field or value to be hidden from
+  /// reflection.
+  template <best::same<T> Struct, best::is_object Type>
+  constexpr auto hide(Type Struct::*) const
+    requires best::is_struct<T>;
+  template <best::same<T> Enum>
+  constexpr auto value(Enum value) const
+    requires best::is_enum<T>;
 
   mirror(const mirror&) = delete;
   mirror& operator=(const mirror&) = delete;
@@ -90,7 +143,8 @@ class mirror final {
  public:
   static const mirror BEST_MIRROR_FTADLE_;
 };
-inline constexpr mirror mirror::BEST_MIRROR_FTADLE_{};
+template <typename T>
+inline constexpr mirror<T> mirror<T>::BEST_MIRROR_FTADLE_{};
 #define BEST_MIRROR_FTADLE_ _private
 
 /// # `best::reflected_field`
@@ -299,54 +353,33 @@ constexpr auto fields(best::is_reflected_struct auto&& value) {
 /******************************************************************************/
 
 namespace best {
-constexpr auto mirror::operator()(best::str name, best::is_row auto tags,
-                                  auto... members) const {
-  if constexpr (sizeof...(members) == 0) {
-    return reflect_internal::no_fields<best::as_auto<decltype(tags)>>{name,
-                                                                      tags};
-  } else if constexpr (((members.Kind == reflect_internal::Field) && ...)) {
-    static_assert(
-        best::same<typename best::as_auto<decltype(members)>::struct_...>,
-        "all fields passed to a best::mirror must have the same "
-        "struct type");
-    using Struct =
-        best::tlist<typename best::as_auto<decltype(members)>::struct_...>::
-            template type<0>;
-    return best::reflect_internal::struct_info<
-        Struct, best::as_auto<decltype(tags)>,
-        best::as_auto<decltype(members)>...>{name, tags, {members...}};
-  } else if constexpr (((members.Kind == reflect_internal::Value) && ...)) {
-    static_assert(
-        best::same<typename best::as_auto<decltype(members)>::enum_...>,
-        "all values passed to best::mirror must have the same "
-        "enum type");
-    using Enum = best::tlist<
-        typename best::as_auto<decltype(members)>::enum_...>::template type<0>;
-    return best::reflect_internal::enum_info<
-        Enum, best::as_auto<decltype(tags)>,
-        best::as_auto<decltype(members)>...>{name, tags, {members...}};
+
+template <typename T>
+constexpr auto mirror<T>::empty() const {
+  if constexpr (best::is_struct<T>) {
+    return reflect_internal::struct_info<T, best::row<>, best::row<>>{};
+  } else if constexpr (best::is_enum<T>) {
+    crash_internal::crash("nyi");
   } else {
-    static_assert(sizeof...(members) == 0,
-                  "passed invalid member values into the mirror");
+    static_assert(sizeof(T) == 0,
+                  "instantiated mirror<T> with a non-struct, non-enum type");
   }
 }
-constexpr auto mirror::operator()(best::str name, auto... members) const {
-  return operator()(name, row(), members...);
-}
 
-template <best::is_struct Struct, best::is_object Type>
-constexpr auto mirror::field(best::str name, Type Struct::*member,
-                             auto... tags) const {
-  return best::reflect_internal::field_info<Struct, Type,
-                                            best::as_auto<decltype(tags)>...>{
-      name, member, {tags...}};
-}
-
-template <best::is_enum Enum>
-constexpr auto mirror::value(best::str name, Enum value, auto... tags) const {
-  return best::reflect_internal::elem_info<Enum,
-                                           best::as_auto<decltype(tags)>...>{
-      name, value, {tags...}};
+/// # `mirror::infer()`
+///
+/// Infers the default reflection for the type `T`. This value can be updated
+/// using the taps returned by other methods
+template <typename T>
+constexpr auto mirror<T>::infer() const {
+  if constexpr (best::is_struct<T>) {
+    return reflect_internal::infer_struct<T>();
+  } else if constexpr (best::is_enum<T>) {
+    crash_internal::crash("nyi");
+  } else {
+    static_assert(sizeof(T) == 0,
+                  "instantiated mirror<T> with a non-struct, non-enum type");
+  }
 }
 
 template <auto& info_>

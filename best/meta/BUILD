@@ -82,12 +82,38 @@ cc_library(
 )
 
 cc_library(
+  name = "names",
+  hdrs = [
+    "names.h",
+    "internal/names.h",
+  ],
+  deps = [
+    ":taxonomy",
+    "//best/base:fwd",
+    "//best/text:str",
+  ],
+)
+
+cc_test(
+  name = "names_test",
+  srcs = ["names_test.cc"],
+  linkopts = ["-rdynamic"],
+  deps = [
+    ":names",
+    "//best/test",
+  ]
+)
+
+
+cc_library(
   name = "reflect",
   hdrs = [
     "reflect.h",
     "internal/reflect.h",
+    "internal/reflect_bind.inc",
   ],
   deps = [
+    ":names",
     ":taxonomy",
     "//best/base:fwd",
     "//best/container:row",

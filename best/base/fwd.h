@@ -87,6 +87,7 @@ class track_location;
 struct empty;
 
 // best/meta/reflect.h
+template <typename>
 class mirror;
 template <auto&>
 class reflected_field;

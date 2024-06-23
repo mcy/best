@@ -1,9 +1,38 @@
-#include "best/meta/reflect.h"
+/* //-*- C++ -*-///////////////////////////////////////////////////////////// *\
 
+  Copyright 2024
+  Miguel Young de la Sota and the Best Contributors 🧶🐈‍⬛
+
+  Licensed under the Apache License, Version 2.0 (the "License"); you may not
+  use this file except in compliance with the License. You may obtain a copy
+  of the License at
+
+                https://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+  WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+  License for the specific language governing permissions and limitations
+  under the License.
+
+\* ////////////////////////////////////////////////////////////////////////// */
+
+//#include "best/meta/reflect.h"
+
+#include "best/meta/internal/reflect.h"
 #include "best/test/test.h"
 
 namespace best::reflect_test {
-struct Tag {};
+struct Foo final {
+  int foo, bar, baz;
+};
+
+best::test t = [](auto& t) {
+  constexpr auto i = reflect_internal::infer_struct<Foo>().index<&Foo::bar>();
+  t.expect_eq(i, 1);
+};
+
+/*struct Tag {};
 
 template <typename F>
 struct MyCallback {
@@ -65,5 +94,5 @@ best::test FindTag = [](auto& t) {
       },
       [] { return 0; });
   t.expect_eq(found, 42);
-};
+};*/
 }  // namespace best::reflect_test

@@ -210,6 +210,14 @@ class row final
   /// Returns whether this is the empty row `best::row<>`.
   constexpr static bool is_empty() { return types.size() == 0; }
 
+  /// # `row::as_ref()`
+  ///
+  /// Creates a new row of references.
+  constexpr best::row<best::as_ref<const Elems>...> as_ref() const&;
+  constexpr best::row<best::as_ref<Elems>...> as_ref() &;
+  constexpr best::row<best::as_rref<const Elems>...> as_ref() const&&;
+  constexpr best::row<best::as_rref<Elems>...> as_ref() &&;
+
   /// # `row[index<n>]`, `row[best::values<bounds{...}>]`
   ///
   /// Returns a reference to the `n`th element, or a subrange as a row (values

@@ -144,11 +144,13 @@ class [[nodiscard(
 /// ```
 constexpr auto inspect(auto&&);
 constexpr auto inspect(best::bind_t, auto&&);
+}  // namespace best
 
 /* ////////////////////////////////////////////////////////////////////////// *\
  * ////////////////// !!! IMPLEMENTATION DETAILS BELOW !!! ////////////////// *
 \* ////////////////////////////////////////////////////////////////////////// */
 
+namespace best {
 template <typename Guard, typename Cb>
 constexpr auto tap<Guard, Cb>::operator()(auto&&... args) const& {
   return best::tap([&](auto&& arg) -> decltype(auto) {

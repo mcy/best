@@ -38,7 +38,7 @@ namespace best {
 ///
 /// Intended to improve compile times and gdb debugging by eliminating an
 /// extremely common function that must be inlined.
-#define BEST_FWD(expr_) (static_cast<decltype(expr_)>(expr_))
+#define BEST_FWD(expr_) (static_cast<decltype(expr_)&&>(expr_))
 
 /// # `BEST_MOVE()`
 ///

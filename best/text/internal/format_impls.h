@@ -23,7 +23,7 @@
 #include <cstddef>
 #include <type_traits>
 
-#include "best/meta/reflect.h"
+// #include "best/meta/reflect.h"
 #include "best/text/rune.h"
 #include "best/text/str.h"
 
@@ -184,6 +184,7 @@ constexpr void BestFmtQuery(auto& query, R* range)
   query.requires_debug = false;
 }
 
+#if 0
 void BestFmt(auto& fmt, const best::is_reflected_struct auto& value) {
   auto refl = best::reflect<decltype(value)>;
   auto rec = fmt.record(refl.name());
@@ -200,6 +201,7 @@ void BestFmt(auto& fmt, const best::is_reflected_enum auto& value) {
         fmt.format("{}({})", refl.name(), U(value));
       });
 }
+#endif
 
 namespace format_internal {
 using mark_as_used = void;
