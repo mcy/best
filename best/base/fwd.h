@@ -85,6 +85,8 @@ template <auto&>
 class reflected_type;
 
 // best/meta/tlist.h
+template <auto>
+struct val;
 template <typename...>
 class tlist;
 

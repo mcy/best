@@ -37,6 +37,27 @@
 //! represents a `typename...` and `auto...` pack, respectively.
 
 namespace best {
+/// # `best::is_tlist`, `best::is_vlist`
+///
+/// Whether a type is a tlist or vlist for some unknown set of template
+/// arguments.
+template <typename T>
+concept is_tlist = requires(T t) { tlist_internal::is_tlist(t); };
+template <typename T>
+concept is_vlist = requires(T t) {
+  tlist_internal::is_tlist(t);
+  requires T::is_values();
+};
+
+/// # `best::is_tlist_of_size`
+///
+/// Whether a type is a tlist of a specified size.
+template <typename T, size_t n>
+concept is_tlist_of_size = requires(T t) {
+  tlist_internal::is_tlist(t);
+  requires T::size() == n;
+};
+
 /// # `best::val<x>`
 ///
 /// A value-as-a-type.
@@ -92,6 +113,9 @@ concept same =
 /// `a` and `b` are incomparable.
 template <typename... Elems>
 class tlist final {
+ private:
+  using strict = tlist_internal::strict;
+
  public:
   constexpr tlist() = default;
   constexpr tlist(const tlist&) = default;
@@ -117,154 +141,42 @@ class tlist final {
   /// # `tlist::is_values()`
   ///
   /// Returns whether every element of this list is a `best::value_trait`.
-  static constexpr bool is_values() {
-    return (best::value_trait<Elems> && ...);
-  }
-
-  /// # `tlist::concat()`
-  ///
-  /// Concatenates several tlists with this one. If an argument to this type is
-  /// not a tlist, it is treated as a one-element tlist.
-  static constexpr auto concat(auto... those) {
-    return tlist_internal::concat<Elems...>(those...);
-  }
+  static constexpr bool is_values();
 
   /// # `best::unique_pack`
   ///
-  /// Whether this pack of types is a
-  template <typename... Ts>
-  static constexpr bool is_unique() {
-    return tlist_internal::uniq<Ts...>;
-  };
-
- private:
-  template <typename F>
-  static constexpr bool type_callable = (... && callable<F, void(), Elems>);
-  template <typename F>
-  static constexpr bool value_callable = !is_empty() && (... && requires {
-    Elems::value;
-    requires callable<F, void(decltype(Elems::value))>;
-  });
-
-  template <typename F>
-  static constexpr bool types_callable = callable<F, void(), Elems...>;
-
-  template <typename F>
-  static constexpr bool values_callable = !is_empty() && requires {
-    (Elems::value, ...);
-    requires callable<F, void(decltype(Elems::value)...)>;
-  };
-
- public:
-  /// # `tlist::map()`
-  ///
-  /// Applies a function or a type trait to each type in this list and returns a
-  /// new list with the results.
-  ///
-  /// `cb` can either take zero arguments and exactly one template parameter, or
-  /// exactly one argument. In the latter case, this must be a `vlist`. If
-  /// passing a trait instead, it must take either one `typename` or one `auto`.
-  template <auto cb>
-  static constexpr decltype(auto) map()
-    requires type_callable<decltype(cb)>
-  {
-    return vals<best::call<Elems>(cb)...>;
-  }
-  template <template <typename> typename Trait>
-  static constexpr decltype(auto) map() {
-    return types<Trait<Elems>...>;
-  }
-  template <auto cb>
-  static constexpr decltype(auto) map()
-    requires value_callable<decltype(cb)>
-  {
-    return vals<best::call(cb, Elems::value)...>;
-  }
-  template <template <auto> typename Trait>
-  static constexpr decltype(auto) map()
-    requires(is_values())
-  {
-    return types<Trait<Elems::values>...>;
-  }
-
-  /// # `tlist::each()`
-  ///
-  /// Applies `cb` to each type in this list as in `map()` but does not require
-  /// that `cb` return a value.
-  static constexpr void each(auto cb)
-    requires type_callable<decltype(cb)>
-  {
-    (best::call<Elems>(cb), ...);
-  }
-  static constexpr void each(auto cb)
-    requires value_callable<decltype(cb)>
-  {
-    (best::call(cb, Elems::value), ...);
-  }
-
-  /// # `tlist::apply()`
-  ///
-  /// Applies `cb` to *every* type in this list at once. `cb` may either have
-  /// a `typename...` parameter or an `auto...` argument.
-  static constexpr decltype(auto) apply(auto cb)
-    requires types_callable<decltype(cb)>
-  {
-    return best::call<Elems...>(cb);
-  }
-  static constexpr decltype(auto) apply(auto cb)
-    requires values_callable<decltype(cb)>
-  {
-    return best::call(cb, Elems::value...);
-  };
-
-  /// # `tlist::reduce()`
-  ///
-  /// Reduces this vlist by applying op to each element's value..
-  template <best::op op>
-  static constexpr decltype(auto) reduce()
-    requires(is_values())
-  {
-    return best::operate<op>(Elems::value...);
-  }
+  /// Whether this pack of types has no duplicates.
+  static constexpr bool is_unique() { return tlist_internal::uniq<Elems...>; };
 
   /// # `tlist::reduce()`
   ///
   /// Reduces this vlist by applying `&&`.
-  static constexpr decltype(auto) all()
-    requires(is_values())
-  {
-    return reduce<best::op::AndAnd>();
-  };
+  static constexpr decltype(auto) all() { return reduce<best::op::AndAnd>(); };
 
   /// # `tlist::reduce()`
   ///
   /// Reduces this vlist by applying `||`.
-  static constexpr decltype(auto) any()
-    requires(is_values())
-  {
-    return reduce<best::op::OrOr>();
-  };
+  static constexpr decltype(auto) any() { return reduce<best::op::OrOr>(); };
 
   /// # `tlist::type<n>`
   ///
   /// Gets the type of the `n`th element of this tag.
   ///
   /// Produces an SFINAE error when out-of-bounds, unless `Default` is
-  /// specified.
-  template <size_t n, typename Default = tlist_internal::strict>
-  using type = tlist_internal::nth<n, Default, Elems...>;
+  /// specified, in which case that is returned instead.
+  template <size_t n, typename Default = strict>
+  using type = tlist_internal::nth<n, Default, tlist>;
 
   /// # `tlist::value<n>`
   ///
   /// Gets the value of the `n`th element of this tag.
   ///
   /// Produces an SFINAE error when out-of-bounds, unless `default_` is
-  /// specified.
-  template <size_t n, auto default_ = tlist_internal::strict{}>
+  /// specified, in which case that is returned instead.
+  template <size_t n, auto default_ = strict{}>
   static constexpr auto value =
-      type<n, best::select<
-                  std::is_same_v<decltype(default_), tlist_internal::strict>,
-                  tlist_internal::strict, val<default_>>>::value;
+      type<n, best::select<tlist_internal::not_strict<decltype(default_)>,
+                           tlist_internal::strict, val<default_>>>::value;
 
   /// # `tlist::at()`
   ///
@@ -272,76 +184,141 @@ class tlist final {
   /// corresponding types.
   ///
   /// Produces an SFINAE error when out-of-bounds, unless `Default` is
+  /// specified, in which case that is returned instead.
+  template <best::bounds bounds, typename Default = strict>
+  static constexpr auto at();
+
+  /// # `tlist::gather()`
+  ///
+  /// Selects elements of this tlist by index to form a new tlist.
+  ///
+  /// Produces an SFINAE error when out-of-bounds, unless `Default` is
   /// specified.
-  template <best::bounds bounds, typename Default = tlist_internal::strict>
-  static constexpr tlist_internal::slice<bounds, Default, tlist> at() {
-    return {};
+  template <size_t... ns>
+  static constexpr auto gather();
+  template <typename Default, size_t... ns>
+  static constexpr auto gather();
+
+  /// # `tlist::join()`, `tlist::operator+`
+  ///
+  /// Concatenates several tlists with this one. If an argument to this type is
+  /// not a tlist, it is treated as a one-element tlist.
+  ///
+  /// This is also made available via `operator+`, but beware: using a fold with
+  /// `operator+` here is quadratic; you should generally prefer `join()` for
+  /// variadic cases.
+  static constexpr auto join(best::is_tlist auto... those);
+  auto operator+(best::is_tlist auto that) { return join(that); }
+
+  /// # `tlist::push()`
+  ///
+  /// Inserts a new value at the end of the list.
+  template <typename T>
+  static constexpr auto push();
+  template <auto v>
+  static constexpr auto push();
+
+  /// # `tlist::insert()`
+  ///
+  /// Inserts a new value at the specified index.
+  ///
+  /// Produces an SFINAE error when out-of-bounds, unless `Default` is
+  /// specified, in which case that is returned instead.
+  template <size_t n, typename T, typename Default = strict>
+  static constexpr auto insert();
+  template <size_t n, auto v, typename Default = strict>
+  static constexpr auto insert();
+
+  /// # `tlist::splice()`
+  ///
+  /// Slices into `Elems` with `bounds` and returns a new tlist with the
+  /// sliced portion replaced with `those`.
+  ///
+  /// Produces an SFINAE error when out-of-bounds, unless `Default` is
+  /// specified, in which case that is returned instead.
+  template <best::bounds bounds, typename Default = strict>
+  static constexpr auto splice(best::is_tlist auto that);
+
+  /// # `tlist::scatter()`
+  ///
+  /// Updates elements of this tlist by selecting from the list provided.
+  ///
+  /// Ouf-of-bounds "writes" are discarded.
+  template <auto those, size_t... ns>
+  static constexpr auto scatter()
+    requires best::is_tlist_of_size<decltype(those), sizeof...(ns)>
+  {
+    return tlist_internal::scatter<tlist, decltype(those), ns...>{};
   }
+
+  /// # `tlist::update()`
+  ///
+  /// Updates a single element of this list.
+  ///
+  /// Ouf-of-bounds "writes" are discarded.
+  template <size_t n, typename T>
+  static constexpr auto update();
+  template <size_t n, auto v>
+  static constexpr auto update();
+
+  /// # `tlist::remove()`
+  ///
+  /// Removes the element at index `n`.
+  ///
+  /// Produces an SFINAE error when out-of-bounds, unless `Default` is
+  /// specified.
+  template <size_t n, typename Default = strict>
+  static constexpr auto remove();
+
+  /// # `tlist::erase()`
+  ///
+  /// Slices into `Elems` with `bounds` and returns a new tlist tlist with the
+  /// sliced portion removed.
+  ///
+  /// Produces an SFINAE error when out-of-bounds, unless `Default` is
+  /// specified.
+  template <best::bounds bounds, typename Default = strict>
+  static constexpr auto erase();
 
   /// # `tlist::trim_prefix()`
   ///
   /// If `list` is a prefix of this tlist, returns a new tlist with those
   /// elements chopped off.
-  template <typename Default = tlist_internal::strict>
-  static constexpr auto trim_prefix(auto list) {
-    using D = best::select<std::is_same_v<Default, tlist_internal::strict>,
-                           tlist, Default>;
-    using Out = decltype(list.remove_prefix_from(tlist{}));
-    if constexpr (std::is_void_v<Out>) {
-      return D{};
-    } else {
-      return Out{};
-    }
-  }
+  template <typename Default = strict>
+  static constexpr auto trim_prefix(best::is_tlist auto prefix);
 
   /// # `tlist::trim_prefix()`
   ///
   /// If `list` is a suffix of this tlist, returns a new tlist with those
   /// elements chopped off.
-  template <typename Default = tlist_internal::strict>
-  static constexpr auto trim_suffix(auto list) {
-    using D = best::select<std::is_same_v<Default, tlist_internal::strict>,
-                           tlist, Default>;
-    using Out = decltype(list.remove_suffix_from(tlist{}));
-    if constexpr (std::is_void_v<Out>) {
-      return D{};
-    } else {
-      return Out{};
-    }
-  }
+  template <typename Default = strict>
+  static constexpr auto trim_suffix(best::is_tlist auto suffix);
 
   /// # `tlist::find()`
   ///
   /// Returns the first index of this list that satisfies the given type
   /// predicate. This predicate can be a callback (as in `map()`), a bool-typed
   /// value trait, or a type/value to search for.
-  static constexpr best::container_internal::option<size_t> find(auto pred)
-    requires type_callable<decltype(pred)>
-  {
+  static constexpr auto find(tlist_internal::t_callable<Elems...> auto pred) {
     size_t n = -1;
     if (((++n, best::call<Elems>(pred)) || ...)) {
-      return n;
+      return opt_size(n);
     }
-    return {};
+    return opt_size{};
   }
-  static constexpr best::container_internal::option<size_t> find(auto pred)
-    requires value_callable<decltype(pred)>
-  {
+  static constexpr auto find(tlist_internal::v_callable<Elems...> auto pred) {
     return find([&]<typename V> { return pred(V::value); });
   }
   template <typename T>
-  static constexpr best::container_internal::option<size_t> find() {
+  static constexpr auto find() {
     return find([]<typename U> { return std::same_as<T, U>; });
   }
   template <template <typename> typename Trait>
-  static constexpr best::container_internal::option<size_t> find()
-    requires(... && value_trait<Trait<Elems>>)
-  {
+  static constexpr auto find() {
     return find([]<typename U> { return Trait<U>::value; });
   }
-  static constexpr best::container_internal::option<size_t> find(auto value)
-    requires(!value_callable<decltype(value)> && ... &&
-             best::equatable<decltype(value), decltype(Elems::value)>)
+  static constexpr auto find(auto value)
+    requires(best::equatable<decltype(value), decltype(Elems::value)> && ...)
   {
     return find([&](auto that) { return value == that; });
   }
@@ -349,64 +326,96 @@ class tlist final {
   /// # `tlist::find_unique()`
   ///
   /// Like `find()`, but requires that the returned element be the unique match.
-  static constexpr best::container_internal::option<size_t> find_unique(
-      auto pred)
-    requires type_callable<decltype(pred)>
-  {
+  static constexpr auto find_unique(
+      tlist_internal::t_callable<Elems...> auto pred) {
     size_t n = -1;
     size_t found = 0;
     if ((((found || ++n), best::call<Elems>(pred) && (++found == 2)) || ...) ||
         found != 1) {
-      return {};
+      return opt_size{};
     }
-    return n;
+    return opt_size{n};
   }
-  static constexpr best::container_internal::option<size_t> find_unique(
-      auto pred)
-    requires value_callable<decltype(pred)>
-  {
+  static constexpr auto find_unique(
+      tlist_internal::v_callable<Elems...> auto pred) {
     return find_unique([&]<typename V> { return pred(V::value); });
   }
   template <typename T>
-  static constexpr best::container_internal::option<size_t> find_unique() {
+  static constexpr auto find_unique() {
     return find_unique([]<typename U> { return std::same_as<T, U>; });
   }
   template <template <typename> typename Trait>
-  static constexpr best::container_internal::option<size_t> find_unique()
+  static constexpr auto find_unique()
     requires(... && value_trait<Trait<Elems>>)
   {
     return find_unique([]<typename U> { return Trait<U>::value; });
   }
-  static constexpr best::container_internal::option<size_t> find_unique(
-      auto value)
-    requires(!value_callable<decltype(value)> && ... &&
-             best::equatable<decltype(value), decltype(Elems::value)>)
+  static constexpr auto find_unique(auto value)
+    requires(best::equatable<decltype(value), decltype(Elems::value)> && ...)
   {
     return find_unique([&](auto that) { return value == that; });
   }
 
-  constexpr bool operator==(tlist) const { return true; }
-  template <typename... Those>
-  constexpr bool operator==(tlist<Those...>) const {
-    return false;
+  /// # `tlist::map()`
+  ///
+  /// Applies a function or a type trait to each type in this list and returns a
+  /// new list with the results.
+  ///
+  /// `cb` can either take zero arguments and exactly one template parameter, or
+  /// exactly one argument. In the latter case, this tlist must be a vlist. If
+  /// passing a trait instead, it must take either one `typename` or one `auto`.
+  template <tlist_internal::t_callable<Elems...> auto cb>
+  static constexpr decltype(auto) map() {
+    return best::vals<best::call<Elems>(cb)...>;
   }
-  template <typename... Those>
-  constexpr best::partial_ord operator<=>(tlist<Those...> that) const {
-    if constexpr (tlist{} == that) {
-      return best::partial_ord::equivalent;
-    } else if constexpr (!std::is_void_v<decltype(remove_prefix_from(that))>) {
-      return best::partial_ord::less;
-    } else if constexpr (!std::is_void_v<decltype(that.remove_prefix_from(
-                             tlist{}))>) {
-      return best::partial_ord::greater;
-    } else {
-      return best::partial_ord::unordered;
-    }
+  template <tlist_internal::v_callable<Elems...> auto cb>
+  static constexpr decltype(auto) map() {
+    return best::vals<best::call(cb, Elems::value)...>;
   }
+  template <template <typename> typename Trait>
+  static constexpr decltype(auto) map();
+  template <template <auto> typename Trait>
+  static constexpr decltype(auto) map();
+
+  /// # `tlist::each()`
+  ///
+  /// Applies `cb` to each type in this list as in `map()` but does not require
+  /// that `cb` return a value.
+  static constexpr void each(tlist_internal::t_callable<Elems...> auto cb) {
+    (best::call<Elems>(cb), ...);
+  }
+  static constexpr void each(tlist_internal::v_callable<Elems...> auto cb) {
+    (best::call(cb, Elems::value), ...);
+  }
+
+  /// # `tlist::apply()`
+  ///
+  /// Applies `cb` to *every* type in this list at once. `cb` may either have
+  /// a `typename...` parameter or an `auto...` argument.
+  static constexpr decltype(auto) apply(
+      tlist_internal::ts_callable<Elems...> auto cb) {
+    return best::call<Elems...>(cb);
+  }
+  static constexpr decltype(auto) apply(
+      tlist_internal::vs_callable<Elems...> auto cb) {
+    return best::call(cb, Elems::value...);
+  };
+
+  /// # `tlist::reduce()`
+  ///
+  /// Reduces this vlist by applying op to each element's value..
+  template <best::op op>
+  static constexpr decltype(auto) reduce() {
+    return best::operate<op>(Elems::value...);
+  }
+
+  constexpr bool operator==(best::is_tlist auto) const;
+  constexpr best::partial_ord operator<=>(best::is_tlist auto that) const;
 
  private:
   template <typename...>
   friend class tlist;
+  using opt_size = best::container_internal::option<size_t>;
 
   template <typename... Extra>
   static constexpr tlist<Extra...> remove_prefix_from(
@@ -422,6 +431,143 @@ class tlist final {
   }
   static constexpr void remove_suffix_from(auto) {}
 };
+}  // namespace best
+
+/* ////////////////////////////////////////////////////////////////////////// *\
+ * ////////////////// !!! IMPLEMENTATION DETAILS BELOW !!! ////////////////// *
+\* ////////////////////////////////////////////////////////////////////////// */
+
+namespace best {
+template <typename... Elems>
+constexpr bool tlist<Elems...>::is_values() {
+  return (best::value_trait<Elems> && ...);
+}
+
+template <typename... Elems>
+constexpr auto tlist<Elems...>::join(best::is_tlist auto... those) {
+  return tlist_internal::join<tlist, decltype(those)...>{};
+}
+
+template <typename... Elems>
+template <template <typename> typename Trait>
+constexpr decltype(auto) tlist<Elems...>::map() {
+  return types<Trait<Elems>...>;
+}
+template <typename... Elems>
+template <template <auto> typename Trait>
+constexpr decltype(auto) tlist<Elems...>::map() {
+  return types<Trait<Elems::values>...>;
+}
+
+template <typename... Elems>
+template <best::bounds bounds, typename Default>
+constexpr auto tlist<Elems...>::at() {
+  return tlist_internal::slice<bounds, Default, tlist>{};
+}
+
+template <typename... Elems>
+template <typename T>
+constexpr auto tlist<Elems...>::push() {
+  return insert<size(), T>();
+}
+template <typename... Elems>
+template <auto v>
+constexpr auto tlist<Elems...>::push() {
+  return insert<size(), v>();
+}
+
+template <typename... Elems>
+template <size_t n, typename T, typename Default>
+constexpr auto tlist<Elems...>::insert() {
+  return splice<bounds{.start = n, .count = 0}, Default>(best::types<T>);
+}
+template <typename... Elems>
+template <size_t n, auto v, typename Default>
+constexpr auto tlist<Elems...>::insert() {
+  return splice<bounds{.start = n, .count = 0}, Default>(best::vals<v>);
+}
+
+template <typename... Elems>
+template <best::bounds bounds, typename Default>
+constexpr auto tlist<Elems...>::splice(best::is_tlist auto that) {
+  return tlist_internal::splice<bounds, Default, tlist, decltype(that)>{};
+}
+
+template <typename... Elems>
+template <size_t... ns>
+constexpr auto tlist<Elems...>::gather() {
+  return tlist_internal::gather<best::tlist_internal::strict, tlist, ns...>{};
+}
+template <typename... Elems>
+template <typename Default, size_t... ns>
+constexpr auto tlist<Elems...>::gather() {
+  return tlist_internal::gather<Default, tlist, ns...>{};
+}
+
+template <typename... Elems>
+template <size_t n, typename T>
+constexpr auto tlist<Elems...>::update() {
+  return splice<bounds{.start = n, .count = 0}, tlist>(best::types<T>);
+}
+template <typename... Elems>
+template <size_t n, auto v>
+constexpr auto tlist<Elems...>::update() {
+  return splice<bounds{.start = n, .count = 0}, tlist>(best::vals<v>);
+}
+
+template <typename... Elems>
+template <size_t n, typename Default>
+constexpr auto tlist<Elems...>::remove() {
+  return splice<bounds{.start = n, .count = 1}, Default>(best::types<>);
+}
+
+template <typename... Elems>
+template <best::bounds bounds, typename Default>
+constexpr auto tlist<Elems...>::erase() {
+  return splice<bounds, Default>(best::types<>);
+}
+
+template <typename... Elems>
+template <typename Default>
+constexpr auto tlist<Elems...>::trim_prefix(best::is_tlist auto list) {
+  using D = best::select<tlist_internal::not_strict<Default>, Default, tlist>;
+  using Out = decltype(list.remove_prefix_from(tlist{}));
+  if constexpr (std::is_void_v<Out>) {
+    return D{};
+  } else {
+    return Out{};
+  }
+}
+template <typename... Elems>
+template <typename Default>
+constexpr auto tlist<Elems...>::trim_suffix(best::is_tlist auto list) {
+  using D = best::select<tlist_internal::not_strict<Default>, Default, tlist>;
+  using Out = decltype(list.remove_suffix_from(tlist{}));
+  if constexpr (std::is_void_v<Out>) {
+    return D{};
+  } else {
+    return Out{};
+  }
+}
+
+template <typename... Elems>
+constexpr bool tlist<Elems...>::operator==(best::is_tlist auto that) const {
+  return std::is_same_v<tlist, decltype(that)>;
+}
+template <typename... Elems>
+constexpr best::partial_ord tlist<Elems...>::operator<=>(
+    best::is_tlist auto that) const {
+  if constexpr (tlist{} == that) {
+    return best::partial_ord::equivalent;
+  } else if constexpr (!std::is_void_v<decltype(remove_prefix_from(that))>) {
+    return best::partial_ord::less;
+  } else if constexpr (!std::is_void_v<decltype(that.remove_prefix_from(
+                           tlist{}))>) {
+    return best::partial_ord::greater;
+  } else {
+    return best::partial_ord::unordered;
+  }
+}
 }  // namespace best
 
 #endif  // BEST_META_TLIST_H_
