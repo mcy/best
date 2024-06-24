@@ -465,16 +465,15 @@ class row final
   constexpr decltype(auto) apply(auto&& f) const&&;
   constexpr decltype(auto) apply(auto&& f) &&;
 
-  /// # `row::forward()`
+  /// # `row::as_args()`
   ///
-  /// Constructs a corresponding `best::args()` for this row. The
-  /// elements of the resulting forwarded row will be the result of calling
-  /// `get()`: references, except if an element is of void type, a best::empty
-  /// value instead.
-  constexpr auto forward() const&;
-  constexpr auto forward() &;
-  constexpr auto forward() const&&;
-  constexpr auto forward() &&;
+  /// Constructs a corresponding `best::args()` for this row. The elements of
+  /// the resulting row will be the result of calling `get()`: references,
+  /// except if an element is of void type, a best::empty value instead.
+  constexpr auto as_args() const&;
+  constexpr auto as_args() &;
+  constexpr auto as_args() const&&;
+  constexpr auto as_args() &&;
 
   friend void BestFmt(auto& fmt, const row& row)
     requires requires(best::object<Elems>... els) { (fmt.format(els), ...); }
@@ -531,27 +530,31 @@ row(best::bind_t, Elems&&...) -> row<Elems&&...>;
 
 namespace best {
 template <typename... A>
-constexpr auto row<A...>::forward() const& {
+constexpr auto row<A...>::as_args() const& {
   return apply([](auto&&... args) {
-    return best::args<decltype(args)...>{row<decltype(args)...>(BEST_FWD(args)...)};
+    return best::args<decltype(args)...>{
+        row<decltype(args)...>(BEST_FWD(args)...)};
   });
 }
 template <typename... A>
-constexpr auto row<A...>::forward() & {
+constexpr auto row<A...>::as_args() & {
   return apply([](auto&&... args) {
-    return best::args<decltype(args)...>{row<decltype(args)...>(BEST_FWD(args)...)};
+    return best::args<decltype(args)...>{
+        row<decltype(args)...>(BEST_FWD(args)...)};
   });
 }
 template <typename... A>
-constexpr auto row<A...>::forward() const&& {
+constexpr auto row<A...>::as_args() const&& {
   return BEST_MOVE(*this).apply([](auto&&... args) {
-    return best::args<decltype(args)...>{row<decltype(args)...>(BEST_FWD(args)...)};
+    return best::args<decltype(args)...>{
+        row<decltype(args)...>(BEST_FWD(args)...)};
   });
 }
 template <typename... A>
-constexpr auto row<A...>::forward() && {
+constexpr auto row<A...>::as_args() && {
   return BEST_MOVE(*this).apply([](auto&&... args) {
-    return best::args<decltype(args)...>{row<decltype(args)...>(BEST_FWD(args)...)};
+    return best::args<decltype(args)...>{
+        row<decltype(args)...>(BEST_FWD(args)...)};
   });
 }
 
