@@ -263,10 +263,10 @@ class object_ptr final {
   }
   template <typename... Args>
   BEST_INLINE_SYNTHETIC constexpr void construct_in_place(
-      best::row_forward<Args...> args) const
+      best::fwd<Args...> args) const
     requires best::constructible<T, Args...>
   {
-    args.row.apply(
+    args.args.apply(
         [&](auto&&... args) { construct_in_place(BEST_FWD(args)...); });
   }
 
@@ -333,8 +333,7 @@ class object_ptr final {
     }
   }
   template <typename... Args>
-  BEST_INLINE_SYNTHETIC constexpr void assign(
-      best::row_forward<Args...> args) const
+  BEST_INLINE_SYNTHETIC constexpr void assign(best::fwd<Args...> args) const
     requires best::constructible<T, Args...>
   {
     args.row.apply([&](auto&&... args) { assign(BEST_FWD(args)...); });

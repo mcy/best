@@ -47,7 +47,7 @@ best::test Fwd = [](auto& t) {
   best::row<int, const float&, bool> x0{42, x, true};
 
   static_assert(best::same<decltype(std::move(x0).forward()),
-                           best::row_forward<int&&, const float&, bool&&>>);
+                           best::fwd<int&&, const float&, bool&&>>);
 };
 
 best::test ToString = [](auto& t) {
