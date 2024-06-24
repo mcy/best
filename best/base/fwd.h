@@ -83,7 +83,7 @@ tap(best::bind_t, Cb&&) -> tap<tags_internal_do_not_use::ctad_guard, Cb&&>;
 template <typename>
 class track_location;
 
-// best/meta/ebo.h
+// best/meta/empty.h
 struct empty;
 
 // best/meta/reflect.h
