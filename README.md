@@ -30,25 +30,33 @@ This is the `best` library in spite of C++, not because of it.
 ## Building
 
 `best` currently only supports building with Bazel 7. It bundles scripts under
-`bazel/` for running Bazel via Bazelisk.
+`bazel/` for running Bazel via Bazelisk. It uses a hermetic Clang toolchain.
 
 `best` will only have one source-of-truth build system. If you want to use
 `best` with CMake or a similar build system, you are on your own.
+
+To run all of `best`'s tests, simply run the following; you should not need to
+download any dependencies.
+
+```sh
+./bazel test //...
+```
 
 ## Organization
 
 `best`'s code is organized into shallow subdirectories that capture different
 pieces of functionality.
 
-- `best/base` - Low-level portability utilities.
+- `best/base` - Basic types and functions; portability helpers.
 - `best/container` - Container types. We interpret any generic "wrapper" type as
   a container.
+- `best/func` - Helpers for manipulating functions as first-class objects.
 - `best/log` - Logging utilities.
 - `best/math` - Numeric and integer utilities.
-- `best/meta` - Metaprogramming utilities.
 - `best/memory` - Low-level memory management.
-- `best/string` - Text processing utilities. `best` is a Unicode-first library.
+- `best/meta` - Metaprogramming utilities, including reflection.
 - `best/test` - A unit testing framework.
+- `best/text` - Text processing utilities. `best` is a Unicode-first library.
 
 ## Contributing + Style
 
@@ -59,6 +67,7 @@ The C++ code mostly follows
 a few changes:
 
 - The names of types and functions are in `snake_case`, following the STL.
+- FTADLEs and other extension points are in `PascalCase`, and start with `Best`.
 - Non-template constants, and tests, are `PascalCase` rather than `kConst`; all
   other variables are `snake_case`.
 - Type parameters are `PascalCase`.
