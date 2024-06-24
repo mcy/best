@@ -55,7 +55,7 @@ struct err;
 template <typename...>
 class row;
 template <typename...>
-struct fwd;
+struct args;
 
 // best/container/pun.h
 template <typename...>

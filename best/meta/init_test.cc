@@ -301,20 +301,20 @@ static_assert(!best::moveable<Stuck, trivially>);
 
 static_assert(best::relocatable<best_fodder::Relocatable, trivially>);
 
-// best::fwd smoke test.
-static_assert(best::constructible<int, best::fwd<>>);
-static_assert(best::constructible<int, best::fwd<int>>);
-static_assert(best::constructible<int, best::fwd<long>>);
+// best::args smoke test.
+static_assert(best::constructible<int, best::args<>>);
+static_assert(best::constructible<int, best::args<int>>);
+static_assert(best::constructible<int, best::args<long>>);
 
-static_assert(best::constructible<int, trivially, best::fwd<>>);
-static_assert(best::constructible<int, trivially, best::fwd<int>>);
-static_assert(best::constructible<int, trivially, best::fwd<long>>);
+static_assert(best::constructible<int, trivially, best::args<>>);
+static_assert(best::constructible<int, trivially, best::args<int>>);
+static_assert(best::constructible<int, trivially, best::args<long>>);
 
-static_assert(best::constructible<NonTrivialPod, best::fwd<int, int>>);
-static_assert(best::constructible<NonTrivialPod, best::fwd<const int&, int>>);
-static_assert(best::constructible<NonTrivialPod, best::fwd<NonTrivialPod>>);
+static_assert(best::constructible<NonTrivialPod, best::args<int, int>>);
+static_assert(best::constructible<NonTrivialPod, best::args<const int&, int>>);
+static_assert(best::constructible<NonTrivialPod, best::args<NonTrivialPod>>);
 static_assert(
-    best::constructible<NonTrivialPod, best::fwd<const NonTrivialPod>>);
+    best::constructible<NonTrivialPod, best::args<const NonTrivialPod>>);
 
 }  // namespace best::init_test
 
