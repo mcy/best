@@ -99,8 +99,10 @@ inline constexpr best::str type_name = type_names::of<T>.name();
 template <best::is_member_ptr auto pm>
 inline constexpr best::str field_name = best::names_internal::parse<pm>();
 template <best::is_enum auto e>
-inline constexpr best::option<best::str> value_name =
-    best::names_internal::parse<e>();
+inline constexpr best::option<best::str> value_name = BEST_PUSH_GCC_DIAGNOSTIC()
+    BEST_IGNORE_GCC_DIAGNOSTIC("-Wenum-constexpr-conversion")
+        best::names_internal::parse<e>();
+BEST_POP_GCC_DIAGNOSTIC()
 }  // namespace best
 
 /* ////////////////////////////////////////////////////////////////////////// *\

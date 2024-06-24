@@ -23,20 +23,6 @@
 #include "best/test/test.h"
 #include "best/text/format.h"
 
-namespace best {
-void BestFmt(auto& fmt, const format_spec& spec) {
-  auto rec = fmt.record();
-  rec.field("alt", spec.alt);
-  rec.field("debug", spec.debug);
-  rec.field("sign_aware_padding", spec.sign_aware_padding);
-  rec.field("alignment", best::option<int>(spec.alignment));
-  rec.field("fill", spec.fill);
-  rec.field("width", spec.width);
-  rec.field("prec", spec.prec);
-  rec.field("method", spec.method);
-}
-}  // namespace best
-
 namespace best::format_internal::parser_test {
 using Node = best::choice<best::str, best::row<size_t, best::format_spec>>;
 using Ast = best::vec<Node>;

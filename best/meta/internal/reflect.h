@@ -21,6 +21,7 @@
 #define BEST_META_INTERNAL_REFLECT_H_
 
 #include "best/base/fwd.h"
+#include "best/base/port.h"
 #include "best/meta/internal/names.h"
 #include "best/meta/names.h"
 #include "best/meta/taxonomy.h"
@@ -113,7 +114,16 @@ constexpr bool typed_addr_eq(...) { return false; }
 /// A value that can convert to any other, used in the structured bindings
 /// visitors.
 inline constexpr struct any_t {
+  constexpr any_t() = default;
+
+  // We need to delete these to avoid tripping certain weird ambiguous
+  // constructor cases. We want ALL construction to funnel through the operator
+  // T().
+  constexpr any_t(const any_t&) = delete;
+  constexpr any_t(any_t&&) = delete;
+
   template <typename T>
+    requires(!best::same<any_t, T>)
   operator T() const;
 } any;
 template <size_t>
@@ -316,11 +326,13 @@ class tdesc final {
   static constexpr auto infer_enum()
     requires best::is_enum<T>
   {
+    BEST_PUSH_GCC_DIAGNOSTIC()
+    BEST_IGNORE_GCC_DIAGNOSTIC("-Wenum-constexpr-conversion")
     constexpr auto ok = best::indices<count>.apply([]<typename... I> {
       constexpr size_t ok_count =
           (0 + ... + best::value_name<T(start + I::value)>.has_value());
 
-      std::array<T, ok_count> ok;
+      std::array<T, ok_count> ok = {};
       size_t idx = 0;
 
       ((best::value_name<T(start + I::value)>.has_value()
@@ -329,6 +341,8 @@ class tdesc final {
        ...);
       return ok;
     });
+    BEST_POP_GCC_DIAGNOSTIC()
+
     auto values = best::indices<ok.size()>.apply([&]<typename... I> {
       return best::row{vdesc{
           best::vals<ok[I::value]>,

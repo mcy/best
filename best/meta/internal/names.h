@@ -195,6 +195,8 @@ constexpr best::str parse() {
                    prefix[{.start = i}]);
 }
 
+BEST_PUSH_GCC_DIAGNOSTIC()
+BEST_IGNORE_GCC_DIAGNOSTIC("-Wenum-constexpr-conversion")
 template <best::is_enum auto e>
 constexpr best::option<best::str> parse() {
   auto offsets = names_internal::ValueOffsets;
@@ -210,6 +212,7 @@ constexpr best::option<best::str> parse() {
   // `name` is going to be scoped, so we need to strip off a leading path.
   return names_internal::remove_namespace(name);
 };
+BEST_POP_GCC_DIAGNOSTIC()
 
 };  // namespace best::names_internal
 
