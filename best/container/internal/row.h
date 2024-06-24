@@ -125,9 +125,32 @@ template <size_t... i, typename... Elems>
 struct impl<const best::vlist<i...>, Elems...>
     : best::ebo<best::object<Elems>, Elems, i>... {};
 
+// See tlist_internal::slice_impl().
+using ::best::tlist_internal::splat;
+template <typename Out, size_t... i, size_t... j, size_t... k>
+constexpr auto make_slicer(std::index_sequence<i...>, std::index_sequence<j...>,
+                           std::index_sequence<k...>) {
+  return []<splat<i>... prefix, splat<j>... infix, splat<k>... suffix>(
+             prefix&&..., infix&&... args, suffix&&...) {
+    return Out{BEST_FWD(args)...};
+  };
+}
+template <best::bounds b, typename... Ts,
+          auto count = b.try_compute_count(sizeof...(Ts))>
+  requires(count.has_value())
+constexpr auto slice(auto&& row) {
+  using Out = decltype(row.types.template at<b>().template apply<best::row>());
+  return BEST_FWD(row).apply([](auto&&... args) {
+    return make_slicer<Out>(
+        std::make_index_sequence<b.start>{}, std::make_index_sequence<*count>{},
+        std::make_index_sequence<sizeof...(args) - (b.start + *count)>{})(
+        BEST_FWD(args)...);
+  });
+}
+
+// See tlist_internal::join().
 using ::best::tlist_internal::fast_nth;
 using ::best::tlist_internal::join_lut;
-
 constexpr auto join(auto&&... those) {
   return [&]<auto... i>(best::vlist<i...>) {
     auto rowrow = best::row{best::bind, BEST_FWD(those)...};

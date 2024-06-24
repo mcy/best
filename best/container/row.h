@@ -177,17 +177,22 @@ class row final
   /// Returns whether this is the empty row `best::row<>`.
   constexpr static bool is_empty() { return types.size() == 0; }
 
-  /// # `row[index<n>]`
+  /// # `row[index<n>]`, `row[best::values<bounds{...}>]`
   ///
-  /// Returns the `n`th element.
+  /// Returns a reference to the `n`th element, or a subrange as a row (values
+  /// are copied/moved as appropriate).
   // clang-format off
-  template <size_t n> constexpr cref<n> operator[](best::index_t<n> idx) const&;
-  template <size_t n> constexpr ref<n> operator[](best::index_t<n> idx) &;
-  template <size_t n> constexpr crref<n> operator[](best::index_t<n> idx) const&&;
-  template <size_t n> constexpr rref<n> operator[](best::index_t<n> idx) &&;
+  template <size_t n> constexpr cref<n> operator[](best::index_t<n>) const&;
+  template <size_t n> constexpr ref<n> operator[](best::index_t<n>) &;
+  template <size_t n> constexpr crref<n> operator[](best::index_t<n>) const&&;
+  template <size_t n> constexpr rref<n> operator[](best::index_t<n>) &&;
+  template <best::bounds range> constexpr auto operator[](best::vlist<range>) const&;
+  template <best::bounds range> constexpr auto operator[](best::vlist<range>) &;
+  template <best::bounds range> constexpr auto operator[](best::vlist<range>) const&&;
+  template <best::bounds range> constexpr auto operator[](best::vlist<range>) &&;
   // clang-format on
 
-  /// # `row::at(index<n>)`
+  /// # `row::at(index<n>)`, `row::at(best::values<bounds{...}>)`
   ///
   /// Identical to `operator[]` in all ways.
   // clang-format off
@@ -195,6 +200,10 @@ class row final
   template <size_t n> constexpr ref<n> at(best::index_t<n> = {}) &;
   template <size_t n> constexpr crref<n> at(best::index_t<n> = {}) const&&;
   template <size_t n> constexpr rref<n> at(best::index_t<n> = {}) &&;
+  template <best::bounds range> constexpr auto at(best::vlist<range> = {}) const&;
+  template <best::bounds range> constexpr auto at(best::vlist<range> = {}) &;
+  template <best::bounds range> constexpr auto at(best::vlist<range> = {}) const&&;
+  template <best::bounds range> constexpr auto at(best::vlist<range> = {}) &&;
   // clang-format on
 
   /// # `row::object(index<n>)`
@@ -232,22 +241,6 @@ class row final
   template <typename T> constexpr decltype(auto) select(best::tlist<T> idx = {}) &&;
   // clang-format on
 
-  /// # `tlist::join()`, `tlist::operator+`
-  ///
-  /// Concatenates several rows with this one.
-  ///
-  /// This is also made available via `operator+`, but beware: using a fold with
-  /// `operator+` here is quadratic; you should generally prefer `join()` for
-  /// variadic cases.
-  constexpr auto join(best::is_row auto&&...) const&;
-  constexpr auto join(best::is_row auto&&...) &;
-  constexpr auto join(best::is_row auto&&...) const&&;
-  constexpr auto join(best::is_row auto&&...) &&;
-  constexpr auto operator+(best::is_row auto&&) const&;
-  constexpr auto operator+(best::is_row auto&&) &;
-  constexpr auto operator+(best::is_row auto&&) const&&;
-  constexpr auto operator+(best::is_row auto&&) &&;
-
   /// # `row::first()`, `row::second()`, `row::last()`
   ///
   /// Gets the first, second, or last value; helper for `std::pair`-like uses.
@@ -265,6 +258,22 @@ class row final
   constexpr decltype(auto) last() const&& requires (!types.is_empty());
   constexpr decltype(auto) last() && requires (!types.is_empty());
   // clang-format on
+
+  /// # `tlist::join()`, `tlist::operator+`
+  ///
+  /// Concatenates several rows with this one.
+  ///
+  /// This is also made available via `operator+`, but beware: using a fold with
+  /// `operator+` here is quadratic; you should generally prefer `join()` for
+  /// variadic cases.
+  constexpr auto join(best::is_row auto&&...) const&;
+  constexpr auto join(best::is_row auto&&...) &;
+  constexpr auto join(best::is_row auto&&...) const&&;
+  constexpr auto join(best::is_row auto&&...) &&;
+  constexpr auto operator+(best::is_row auto&&) const&;
+  constexpr auto operator+(best::is_row auto&&) &;
+  constexpr auto operator+(best::is_row auto&&) const&&;
+  constexpr auto operator+(best::is_row auto&&) &&;
 
   /// # `row::apply()`
   ///
@@ -419,6 +428,27 @@ constexpr row<A...>::rref<n> row<A...>::operator[](best::index_t<n> idx) && {
 }
 
 template <typename... A>
+template <best::bounds range>
+constexpr auto row<A...>::operator[](best::vlist<range>) const& {
+  return row_internal::slice<range, A...>(*this);
+}
+template <typename... A>
+template <best::bounds range>
+constexpr auto row<A...>::operator[](best::vlist<range>) & {
+  return row_internal::slice<range, A...>(*this);
+}
+template <typename... A>
+template <best::bounds range>
+constexpr auto row<A...>::operator[](best::vlist<range>) const&& {
+  return row_internal::slice<range, A...>(BEST_MOVE(*this));
+}
+template <typename... A>
+template <best::bounds range>
+constexpr auto row<A...>::operator[](best::vlist<range>) && {
+  return row_internal::slice<range, A...>(BEST_MOVE(*this));
+}
+
+template <typename... A>
 template <size_t n>
 constexpr row<A...>::cref<n> row<A...>::at(best::index_t<n> idx) const& {
   using T = type<n>;
@@ -447,7 +477,26 @@ constexpr row<A...>::rref<n> row<A...>::at(best::index_t<n> idx) && {
   using B = best::ebo<best::object<T>, T, n>;
   return static_cast<best::as_rref<T>>(*static_cast<B&>(*this).get());
 }
-
+template <typename... A>
+template <best::bounds range>
+constexpr auto row<A...>::at(best::vlist<range>) const& {
+  return row_internal::slice<range, A...>(*this);
+}
+template <typename... A>
+template <best::bounds range>
+constexpr auto row<A...>::at(best::vlist<range>) & {
+  return row_internal::slice<range, A...>(*this);
+}
+template <typename... A>
+template <best::bounds range>
+constexpr auto row<A...>::at(best::vlist<range>) const&& {
+  return row_internal::slice<range, A...>(BEST_MOVE(*this));
+}
+template <typename... A>
+template <best::bounds range>
+constexpr auto row<A...>::at(best::vlist<range>) && {
+  return row_internal::slice<range, A...>(BEST_MOVE(*this));
+}
 template <typename... A>
 template <size_t n>
 constexpr const best::object<typename row<A...>::template type<n>>&

@@ -99,4 +99,14 @@ best::test Join = [](auto& t) {
   best::row<MoveOnly> x2 = BEST_MOVE(x1) + best::row();
   x2 = best::row() + BEST_MOVE(x1);
 };
+
+best::test Slice = [](auto& t) {
+  best::row<int, long, int*, int> x0{1, 2, nullptr, 4};
+  t.expect_eq(x0.at<bounds{.count = 2}>(), best::row{1, 2});
+  t.expect_eq(x0.at<bounds{.start = 2}>(), best::row{nullptr, 4});
+  t.expect_eq(x0.at<bounds{.start = 2, .count = 0}>(), best::row{});
+
+  best::row x1{MoveOnly(), 42};
+  BEST_MOVE(x1).at<bounds{.start = 0, .count = 1}>();
+};
 }  // namespace best::row_test
