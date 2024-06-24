@@ -131,19 +131,19 @@ void ctor(tag<T>, tag<trivially>, tag<U>);
 // -------------------------------------------------------------------------- //
 
 template <typename T, typename... Args>
-void ctor(tag<T>, tag<best::row_forward<Args...>>)
+void ctor(tag<T>, tag<best::args<Args...>>)
   requires requires { ctor(tag<T>{}, tag<Args>{}...); };
 
 template <typename T, typename... Args>
-void ctor(tag<T>, tag<trivially>, tag<best::row_forward<Args...>>)
+void ctor(tag<T>, tag<trivially>, tag<best::args<Args...>>)
   requires requires { ctor(tag<T>{}, tag<trivially>{}, tag<Args>{}...); };
 
 template <typename T, typename... Args>
-void ctor(tag<T>, tag<best::row_forward<Args...>&&>)
+void ctor(tag<T>, tag<best::args<Args...>&&>)
   requires requires { ctor(tag<T>{}, tag<Args>{}...); };
 
 template <typename T, typename... Args>
-void ctor(tag<T>, tag<trivially>, tag<best::row_forward<Args...>&&>)
+void ctor(tag<T>, tag<trivially>, tag<best::args<Args...>&&>)
   requires requires { ctor(tag<T>{}, tag<trivially>{}, tag<Args>{}...); };
 
 // ========================================================================== //
@@ -250,19 +250,19 @@ void assign(tag<T>, tag<trivially>);
 // -------------------------------------------------------------------------- //
 
 template <typename T, typename... Args>
-void assign(tag<T>, tag<best::row_forward<Args...>>)
+void assign(tag<T>, tag<best::args<Args...>>)
   requires requires { assign(tag<T>{}, tag<Args>{}...); };
 
 template <typename T, typename... Args>
-void assign(tag<T>, tag<trivially>, tag<best::row_forward<Args...>>)
+void assign(tag<T>, tag<trivially>, tag<best::args<Args...>>)
   requires requires { assign(tag<T>{}, tag<trivially>{}, tag<Args>{}...); };
 
 template <typename T, typename... Args>
-void assign(tag<T>, tag<best::row_forward<Args...>&&>)
+void assign(tag<T>, tag<best::args<Args...>&&>)
   requires requires { assign(tag<T>{}, tag<Args>{}...); };
 
 template <typename T, typename... Args>
-void assign(tag<T>, tag<trivially>, tag<best::row_forward<Args...>&&>)
+void assign(tag<T>, tag<trivially>, tag<best::args<Args...>&&>)
   requires requires { assign(tag<T>{}, tag<trivially>{}, tag<Args>{}...); };
 
 // ========================================================================== //

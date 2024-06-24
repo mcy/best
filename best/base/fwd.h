@@ -55,7 +55,7 @@ struct err;
 template <typename...>
 class row;
 template <typename...>
-struct row_forward;
+struct args;
 
 // best/container/pun.h
 template <typename...>
@@ -85,6 +85,8 @@ template <auto&>
 class reflected_type;
 
 // best/meta/tlist.h
+template <auto>
+struct val;
 template <typename...>
 class tlist;
 

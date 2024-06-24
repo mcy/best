@@ -56,6 +56,22 @@ static_assert(two.map<std::is_integral>().reduce<best::op::Add>() == 2);
 static_assert(best::vals<1, 2, 3, 4>.at<bounds{.start = 1, .count = 2}>() ==
               best::vals<2, 3>);
 
+static_assert(best::vals<1, 2, 3, 4>.gather<2, 3, 0>() == best::vals<3, 4, 1>);
+static_assert(best::vals<1, 2, 3, 4>.scatter<2, 0>(best::vals<4, 5>) ==
+              best::vals<5, 2, 4, 4>);
+
+static_assert(best::vals<1, 2, 3, 4>.push<5>() == best::vals<1, 2, 3, 4, 5>);
+static_assert(best::vals<1, 2, 3, 4>.insert<2, 5>() ==
+              best::vals<1, 2, 5, 3, 4>);
+static_assert(best::vals<1, 2, 3, 4>.splice<best::bounds{.start = 1, .end = 3}>(
+                  best::vals<9, 8, 7>) == best::vals<1, 9, 8, 7, 4>);
+
+static_assert(best::vals<1, 2, 3, 4>.remove<3>() == best::vals<1, 2, 3>);
+static_assert(best::vals<1, 2, 3, 4>.remove<1>() == best::vals<1, 3, 4>);
+static_assert(
+    best::vals<1, 2, 3, 4>.erase<best::bounds{.start = 1, .end = 3}>() ==
+    best::vals<1, 4>);
+
 static_assert(best::types<int*, int, void*>.find<std::is_integral>() == 1);
 static_assert(
     !best::types<int*, int, void*>.find<std::is_floating_point>().has_value());
@@ -72,8 +88,10 @@ static_assert(best::vals<1, 2, 3>.find_unique(3) == 2);
 static_assert(!best::vals<1, 3, 3>.find_unique(3).has_value());
 static_assert(!best::vals<1, 3, 3>.find_unique(4).has_value());
 
-static_assert(best::vals<1, 2, 3>.concat(best::vals<4, 5, 6>) ==
+static_assert(best::vals<1, 2, 3>.join(best::vals<4, 5, 6>) ==
               best::vals<1, 2, 3, 4, 5, 6>);
+
+static_assert(best::vals<1, 2, 3>.join(best::vals<>) == best::vals<1, 2, 3>);
 
 }  // namespace best::tlist_test
 

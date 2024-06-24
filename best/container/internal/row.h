@@ -24,7 +24,7 @@
 
 #include "best/container/object.h"
 #include "best/meta/empty.h"
-#include "best/meta/tags.h"
+#include "best/meta/internal/tlist.h"
 #include "best/meta/tlist.h"
 
 namespace best::row_internal {
@@ -124,6 +124,109 @@ struct impl;
 template <size_t... i, typename... Elems>
 struct impl<const best::vlist<i...>, Elems...>
     : best::ebo<best::object<Elems>, Elems, i>... {};
+
+// See tlist_internal::slice_impl().
+using ::best::tlist_internal::splat;
+template <typename Out, size_t... i, size_t... j, size_t... k>
+constexpr auto make_slicer(std::index_sequence<i...>, std::index_sequence<j...>,
+                           std::index_sequence<k...>) {
+  return []<splat<i>... prefix, splat<j>... infix, splat<k>... suffix>(
+             prefix&&..., infix&&... args, suffix&&...) {
+    return Out{BEST_FWD(args)...};
+  };
+}
+template <best::bounds b, typename... Ts,
+          auto count = b.try_compute_count(sizeof...(Ts))>
+  requires(count.has_value())
+constexpr auto slice(auto&& row) {
+  using Out = decltype(row.types.template at<b>().template apply<best::row>());
+  return BEST_FWD(row).apply([](auto&&... args) {
+    return make_slicer<Out>(
+        std::make_index_sequence<b.start>{}, std::make_index_sequence<*count>{},
+        std::make_index_sequence<sizeof...(args) - (b.start + *count)>{})(
+        BEST_FWD(args)...);
+  });
+}
+
+// See tlist_internal::splice_impl().
+using ::best::tlist_internal::splat;
+template <typename Out, size_t... i, size_t... j, size_t... k>
+constexpr auto make_splicer(std::index_sequence<i...>,
+                            std::index_sequence<j...>,
+                            std::index_sequence<k...>, auto&&... args) {
+  return [&]<splat<i>... prefix, splat<j>... infix, splat<k>... suffix>(
+             prefix&&... pre, infix&&..., suffix&&... suf) {
+    return Out{BEST_FWD(pre)..., BEST_FWD(args)..., BEST_FWD(suf)...};
+  };
+}
+template <best::bounds b, typename... Ts,
+          auto count = b.try_compute_count(sizeof...(Ts))>
+  requires(count.has_value())
+constexpr auto splice(auto&& row, auto those_types, auto&& those) {
+  using Out = decltype(row.types.template splice<b>(those_types)
+                           .template apply<best::row>());
+  return BEST_FWD(row).apply([&](auto&&... args) {
+    return BEST_FWD(those).apply([&](auto&&... insert) {
+      return make_splicer<Out>(
+          std::make_index_sequence<b.start>{},
+          std::make_index_sequence<*count>{},
+          std::make_index_sequence<sizeof...(args) - (b.start + *count)>{},
+          BEST_FWD(insert)...)(BEST_FWD(args)...);
+    });
+  });
+}
+
+// See tlist_internal::gather_impl() and tlist_internal::scatter_impl().
+template <size_t... i>
+auto gather(auto&& row)
+  requires((i < best::as_auto<decltype(row)>::size()) && ...)
+{
+  using Out =
+      decltype(row.types.template gather<i...>().template apply<best::row>());
+  return Out{BEST_FWD(row)[best::index<i>]...};
+}
+template <size_t... i>
+auto scatter(auto&& row, auto those_types, auto&& those)
+  requires((i < best::as_auto<decltype(row)>::size()) && ...) &&
+          (sizeof...(i) <= best::as_auto<decltype(those)>::size()) &&
+          (sizeof...(i) <= best::as_auto<decltype(those_types)>::size()) &&
+          (best::as_auto<decltype(those_types)>::size() <=
+           best::as_auto<decltype(those)>::size())
+{
+  using Out =
+      decltype(row.types
+                   .template scatter<i...>(
+                       those_types.template at<bounds{.count = sizeof...(i)}>())
+                   .template apply<best::row>());
+  return row.indices.apply([&]<typename... J>() {
+    constexpr auto lut = [&] {
+      std::array<size_t, best::as_auto<decltype(row)>::size()> lut{
+          (J::value - J::value)...};
+      size_t n = 1;
+      ((i < lut.size() ? lut[i] = n++ : 0), ...);
+      return lut;
+    }();
+    return those.apply([&](auto&&... args) {
+      return Out{best::row{best::bind, BEST_FWD(row)[J{}],
+                           args...}[best::index<lut[J::value]>]...};
+    });
+  });
+}
+
+// See tlist_internal::join().
+using ::best::tlist_internal::fast_nth;
+using ::best::tlist_internal::join_lut;
+constexpr auto join(auto&&... those) {
+  return [&]<auto... i>(best::vlist<i...>) {
+    auto rowrow = best::row{best::bind, BEST_FWD(those)...};
+    constexpr auto lut = join_lut<sizeof...(i), decltype(those.types)...>;
+
+    return row<typename fast_nth<lut[i * 2], decltype(those.types)...>  //
+               ::template type<lut[i * 2 + 1]>...>{
+        BEST_MOVE(rowrow)[best::index<lut[i * 2]>]  //
+            .get(best::index<lut[i * 2 + 1]>)...};
+  }(best::indices<(0 + ... + best::as_auto<decltype(those)>::size())>);
+}
 }  // namespace best::row_internal
 
 #endif  // BEST_CONTAINER_INTERNAL_ROW_H_

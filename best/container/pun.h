@@ -24,7 +24,6 @@
 #include "best/container/internal/pun.h"
 #include "best/container/object.h"
 #include "best/meta/init.h"
-#include "best/meta/tags.h"
 #include "best/meta/tlist.h"
 
 //! Untagged unions that are somewhat sensible.

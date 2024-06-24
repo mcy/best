@@ -51,16 +51,6 @@ inline constexpr struct in_place_t {
 inline constexpr struct bind_t {
 } bind;
 
-/// An alias for std::in_place_index.
-///
-/// Use this to tag things that want to take a size_t.
-template <size_t n>
-struct index_t {
-  static constexpr size_t value = n;
-};
-template <size_t n>
-inline constexpr index_t<n> index;
-
 /// A tag for uninitialized values.
 ///
 /// Use this to define a non-default constructor that produces some kind of

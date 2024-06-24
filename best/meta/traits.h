@@ -26,6 +26,15 @@
 //! traits are implemented by `<type_traits>` but have horrendous names.
 
 namespace best {
+/// # `best::id<T>`
+///
+/// The identity type trait. Useful for turning any single type into a tag, when
+/// you don't need the full power of `best::tlist`.
+template <typename T>
+struct id final {
+  using type = T;
+};
+
 /// # `best::type_trait`
 ///
 /// Whether `T` is a type trait, i.e., a type with an alias member named `type`.

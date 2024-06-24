@@ -43,17 +43,17 @@ namespace best {
 /// ```
 template <typename... Args>
 struct ok {
-  constexpr ok(Args... args) : row(BEST_FWD(args)...) {}
-  best::row<Args...> row;
+  constexpr ok(Args... args) : args(BEST_FWD(args)...) {}
+  best::args<Args...> args;
 
   friend void BestFmt(auto& fmt, const ok& ok)
-    requires requires { fmt.format(ok.row); }
+    requires requires { fmt.format(ok.args); }
   {
     fmt.write("ok");
-    fmt.format(ok.row);
+    fmt.format(ok.args);
   }
   friend constexpr void BestFmtQuery(auto& query, ok*) {
-    query = query.template of<best::row<Args...>>;
+    query = query.template of<best::args<Args...>>;
   }
 };
 template <typename... Args>
@@ -70,17 +70,17 @@ ok(Args&&...) -> ok<Args&&...>;
 /// ```
 template <typename... Args>
 struct err {
-  constexpr err(Args... args) : row(BEST_FWD(args)...) {}
-  best::row<Args...> row;
+  constexpr err(Args... args) : args(BEST_FWD(args)...) {}
+  best::args<Args...> args;
 
   friend void BestFmt(auto& fmt, const err& err)
-    requires requires { fmt.format(err.row); }
+    requires requires { fmt.format(err.args); }
   {
     fmt.write("err");
-    fmt.format(err.row);
+    fmt.format(err.args);
   }
   friend constexpr void BestFmtQuery(auto& query, err*) {
-    query = query.template of<best::row<Args...>>;
+    query = query.template of<best::args<Args...>>;
   }
 };
 template <typename... Args>
@@ -167,7 +167,7 @@ class [[nodiscard(
   template <typename... Args>
   constexpr result(best::ok<Args...> args)
     requires best::constructible<T, Args...>
-      : BEST_RESULT_IMPL_(best::index<0>, std::move(args).row.forward()) {}
+      : BEST_RESULT_IMPL_(best::index<0>, std::move(args).args) {}
 
   /// # `result::result(err(...))`
   ///
@@ -175,7 +175,7 @@ class [[nodiscard(
   template <typename... Args>
   constexpr result(best::err<Args...> args)
     requires best::constructible<E, Args...>
-      : BEST_RESULT_IMPL_(best::index<1>, std::move(args).row.forward()) {}
+      : BEST_RESULT_IMPL_(best::index<1>, std::move(args).args) {}
 
   /// # `result::result(result<U, F>&)`
   ///
@@ -282,11 +282,11 @@ class [[nodiscard(
   }
   template <best::equatable<T> U>
   BEST_INLINE_SYNTHETIC constexpr bool operator==(best::ok<U> u) const {
-    return ok() == u.row[best::index<0>];
+    return ok() == u.args.row[best::index<0>];
   }
   template <best::equatable<E> U>
   BEST_INLINE_SYNTHETIC constexpr bool operator==(best::err<U> u) const {
-    return err() == u.row[best::index<0>];
+    return err() == u.args.row[best::index<0>];
   }
 
   BEST_INLINE_SYNTHETIC constexpr bool operator==(best::ok<> u) const {
@@ -313,12 +313,12 @@ class [[nodiscard(
   }
   template <best::comparable<T> U>
   BEST_INLINE_SYNTHETIC constexpr auto operator<=>(best::ok<U> u) const {
-    if (auto v = ok()) return v <=> u.row[best::index<0>];
+    if (auto v = ok()) return v <=> u.args.args[best::index<0>];
     return best::ord::less;
   }
   template <best::comparable<E> U>
   BEST_INLINE_SYNTHETIC constexpr auto operator<=>(best::err<U> u) const {
-    if (auto v = ok()) return v <=> u.rpw[best::index<0>];
+    if (auto v = ok()) return v <=> u.args.args[best::index<0>];
     return best::ord::less;
   }
   BEST_INLINE_SYNTHETIC constexpr auto operator<=>(best::ok<> u) const {
