@@ -57,7 +57,7 @@ static_assert(best::vals<1, 2, 3, 4>.at<bounds{.start = 1, .count = 2}>() ==
               best::vals<2, 3>);
 
 static_assert(best::vals<1, 2, 3, 4>.gather<2, 3, 0>() == best::vals<3, 4, 1>);
-static_assert(best::vals<1, 2, 3, 4>.scatter<best::vals<4, 5>, 2, 0>() ==
+static_assert(best::vals<1, 2, 3, 4>.scatter<2, 0>(best::vals<4, 5>) ==
               best::vals<5, 2, 4, 4>);
 
 static_assert(best::vals<1, 2, 3, 4>.push<5>() == best::vals<1, 2, 3, 4, 5>);

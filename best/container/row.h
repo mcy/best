@@ -393,6 +393,35 @@ class row final
   template <best::bounds range> constexpr auto erase(best::vlist<range> = {}) &&;
   // clang-format on
 
+  /// # `row::gather()`
+  ///
+  /// Selects elements of this row by index to form a new row, by copying/moving
+  /// as necessary.
+  // clang-format off
+  template <size_t... n> constexpr auto gather(best::vlist<n...> = {}) const&;
+  template <size_t... n> constexpr auto gather(best::vlist<n...> = {}) &;
+  template <size_t... n> constexpr auto gather(best::vlist<n...> = {}) const&&;
+  template <size_t... n> constexpr auto gather(best::vlist<n...> = {}) &&;
+  // clang-format on
+
+  /// # `row::scatter()`
+  ///
+  /// Updates elements of this row by index to form a new row, by copying/moving
+  /// from this row, and the one provided, as necessary.
+  ///
+  /// Like `row::splice()`, there is a second overload that allows specifying
+  /// explicitly what the scattered types are.
+  // clang-format off
+  template <size_t... n> constexpr auto scatter(best::is_row auto&&, best::vlist<n...> = {}) const&;
+  template <size_t... n> constexpr auto scatter(best::is_row auto&&, best::vlist<n...> = {}) &;
+  template <size_t... n> constexpr auto scatter(best::is_row auto&&, best::vlist<n...> = {}) const&&;
+  template <size_t... n> constexpr auto scatter(best::is_row auto&&, best::vlist<n...> = {}) &&;
+  template <size_t... n, typename... Ts> constexpr auto scatter(best::tlist<Ts...>, best::is_row auto&&, best::vlist<n...> = {}) const&;
+  template <size_t... n, typename... Ts> constexpr auto scatter(best::tlist<Ts...>, best::is_row auto&&, best::vlist<n...> = {}) &;
+  template <size_t... n, typename... Ts> constexpr auto scatter(best::tlist<Ts...>, best::is_row auto&&, best::vlist<n...> = {}) const&&;
+  template <size_t... n, typename... Ts> constexpr auto scatter(best::tlist<Ts...>, best::is_row auto&&, best::vlist<n...> = {}) &&;
+  // clang-format on
+
   /// # `row::apply()`
   ///
   /// Calls `f` with a pack of references of the elements of this tuple.
@@ -1204,22 +1233,26 @@ constexpr auto row<A...>::splice(best::tlist<Those...> those_types,
 
 template <typename... A>
 template <size_t n>
+BEST_ROW_MUST_USE(remove)
 constexpr auto row<A...>::remove(best::index_t<n>) const& {
   return splice(best::row(), best::vals<bounds{.start = n, .count = 1}>);
 }
 template <typename... A>
 template <size_t n>
+BEST_ROW_MUST_USE(remove)
 constexpr auto row<A...>::remove(best::index_t<n>) & {
   return splice(best::row(), best::vals<bounds{.start = n, .count = 1}>);
 }
 template <typename... A>
 template <size_t n>
+BEST_ROW_MUST_USE(remove)
 constexpr auto row<A...>::remove(best::index_t<n>) const&& {
   return BEST_MOVE(*this).splice(best::row(),
                                  best::vals<bounds{.start = n, .count = 1}>);
 }
 template <typename... A>
 template <size_t n>
+BEST_ROW_MUST_USE(remove)
 constexpr auto row<A...>::remove(best::index_t<n>) && {
   return BEST_MOVE(*this).splice(best::row(),
                                  best::vals<bounds{.start = n, .count = 1}>);
@@ -1227,23 +1260,112 @@ constexpr auto row<A...>::remove(best::index_t<n>) && {
 
 template <typename... A>
 template <best::bounds range>
+BEST_ROW_MUST_USE(erase)
 constexpr auto row<A...>::erase(best::vlist<range>) const& {
   return splice(best::row(), best::vals<range>);
 }
 template <typename... A>
 template <best::bounds range>
+BEST_ROW_MUST_USE(erase)
 constexpr auto row<A...>::erase(best::vlist<range>) & {
   return splice(best::row(), best::vals<range>);
 }
 template <typename... A>
 template <best::bounds range>
+BEST_ROW_MUST_USE(erase)
 constexpr auto row<A...>::erase(best::vlist<range>) const&& {
   return BEST_MOVE(*this).splice(best::row(), best::vals<range>);
 }
 template <typename... A>
 template <best::bounds range>
+BEST_ROW_MUST_USE(erase)
 constexpr auto row<A...>::erase(best::vlist<range>) && {
   return BEST_MOVE(*this).splice(best::row(), best::vals<range>);
+}
+
+template <typename... A>
+template <size_t... n>
+constexpr auto row<A...>::gather(best::vlist<n...>) const& {
+  return row_internal::gather<n...>(*this);
+}
+template <typename... A>
+template <size_t... n>
+constexpr auto row<A...>::gather(best::vlist<n...>) & {
+  return row_internal::gather<n...>(*this);
+}
+template <typename... A>
+template <size_t... n>
+constexpr auto row<A...>::gather(best::vlist<n...>) const&& {
+  return row_internal::gather<n...>(BEST_MOVE(*this));
+}
+template <typename... A>
+template <size_t... n>
+constexpr auto row<A...>::gather(best::vlist<n...>) && {
+  return row_internal::gather<n...>(BEST_MOVE(*this));
+}
+
+template <typename... A>
+template <size_t... n>
+constexpr auto row<A...>::scatter(best::is_row auto&& those,
+                                  best::vlist<n...>) const& {
+  return row_internal::scatter<n...>(*this, those.types, BEST_FWD(those));
+}
+
+template <typename... A>
+template <size_t... n>
+constexpr auto row<A...>::scatter(best::is_row auto&& those,
+                                  best::vlist<n...>) & {
+  return row_internal::scatter<n...>(*this, those.types, BEST_FWD(those));
+}
+
+template <typename... A>
+template <size_t... n>
+constexpr auto row<A...>::scatter(best::is_row auto&& those,
+                                  best::vlist<n...>) const&& {
+  return row_internal::scatter<n...>(BEST_MOVE(*this), those.types,
+                                     BEST_FWD(those));
+}
+
+template <typename... A>
+template <size_t... n>
+constexpr auto row<A...>::scatter(best::is_row auto&& those,
+                                  best::vlist<n...>) && {
+  return row_internal::scatter<n...>(BEST_MOVE(*this), those.types,
+                                     BEST_FWD(those));
+}
+
+template <typename... A>
+template <size_t... n, typename... Ts>
+constexpr auto row<A...>::scatter(best::tlist<Ts...> those_types,
+                                  best::is_row auto&& those,
+                                  best::vlist<n...>) const& {
+  return row_internal::scatter<n...>(*this, those.types, BEST_FWD(those));
+}
+
+template <typename... A>
+template <size_t... n, typename... Ts>
+constexpr auto row<A...>::scatter(best::tlist<Ts...> those_types,
+                                  best::is_row auto&& those,
+                                  best::vlist<n...>) & {
+  return row_internal::scatter<n...>(*this, those.types, BEST_FWD(those));
+}
+
+template <typename... A>
+template <size_t... n, typename... Ts>
+constexpr auto row<A...>::scatter(best::tlist<Ts...> those_types,
+                                  best::is_row auto&& those,
+                                  best::vlist<n...>) const&& {
+  return row_internal::scatter<n...>(BEST_MOVE(*this), those.types,
+                                     BEST_FWD(those));
+}
+
+template <typename... A>
+template <size_t... n, typename... Ts>
+constexpr auto row<A...>::scatter(best::tlist<Ts...> those_types,
+                                  best::is_row auto&& those,
+                                  best::vlist<n...>) && {
+  return row_internal::scatter<n...>(BEST_MOVE(*this), those.types,
+                                     BEST_FWD(those));
 }
 
 #undef BEST_TLIST_MUST_USE

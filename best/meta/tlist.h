@@ -268,11 +268,10 @@ class tlist final {
   /// Updates elements of this tlist by selecting from the list provided.
   ///
   /// Ouf-of-bounds "writes" are discarded.
-  template <auto those, size_t... ns>
+  template <size_t... ns>
   BEST_TLIST_MUST_USE(scatter)
-  static constexpr auto scatter()
-    requires best::is_tlist_of_size<decltype(those), sizeof...(ns)>
-  {
+  static constexpr auto scatter(
+      best::is_tlist_of_size<sizeof...(ns)> auto those) {
     return tlist_internal::scatter<tlist, decltype(those), ns...>{};
   }
 

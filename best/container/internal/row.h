@@ -176,6 +176,43 @@ constexpr auto splice(auto&& row, auto those_types, auto&& those) {
   });
 }
 
+// See tlist_internal::gather_impl() and tlist_internal::scatter_impl().
+template <size_t... i>
+auto gather(auto&& row)
+  requires((i < best::as_auto<decltype(row)>::size()) && ...)
+{
+  using Out =
+      decltype(row.types.template gather<i...>().template apply<best::row>());
+  return Out{BEST_FWD(row)[best::index<i>]...};
+}
+template <size_t... i>
+auto scatter(auto&& row, auto those_types, auto&& those)
+  requires((i < best::as_auto<decltype(row)>::size()) && ...) &&
+          (sizeof...(i) <= best::as_auto<decltype(those)>::size()) &&
+          (sizeof...(i) <= best::as_auto<decltype(those_types)>::size()) &&
+          (best::as_auto<decltype(those_types)>::size() <=
+           best::as_auto<decltype(those)>::size())
+{
+  using Out =
+      decltype(row.types
+                   .template scatter<i...>(
+                       those_types.template at<bounds{.count = sizeof...(i)}>())
+                   .template apply<best::row>());
+  return row.indices.apply([&]<typename... J>() {
+    constexpr auto lut = [&] {
+      std::array<size_t, best::as_auto<decltype(row)>::size()> lut{
+          (J::value - J::value)...};
+      size_t n = 1;
+      ((i < lut.size() ? lut[i] = n++ : 0), ...);
+      return lut;
+    }();
+    return those.apply([&](auto&&... args) {
+      return Out{best::row{best::bind, BEST_FWD(row)[J{}],
+                           args...}[best::index<lut[J::value]>]...};
+    });
+  });
+}
+
 // See tlist_internal::join().
 using ::best::tlist_internal::fast_nth;
 using ::best::tlist_internal::join_lut;
