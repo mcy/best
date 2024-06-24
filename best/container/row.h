@@ -46,7 +46,7 @@ concept is_row = requires(T t) {
   {
     t.types.apply([]<typename... U>() -> best::row<U...> { std::abort(); })
   } -> best::same<best::as_auto<T>>;
-};
+}; 
 
 /// # `best::row`
 ///
@@ -1306,6 +1306,7 @@ constexpr auto row<A...>::gather(best::vlist<n...>) && {
 
 template <typename... A>
 template <size_t... n>
+BEST_ROW_MUST_USE(scatter)
 constexpr auto row<A...>::scatter(best::is_row auto&& those,
                                   best::vlist<n...>) const& {
   return row_internal::scatter<n...>(*this, those.types, BEST_FWD(those));
@@ -1313,6 +1314,7 @@ constexpr auto row<A...>::scatter(best::is_row auto&& those,
 
 template <typename... A>
 template <size_t... n>
+BEST_ROW_MUST_USE(scatter)
 constexpr auto row<A...>::scatter(best::is_row auto&& those,
                                   best::vlist<n...>) & {
   return row_internal::scatter<n...>(*this, those.types, BEST_FWD(those));
@@ -1320,6 +1322,7 @@ constexpr auto row<A...>::scatter(best::is_row auto&& those,
 
 template <typename... A>
 template <size_t... n>
+BEST_ROW_MUST_USE(scatter)
 constexpr auto row<A...>::scatter(best::is_row auto&& those,
                                   best::vlist<n...>) const&& {
   return row_internal::scatter<n...>(BEST_MOVE(*this), those.types,
@@ -1328,6 +1331,7 @@ constexpr auto row<A...>::scatter(best::is_row auto&& those,
 
 template <typename... A>
 template <size_t... n>
+BEST_ROW_MUST_USE(scatter)
 constexpr auto row<A...>::scatter(best::is_row auto&& those,
                                   best::vlist<n...>) && {
   return row_internal::scatter<n...>(BEST_MOVE(*this), those.types,
@@ -1336,6 +1340,7 @@ constexpr auto row<A...>::scatter(best::is_row auto&& those,
 
 template <typename... A>
 template <size_t... n, typename... Ts>
+BEST_ROW_MUST_USE(scatter)
 constexpr auto row<A...>::scatter(best::tlist<Ts...> those_types,
                                   best::is_row auto&& those,
                                   best::vlist<n...>) const& {
@@ -1344,6 +1349,7 @@ constexpr auto row<A...>::scatter(best::tlist<Ts...> those_types,
 
 template <typename... A>
 template <size_t... n, typename... Ts>
+BEST_ROW_MUST_USE(scatter)
 constexpr auto row<A...>::scatter(best::tlist<Ts...> those_types,
                                   best::is_row auto&& those,
                                   best::vlist<n...>) & {
@@ -1352,6 +1358,7 @@ constexpr auto row<A...>::scatter(best::tlist<Ts...> those_types,
 
 template <typename... A>
 template <size_t... n, typename... Ts>
+BEST_ROW_MUST_USE(scatter)
 constexpr auto row<A...>::scatter(best::tlist<Ts...> those_types,
                                   best::is_row auto&& those,
                                   best::vlist<n...>) const&& {
@@ -1361,6 +1368,7 @@ constexpr auto row<A...>::scatter(best::tlist<Ts...> those_types,
 
 template <typename... A>
 template <size_t... n, typename... Ts>
+BEST_ROW_MUST_USE(scatter)
 constexpr auto row<A...>::scatter(best::tlist<Ts...> those_types,
                                   best::is_row auto&& those,
                                   best::vlist<n...>) && {
