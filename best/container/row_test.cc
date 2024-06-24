@@ -109,4 +109,52 @@ best::test Slice = [](auto& t) {
   best::row x1{MoveOnly(), 42};
   BEST_MOVE(x1).at<bounds{.start = 0, .count = 1}>();
 };
+
+best::test Splice = [](auto& t) {
+  best::row<int, long, int*, int> x0{1, 2, nullptr, 4};
+  best::row<int, long, int*, int, int*> x1 = x0.push(x0[best::index<2>]);
+  t.expect_eq(x1, best::row{1, 2, nullptr, 4, nullptr});
+
+  best::row<int, long, int*, int, int*&> x11 =
+      x0.push(best::bind, x0[best::index<2>]);
+  t.expect_eq(x11, best::row{1, 2, nullptr, 4, nullptr});
+
+  best::row<int, long, int*, int, long*> x12 =
+      x0.push(best::types<long*>, nullptr);
+  t.expect_eq(x12, best::row{1, 2, nullptr, 4, nullptr});
+
+  best::row<int, long, int*, int*, int> x2 =
+      x0.insert(best::index<3>, x0[best::index<2>]);
+  t.expect_eq(x2, best::row{1, 2, nullptr, nullptr, 4});
+
+  best::row<int, long, int*, int*&, int> x21 =
+      x0.insert(best::index<3>, best::bind, x0[best::index<2>]);
+  t.expect_eq(x21, best::row{1, 2, nullptr, nullptr, 4});
+
+  best::row<int, long, int*, long*, int> x22 =
+      x0.insert(best::index<3>, best::types<long*>, nullptr);
+  t.expect_eq(x22, best::row{1, 2, nullptr, nullptr, 4});
+
+  best::row<int, int, long, int*, int, int> x3 =
+      x0.splice(best::vals<best::bounds{.start = 1, .end = 3}>, x0);
+  t.expect_eq(x3, best::row{1, 1, 2, nullptr, 4, 4});
+
+  best::row<int, long, long, const int*, unsigned, int> x31 =
+      x0.splice(best::vals<best::bounds{.start = 1, .end = 3}>,
+                best::types<long, long, const int*, unsigned>, x0);
+  t.expect_eq(x31, best::row{1, 1, 2, nullptr, 4, 4});
+};
+
+best::test Erase = [](auto& t) {
+  best::row<int, long, int*, int> x0{1, 2, nullptr, 4};
+  
+  best::row<int, long, int> x1 = x0.remove<2>();
+  t.expect_eq(x1, best::row(1, 2, 4));
+
+  best::row<int, int> x2 = x0.erase<best::bounds{.start = 1, .end = 3}>();
+  t.expect_eq(x2, best::row(1, 4));
+
+  best::row<> x3 = x0.erase<best::bounds{}>();
+  t.expect_eq(x3, best::row());
+};
 }  // namespace best::row_test

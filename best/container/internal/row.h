@@ -148,6 +148,34 @@ constexpr auto slice(auto&& row) {
   });
 }
 
+// See tlist_internal::splice_impl().
+using ::best::tlist_internal::splat;
+template <typename Out, size_t... i, size_t... j, size_t... k>
+constexpr auto make_splicer(std::index_sequence<i...>,
+                            std::index_sequence<j...>,
+                            std::index_sequence<k...>, auto&&... args) {
+  return [&]<splat<i>... prefix, splat<j>... infix, splat<k>... suffix>(
+             prefix&&... pre, infix&&..., suffix&&... suf) {
+    return Out{BEST_FWD(pre)..., BEST_FWD(args)..., BEST_FWD(suf)...};
+  };
+}
+template <best::bounds b, typename... Ts,
+          auto count = b.try_compute_count(sizeof...(Ts))>
+  requires(count.has_value())
+constexpr auto splice(auto&& row, auto those_types, auto&& those) {
+  using Out = decltype(row.types.template splice<b>(those_types)
+                           .template apply<best::row>());
+  return BEST_FWD(row).apply([&](auto&&... args) {
+    return BEST_FWD(those).apply([&](auto&&... insert) {
+      return make_splicer<Out>(
+          std::make_index_sequence<b.start>{},
+          std::make_index_sequence<*count>{},
+          std::make_index_sequence<sizeof...(args) - (b.start + *count)>{},
+          BEST_FWD(insert)...)(BEST_FWD(args)...);
+    });
+  });
+}
+
 // See tlist_internal::join().
 using ::best::tlist_internal::fast_nth;
 using ::best::tlist_internal::join_lut;
