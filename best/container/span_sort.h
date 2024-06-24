@@ -30,13 +30,14 @@
 
 namespace best {
 template <best::is_object T, best::option<size_t> n>
-void span<T, n>::sort() const
+constexpr void span<T, n>::sort() const
   requires best::comparable<T> && (!is_const)
 {
   std::sort(data().raw(), data().raw() + size());
 }
 template <best::is_object T, best::option<size_t> n>
-void span<T, n>::sort(best::callable<void(const T&)> auto&& get_key) const
+constexpr void span<T, n>::sort(
+    best::callable<void(const T&)> auto&& get_key) const
   requires(!is_const)
 {
   std::sort(data().raw(), data().raw() + size(), [&](auto& a, auto& b) {
@@ -44,7 +45,7 @@ void span<T, n>::sort(best::callable<void(const T&)> auto&& get_key) const
   });
 }
 template <best::is_object T, best::option<size_t> n>
-void span<T, n>::sort(
+constexpr void span<T, n>::sort(
     best::callable<best::partial_ord(const T&, const T&)> auto&& get_key) const
   requires(!is_const)
 {
@@ -53,13 +54,13 @@ void span<T, n>::sort(
   });
 }
 template <best::is_object T, best::option<size_t> n>
-void span<T, n>::stable_sort() const
+constexpr void span<T, n>::stable_sort() const
   requires best::comparable<T> && (!is_const)
 {
   std::stable_sort(data().raw(), data().raw() + size());
 }
 template <best::is_object T, best::option<size_t> n>
-void span<T, n>::stable_sort(
+constexpr void span<T, n>::stable_sort(
     best::callable<void(const T&)> auto&& get_key) const
   requires(!is_const)
 {
@@ -68,7 +69,7 @@ void span<T, n>::stable_sort(
   });
 }
 template <best::is_object T, best::option<size_t> n>
-void span<T, n>::stable_sort(
+constexpr void span<T, n>::stable_sort(
     best::callable<best::partial_ord(const T&, const T&)> auto&& get_key) const
   requires(!is_const)
 {

@@ -105,15 +105,15 @@ inline constexpr auto lookup =
 
 template <typename K, typename... Ts, const auto& lut = lookup<Ts...>,
           size_t count = lut.template count<K>()>
-inline constexpr auto apply_lookup(auto cb) {
+inline constexpr auto do_lookup() {
   if constexpr (count == 0) {
-    return best::call(cb);
+    return best::vals<>;
   } else {
     const size_t(&table)[sizeof...(Ts)] =
         static_cast<const entry<sizeof...(Ts), K>&>(lut).table;
 
     return [&]<size_t... i>(std::index_sequence<i...>) {
-      return best::call(cb, best::index<table[i]>...);
+      return best::vals<table[i]...>;
     }(std::make_index_sequence<count>{});
   }
 }

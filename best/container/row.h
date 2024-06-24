@@ -68,10 +68,10 @@ struct args final {
         [](auto&&... args) { return T(BEST_FWD(args)...); });
   }
 
-  friend void BestFmt(auto& fmt, const args& row)
-    requires requires { (fmt.format(row.row)); }
+  friend void BestFmt(auto& fmt, const args& args)
+    requires requires { (fmt.format(args.row)); }
   {
-    fmt.format(row);
+    fmt.format(args.row);
   }
 
   friend constexpr void BestFmtQuery(auto& query, args*) {
@@ -210,6 +210,14 @@ class row final
   /// Returns whether this is the empty row `best::row<>`.
   constexpr static bool is_empty() { return types.size() == 0; }
 
+  /// # `row::as_ref()`
+  ///
+  /// Creates a row of references to the elements of this row.
+  constexpr best::row<best::as_ref<const Elems>...> as_ref() const&;
+  constexpr best::row<best::as_ref<Elems>...> as_ref() &;
+  constexpr best::row<best::as_rref<const Elems>...> as_ref() const&&;
+  constexpr best::row<best::as_rref<Elems>...> as_ref() &&;
+
   /// # `row[index<n>]`, `row[best::values<bounds{...}>]`
   ///
   /// Returns a reference to the `n`th element, or a subrange as a row (values
@@ -268,11 +276,18 @@ class row final
   /// type, or which have a member alias named `BestRowKey` of that type. They
   /// are returned in the order they occur in this row.
   // clang-format off
-  template <typename T> constexpr decltype(auto) select(best::tlist<T> idx = {}) const&;
-  template <typename T> constexpr decltype(auto) select(best::tlist<T> idx = {}) & ;
-  template <typename T> constexpr decltype(auto) select(best::tlist<T> idx = {}) const&& ; 
-  template <typename T> constexpr decltype(auto) select(best::tlist<T> idx = {}) &&;
+  template <typename T> constexpr auto select(best::tlist<T> idx = {}) const&;
+  template <typename T> constexpr auto select(best::tlist<T> idx = {}) & ;
+  template <typename T> constexpr auto select(best::tlist<T> idx = {}) const&&; 
+  template <typename T> constexpr auto select(best::tlist<T> idx = {}) &&;
   // clang-format on
+
+  /// # `row::select_indices()`
+  ///
+  /// Returns a `best::vlist` of the indices of the elements that
+  /// `row::select()` returns.
+  template <typename T>
+  static constexpr auto select_indices(best::tlist<T> idx = {});
 
   /// # `row::first()`, `row::second()`, `row::last()`
   ///
@@ -559,6 +574,30 @@ constexpr auto row<A...>::as_args() && {
 }
 
 template <typename... A>
+constexpr best::row<best::as_ref<const A>...> row<A...>::as_ref() const& {
+  apply([](auto&&... args) {
+    best::row<best::as_ref<const A>...>(BEST_FWD(args)...);
+  });
+}
+template <typename... A>
+constexpr best::row<best::as_ref<A>...> row<A...>::as_ref() & {
+  apply(
+      [](auto&&... args) { best::row<best::as_ref<A>...>(BEST_FWD(args)...); });
+}
+template <typename... A>
+constexpr best::row<best::as_rref<const A>...> row<A...>::as_ref() const&& {
+  BEST_MOVE(*this).apply([](auto&&... args) {
+    best::row<best::as_rref<const A>...>(BEST_FWD(args)...);
+  });
+}
+template <typename... A>
+constexpr best::row<best::as_rref<A>...> row<A...>::as_ref() && {
+  BEST_MOVE(*this).apply([](auto&&... args) {
+    best::row<best::as_rref<A>...>(BEST_FWD(args)...);
+  });
+}
+
+template <typename... A>
 template <size_t n>
 constexpr row<A...>::cref<n> row<A...>::operator[](
     best::index_t<n> idx) const& {
@@ -766,35 +805,29 @@ constexpr auto row<A...>::operator+(best::is_row auto&& that) && {
 
 template <typename... A>
 template <typename T>
-constexpr decltype(auto) row<A...>::select(best::tlist<T> idx) const& {
-  return row_internal::apply_lookup<T, A...>(
-      [&]<size_t... i>(index_t<i>... idx) {
-        return best::row<cref<i>...>(at(idx)...);
-      });
+constexpr auto row<A...>::select(best::tlist<T> idx) const& {
+  return gather(select_indices(idx));
 }
 template <typename... A>
 template <typename T>
-constexpr decltype(auto) row<A...>::select(best::tlist<T> idx) & {
-  return row_internal::apply_lookup<T, A...>(
-      [&]<size_t... i>(index_t<i>... idx) {
-        return best::row<ref<i>...>(at(idx)...);
-      });
+constexpr auto row<A...>::select(best::tlist<T> idx) & {
+  return gather(select_indices(idx));
 }
 template <typename... A>
 template <typename T>
-constexpr decltype(auto) row<A...>::select(best::tlist<T> idx) const&& {
-  return row_internal::apply_lookup<T, A...>(
-      [&]<size_t... i>(index_t<i>... idx) {
-        return best::row<crref<i>...>(BEST_MOVE(*this).at(idx)...);
-      });
+constexpr auto row<A...>::select(best::tlist<T> idx) const&& {
+  return BEST_MOVE(*this).gather(select_indices(idx));
 }
 template <typename... A>
 template <typename T>
-constexpr decltype(auto) row<A...>::select(best::tlist<T> idx) && {
-  return row_internal::apply_lookup<T, A...>(
-      [&]<size_t... i>(index_t<i>... idx) {
-        return best::row<rref<i>...>(BEST_MOVE(*this).at(idx)...);
-      });
+constexpr auto row<A...>::select(best::tlist<T> idx) && {
+  return BEST_MOVE(*this).gather(select_indices(idx));
+}
+
+template <typename... A>
+template <typename T>
+constexpr auto row<A...>::select_indices(best::tlist<T> idx) {
+  return row_internal::do_lookup<T, A...>();
 }
 
 // XXX: This code tickles a clang-format bug.
@@ -1064,7 +1097,7 @@ BEST_ROW_MUST_USE(update)
 constexpr auto row<A...>::update(auto&& that, best::index_t<n>) const& {
   return splice(best::types<best::as_auto<decltype(that)>>,
                 best::row(best::bind, BEST_FWD(that)),
-                best::vals<bounds{.start = n, .count = 0}>);
+                best::vals<bounds{.start = n, .count = 1}>);
 }
 template <typename... A>
 template <size_t n>

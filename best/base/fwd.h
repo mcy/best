@@ -24,6 +24,9 @@
 
 #include <cstdint>
 
+#include "best/meta/tags.h"
+#include "best/meta/taxonomy.h"
+
 //! Forward declarations of all types in best that can be forward-declared.
 //!
 //! This header is used both for breaking dependency cycles within best, and
@@ -68,6 +71,14 @@ class pun;
 // template <typename, best::option<size_t>>
 // class span;
 
+// best/func/tap.h
+template <typename, typename>
+class tap;
+template <typename Cb>
+tap(Cb&&) -> tap<tags_internal_do_not_use::ctad_guard, best::as_auto<Cb>>;
+template <typename Cb>
+tap(best::bind_t, Cb&&) -> tap<tags_internal_do_not_use::ctad_guard, Cb&&>;
+
 // best/log/location.h
 template <typename>
 class track_location;
@@ -76,6 +87,7 @@ class track_location;
 struct empty;
 
 // best/meta/reflect.h
+template <typename>
 class mirror;
 template <auto&>
 class reflected_field;

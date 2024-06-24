@@ -68,8 +68,8 @@ BEST_INLINE_SYNTHETIC constexpr decltype(auto) call(tag<>, auto&& func,
   return BEST_FWD(func)(BEST_FWD(args)...);
 }
 template <typename... Args>
-BEST_INLINE_SYNTHETIC constexpr auto call(tag<Args...>, auto&& func,
-                                          auto&&... args)
+BEST_INLINE_SYNTHETIC constexpr decltype(auto) call(tag<Args...>, auto&& func,
+                                                    auto&&... args)
   requires requires { func.template operator()<Args...>(BEST_FWD(args)...); } &&
            (sizeof...(Args) > 0)
 {

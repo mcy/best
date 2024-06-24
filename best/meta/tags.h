@@ -66,6 +66,14 @@ inline constexpr uninit_t uninit;
 /// *a* type to pass in that position, so that calling the FTADLE finds
 /// overloads in the best:: namespace, too.
 struct ftadle final {};
+
+namespace tags_internal_do_not_use {
+struct ctad_guard;
+#define BEST_CTAD_GUARD_(type_, Tag_)                                       \
+  static_assert(                                                            \
+      ::std::is_same_v<Tag_, ::best::tags_internal_do_not_use::ctad_guard>, \
+      "you may not instantiate " type_ " manually; please use CTAD instead")
+}  // namespace tags_internal_do_not_use
 }  // namespace best
 
 #endif  // BEST_META_TAGS_H_

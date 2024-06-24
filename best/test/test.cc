@@ -64,7 +64,7 @@ bool test::run_all(int argc, char** argv) {
   best::eprint("{}testing:", Bold);
 
   for (int i = 0; i < argc; ++i) {
-    best::eprint(" {}", argv[i]);
+    best::eprint(" {}", *str::from_nul(argv[i]));
   }
   best::eprintln();
   best::eprintln("executing {} test(s)\n", all_tests.size());
