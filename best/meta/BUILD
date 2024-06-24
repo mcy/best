@@ -117,6 +117,7 @@ cc_library(
     ":taxonomy",
     "//best/base:fwd",
     "//best/container:row",
+    "//best/func:tap",
     "//best/text:str",
   ],
 )
@@ -128,6 +129,7 @@ cc_test(
   deps = [
     ":reflect",
     "//best/test",
+    "//best/test:fodder",
   ]
 )
 

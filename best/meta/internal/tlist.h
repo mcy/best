@@ -201,7 +201,7 @@ using scatter =
 // 1, 2, 0, 1, 2}`: for each list `l`, the sequence `{.count = l.size() - 1}`.
 template <size_t total, typename... Packs>
 constexpr inline auto join_lut = [] {
-  std::array<size_t, total * 2> lut;
+  std::array<size_t, total * 2> lut = {};
 
   size_t running_total = 0;
   size_t list = 0;
@@ -263,6 +263,10 @@ concept ts_callable = best::callable<F, void(), Elems...>;
 
 template <typename F, typename... Elems>
 concept vs_callable =
+    sizeof...(Elems) > 0 && requires(F f) { best::call(f, Elems{}...); };
+
+template <typename F, typename... Elems>
+concept tvs_callable =
     sizeof...(Elems) > 0 && requires(F f) { best::call(f, Elems::value...); };
 
 }  // namespace best::tlist_internal

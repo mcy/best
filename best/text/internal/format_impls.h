@@ -23,7 +23,7 @@
 #include <cstddef>
 #include <type_traits>
 
-// #include "best/meta/reflect.h"
+#include "best/meta/reflect.h"
 #include "best/text/rune.h"
 #include "best/text/str.h"
 
@@ -184,24 +184,25 @@ constexpr void BestFmtQuery(auto& query, R* range)
   query.requires_debug = false;
 }
 
-#if 0
-void BestFmt(auto& fmt, const best::is_reflected_struct auto& value) {
+void BestFmt(auto& fmt, const best::is_reflected_struct auto& value)
+  requires(!requires { fmt.format(*std::begin(value)); })
+{
   auto refl = best::reflect<decltype(value)>;
   auto rec = fmt.record(refl.name());
-  refl.fields(
+  refl.apply(
       [&](auto... field) { (rec.field(field.name(), value->*field), ...); });
 }
 
 void BestFmt(auto& fmt, const best::is_reflected_enum auto& value) {
   auto refl = best::reflect<decltype(value)>;
-  refl.find(
-      value, [&](auto& val) { fmt.format("{}::{}", refl.name(), val.name()); },
+  refl.match(
+      value,  //
+      [&](auto val) { fmt.format("{}::{}", refl.name(), val.name()); },
       [&] {
         using U = std::underlying_type_t<best::as_auto<decltype(value)>>;
         fmt.format("{}({})", refl.name(), U(value));
       });
 }
-#endif
 
 namespace format_internal {
 using mark_as_used = void;

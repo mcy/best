@@ -392,11 +392,11 @@ class tlist final {
   ///
   /// Applies `cb` to each type in this list as in `map()` but does not require
   /// that `cb` return a value.
-  static constexpr void each(tlist_internal::t_callable<Elems...> auto cb) {
-    (best::call<Elems>(cb), ...);
+  static constexpr void each(tlist_internal::t_callable<Elems...> auto&& cb) {
+    (best::call<Elems>(BEST_FWD(cb)), ...);
   }
-  static constexpr void each(tlist_internal::v_callable<Elems...> auto cb) {
-    (best::call(cb, Elems::value), ...);
+  static constexpr void each(tlist_internal::v_callable<Elems...> auto&& cb) {
+    (best::call(BEST_FWD(cb), Elems::value), ...);
   }
 
   /// # `tlist::apply()`
@@ -404,12 +404,12 @@ class tlist final {
   /// Applies `cb` to *every* type in this list at once. `cb` may either have
   /// a `typename...` parameter or an `auto...` argument.
   static constexpr decltype(auto) apply(
-      tlist_internal::ts_callable<Elems...> auto cb) {
-    return best::call<Elems...>(cb);
+      tlist_internal::ts_callable<Elems...> auto&& cb) {
+    return best::call<Elems...>(BEST_FWD(cb));
   }
   static constexpr decltype(auto) apply(
-      tlist_internal::vs_callable<Elems...> auto cb) {
-    return best::call(cb, Elems::value...);
+      tlist_internal::vs_callable<Elems...> auto&& cb) {
+    return best::call(BEST_FWD(cb), Elems::value...);
   };
   template <template <typename...> typename Trait>
   static constexpr Trait<Elems...> apply() {

@@ -287,6 +287,23 @@ best::test Sort = [](auto& t) {
   t.expect_eq(ints, best::span{5, 4, 3, 2, 1});
 };
 
+best::test Bisect = [](auto& t) {
+  int ints[] = {1, 2, 3, 4, 100, 200};
+  t.expect_eq(best::span(ints).bisect(3), best::ok(2));
+  t.expect_eq(best::span(ints).bisect(100), best::ok(4));
+  t.expect_eq(best::span(ints).bisect(55), best::err(4));
+  t.expect_eq(best::span(ints).bisect(0), best::err(0));
+  t.expect_eq(best::span(ints).bisect(1000), best::err(6));
+
+  struct entry {
+    best::str k;
+    size_t v;
+  };
+  entry strs[] = {{"x", 1}, {"y", 2}, {"z", 3}, {"s1", 4}, {"s2", 5}};
+  best::span(strs).sort(&entry::k);
+  t.expect_eq(strs[*best::span(strs).bisect("x", &entry::k)].v, 1);
+};
+
 struct NonPod {
   int x;
   NonPod(int x) : x(x) {}

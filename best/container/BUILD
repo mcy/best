@@ -166,6 +166,7 @@ cc_library(
   ],
   deps = [
     ":option",
+    ":result",
     "//best/memory:bytes",
   ],
 )

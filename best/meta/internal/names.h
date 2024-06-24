@@ -23,6 +23,7 @@
 #include <source_location>
 
 #include "best/base/fwd.h"
+#include "best/base/port.h"
 #include "best/container/span.h"
 #include "best/text/str.h"
 
@@ -36,6 +37,8 @@ struct BEST_REFLECT_STRUCT_ {
 };
 
 namespace best::names_internal {
+struct priv {};
+
 // We work exclusively with spans here to avoid pulling in the full machinery
 // of best::str encoding, which is not fast in constexpr.
 template <auto x>
@@ -49,16 +52,17 @@ constexpr best::span<const char> raw_name() {
       std::source_location::current().function_name());
 }
 
-// Helpers for creating a structural value that will contain the name of a
-// field symbol.
+// Similar to best::lie, but this materializes a real reference that can be
+// manipulated (but not read/written) by constexpr code.
 template <typename T>
-const T v{};
+extern T v;
 template <typename T>
-struct w {
-  const T* p;
-};
-template <typename T>
-w(const T*) -> w<T>;
+constexpr T& materialize() {
+  BEST_PUSH_GCC_DIAGNOSTIC()
+  BEST_IGNORE_GCC_DIAGNOSTIC("-Wundefined-var-template")
+  return v<T>;
+  BEST_POP_GCC_DIAGNOSTIC()
+}
 
 // Needles to search for that are *definitely* gonna be in the target compiler's
 // pretty printed function names.
@@ -75,7 +79,6 @@ inline constexpr auto ValueNeedle = best::span<const char>::from_nul(
 
 struct raw_offsets {
   size_t prefix, suffix;
-  best::str separator;
 };
 
 // Figure out how the compiler lays out the names of types, fields, and enum
@@ -106,18 +109,25 @@ inline constexpr auto ValueOffsets = [] {
   };
 }();
 
-inline constexpr auto BulkFieldOffsets = [] {
-  auto name = names_internal::raw_name<std::array{
-      (const void*)&v<BEST_REFLECT_STRUCT_>.BEST_REFLECT_FIELD1_,
-      (const void*)&v<BEST_REFLECT_STRUCT_>.BEST_REFLECT_FIELD2_}>();
+// We can't stick a subobject reference into a template parameter, but we can
+// stick a structural type that CONTAINS a subobject pointer into a template
+// parameter. Ah, C++.
+template <typename T>
+struct eyepatch {
+  T unwrap;
+};
+template <typename T>
+eyepatch(T) -> eyepatch<T>;
+
+// This is used for the variadic version of field_name, which is materialized by
+// field_names<T> in internal/reflect.h
+inline constexpr auto FieldPtrOffsets = [] {
+  constexpr auto p = &materialize<BEST_REFLECT_STRUCT_>().BEST_REFLECT_FIELD1_;
+  auto name = names_internal::raw_name<eyepatch(p)>();
   auto idx = *name.find(FieldNeedle1);
-  auto idx2 = *name.find(FieldNeedle2);
   return raw_offsets{
       .prefix = idx,
-      .suffix = name.size() - idx2 - FieldNeedle2.size(),
-      .separator =
-          str(unsafe{"the compiler made this string, it better be UTF-8"},
-              name[{.start = idx + FieldNeedle1.size(), .end = idx2}]),
+      .suffix = name.size() - idx - FieldNeedle1.size(),
   };
 }();
 
@@ -127,6 +137,80 @@ constexpr best::str remove_namespace(best::str path) {
   }
   return path;
 }
+
+template <typename T, typename Names>
+constexpr Names parse() {
+  auto offsets = names_internal::TypeOffsets;
+  auto raw = names_internal::raw_name<T>();
+  return Names(
+      priv{},
+      best::str(unsafe("the compiler made this string, it better be UTF-8"),
+                raw[{
+                    .start = offsets.prefix,
+                    .count = raw.size() - offsets.prefix - offsets.suffix,
+                }]));
+}
+
+template <best::is_member_ptr auto pm>
+constexpr best::str parse() {
+  auto offsets = names_internal::FieldOffsets;
+  auto raw = names_internal::raw_name<pm>();
+  auto name =
+      best::str(unsafe("the compiler made this string, it better be UTF-8"),
+                raw[{
+                    .start = offsets.prefix,
+                    .count = raw.size() - offsets.prefix - offsets.suffix,
+                }]);
+
+  // `name` is going to be scoped, so we need to strip off a leading path.
+  return names_internal::remove_namespace(name);
+}
+
+// This only works for offsets into materialize()!
+template <eyepatch p>
+constexpr best::str parse() {
+  auto offsets = names_internal::FieldPtrOffsets;
+  auto raw = names_internal::raw_name<p>();
+  // This one's trickier than the others because the size of the prefix depends
+  // on the type of `p`. To work around this, we chop off the suffix, and then
+  // search for the last `.` or `->` (MSVC uses -> and it feels easier to just
+  // search for *both*...).
+  auto prefix = raw[{
+      .end = raw.size() - offsets.suffix,
+  }];
+
+  // TODO(mcyoung): Use rfind() once we implement that.
+  size_t i = prefix.size();
+  for (; i > 0; --i) {
+    unsafe u("already did the bounds check");
+    if (prefix.at(u, i - 1) == '.') {
+      break;
+    }
+    if (i > 1 && prefix.at(u, i - 1) == '>' && prefix.at(u, i - 2) == '-') {
+      break;
+    }
+  }
+
+  return best::str(unsafe("the compiler made this string, it better be UTF-8"),
+                   prefix[{.start = i}]);
+}
+
+template <best::is_enum auto e>
+constexpr best::option<best::str> parse() {
+  auto offsets = names_internal::ValueOffsets;
+  auto raw = names_internal::raw_name<e>();
+  auto name =
+      best::str(unsafe("the compiler made this string, it better be UTF-8"),
+                raw[{
+                    .start = offsets.prefix,
+                    .count = raw.size() - offsets.prefix - offsets.suffix,
+                }]);
+
+  if (name.starts_with('(')) return best::none;
+  // `name` is going to be scoped, so we need to strip off a leading path.
+  return names_internal::remove_namespace(name);
+};
+
 };  // namespace best::names_internal
 
 #define BEST_REFLECT_FIELD1_ _private
@@ -135,4 +219,4 @@ constexpr best::str remove_namespace(best::str path) {
 #define BEST_REFLECT_VALUE_ _private
 #define BEST_REFLECT_ENUM_ _private
 
-#endif  // BEST_META_INTERNAL_REFLECT_H_
+#endif  // BEST_META_INTERNAL_NAMES_H_

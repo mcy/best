@@ -27,6 +27,7 @@
 #include "best/base/port.h"
 #include "best/container/object.h"
 #include "best/container/option.h"
+#include "best/container/result.h"
 #include "best/log/location.h"
 #include "best/math/overflow.h"
 #include "best/memory/bytes.h"
@@ -483,21 +484,24 @@ class span final {
 
   /// # `span::sort()`
   ///
-  /// Sorts the underlying span. There are three overloads. One takes no
-  /// arguments, and uses the intrinsic ordering of the type. One takes an
-  /// unary function, which must produce a reference to an ordered type to use
-  /// as a key. Finally, one takes a binary function, which must return a
-  /// partial ordering for any pair of elements of this type.
+  /// Sorts the underlying span.
+  ///
+  /// There are three overloads. One takes no arguments, and uses the intrinsic
+  /// ordering of the type. One takes an unary function, which must produce a
+  /// reference to an ordered type to use as a key. Finally, one takes a binary
+  /// function, which must return a partial ordering for any pair of elements of
+  /// this type.
   ///
   /// Because this is implemented using the <algorithm> header, which would
-  /// pull in a completely unacceptable amount of this, the implementations of
+  /// pull in a completely unacceptable amount of stuff, the implementations of
   /// these functions live in `//best/container/span_sort.h`, which must be
   /// included separately.
-  void sort() const
+  constexpr void sort() const
     requires best::comparable<T> && (!is_const);
-  void sort(best::callable<void(const T&)> auto&&) const
+  constexpr void sort(best::callable<void(const T&)> auto&&) const
     requires(!is_const);
-  void sort(best::callable<best::partial_ord(const T&, const T&)> auto&&) const
+  constexpr void sort(
+      best::callable<best::partial_ord(const T&, const T&)> auto&&) const
     requires(!is_const);
 
   /// # `span::stable_sort()`
@@ -505,13 +509,33 @@ class span final {
   /// Identical to `sort()`, but uses a stable sort which guarantees that equal
   /// items are not reordered past each other. This usually means the algorithm
   /// is slower.
-  void stable_sort() const
+  constexpr void stable_sort() const
     requires best::comparable<T> && (!is_const);
-  void stable_sort(best::callable<void(const T&)> auto&&) const
+  constexpr void stable_sort(best::callable<void(const T&)> auto&&) const
     requires(!is_const);
-  void stable_sort(
+  constexpr void stable_sort(
       best::callable<best::partial_ord(const T&, const T&)> auto&&) const
     requires(!is_const);
+
+  /// # `span::bisect()`
+  ///
+  /// Performs binary search on this span
+  ///
+  /// There are three overloads. One takes the value to search for, which must
+  /// be comparable with the elements of this span. One takes the value to
+  /// search for, and a callback for extracting a "key" from each element to
+  /// compare with the sought value. Finally, one simply takes a callback that
+  /// takes a single argument, and returns how that element compares with the
+  /// sought value (which need not actually be provided).
+  ///
+  /// If the value is found, its index is returned in `best::ok()`. If not,
+  /// a `best::err()` containing where it should be inserted is returned.
+  constexpr best::result<size_t, size_t> bisect(
+      const best::comparable<T> auto& sought) const;
+  constexpr best::result<size_t, size_t> bisect(
+      const auto& sought, best::callable<void(const T&)> auto&&) const;
+  constexpr best::result<size_t, size_t> bisect(
+      best::callable<best::partial_ord(const T&)> auto&&) const;
 
   /// # `span::copy_from()`, `span::emplace_from()`
   ///
@@ -961,6 +985,49 @@ constexpr bool span<T, n>::consume_suffix(best::span<U> suffix)
   if (!ends_with(suffix)) return false;
   *this = *at({.end = size() - suffix.size()});
   return true;
+}
+
+template <best::is_object T, best::option<size_t> n>
+constexpr best::result<size_t, size_t> span<T, n>::bisect(
+    const best::comparable<T> auto& sought) const {
+  return bisect([&](auto& that) { return that <=> sought; });
+}
+template <best::is_object T, best::option<size_t> n>
+constexpr best::result<size_t, size_t> span<T, n>::bisect(
+    const auto& sought, best::callable<void(const T&)> auto&& key) const {
+  return bisect(
+      [&](auto& that) { return best::call(BEST_FWD(key), that) <=> sought; });
+}
+template <best::is_object T, best::option<size_t> n>
+constexpr best::result<size_t, size_t> span<T, n>::bisect(
+    best::callable<best::partial_ord(const T&)> auto&& comparator) const {
+  // Taken from Rust's `<[T]>::binary_search_by()`.
+  size_t size = this->size();
+  size_t left = 0;
+  size_t right = size;
+  while (left < right) {
+    size_t mid = left + size / 2;
+
+    unsafe u(R"(
+      Quoting the Rust implementation:
+      > SAFETY: the while condition means `size` is strictly positive, so
+      > `size/2 < size`. Thus `left + size/2 < left + size`, which
+      > coupled with the `left + size <= self.len()` invariant means
+      > we have `left + size/2 < self.len()`, and this is in-bounds.
+      )");
+    auto cmp = best::call(BEST_FWD(comparator), (const T&)(at(u, mid)));
+
+    left = cmp < 0 ? mid + 1 : left;
+    right = cmp > 0 ? mid : right;
+    if (cmp == 0) {
+      // We are done. This hints to the caller that a bounds check to access
+      // the span with the returned index is ok.
+      best::assume(mid < this->size());
+      return best::ok(mid);
+    }
+    size = right - left;
+  }
+  return best::err(left);
 }
 
 template <best::is_object T, best::option<size_t> n>

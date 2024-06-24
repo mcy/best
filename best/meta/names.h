@@ -20,8 +20,6 @@
 #ifndef BEST_META_NAMES_H_
 #define BEST_META_NAMES_H_
 
-#include <type_traits>
-
 #include "best/meta/internal/names.h"
 #include "best/text/str.h"
 
@@ -41,8 +39,8 @@ class type_names final {
   /// # `type_names::of<T>`
   ///
   /// Extracts the names of tye type `T`.
-  template <typename T>
-  static const type_names of;
+  template <typename T, typename type_names_ = type_names>
+  static constexpr type_names_ of = names_internal::parse<T, type_names_>();
 
   /// # `type_names::name()`
   ///
@@ -86,55 +84,23 @@ class type_names final {
   constexpr best::str path_with_params() const { return full_name_; }
 
  private:
-  constexpr explicit type_names(best::str name);
   best::str full_name_;
   size_t last_colcol_, first_angle_;
+
+ public:
+  constexpr explicit type_names(names_internal::priv, best::str name);
 };
 
-/// # `best::type_name<T>`
+/// # `best::type_name<T>`, `best::field_name<pm>`, `best::enum_name<e>`
 ///
-/// The short name of a type. To access longer versions of this name, use
-/// `best::type_names::of<T>`.
+/// The name of a type, a field, or an enum value.
 template <typename T>
-inline constexpr best::str type_name =
-    [] { return best::type_names::of<T>.ident(); }();
-
-/// # `best::field_name<T>
-///
-/// The name of a field represented by a pointer-to-member.
-template <auto pm>
-  requires std::is_member_pointer_v<decltype(pm)>
-inline constexpr best::str field_name = [] {
-  auto offsets = names_internal::FieldOffsets;
-  auto raw = names_internal::raw_name<pm>();
-  auto name =
-      best::str(unsafe("the compiler made this string, it better be UTF-8"),
-                raw[{
-                    .start = offsets.prefix,
-                    .count = raw.size() - offsets.prefix - offsets.suffix,
-                }]);
-
-  // `name` is going to be scoped, so we need to strip off a leading path.
-  return names_internal::remove_namespace(name);
-}();
-
-/// # `best::value_name<T>
-///
-/// The name of an enum value, if `e` refers to a named enumerator.
-template <auto e>
-inline constexpr best::option<best::str> value_name = [] {
-  auto offsets = names_internal::ValueOffsets;
-  auto raw = names_internal::raw_name<e>();
-  auto name =
-      best::str(unsafe("the compiler made this string, it better be UTF-8"),
-                raw[{
-                    .start = offsets.prefix,
-                    .count = raw.size() - offsets.prefix - offsets.suffix,
-                }]);
-
-  // `name` is going to be scoped, so we need to strip off a leading path.
-  return names_internal::remove_namespace(name);
-}();
+inline constexpr best::str type_name = type_names::of<T>.name();
+template <best::is_member_ptr auto pm>
+inline constexpr best::str field_name = best::names_internal::parse<pm>();
+template <best::is_enum auto e>
+inline constexpr best::option<best::str> value_name =
+    best::names_internal::parse<e>();
 }  // namespace best
 
 /* ////////////////////////////////////////////////////////////////////////// *\
@@ -142,7 +108,8 @@ inline constexpr best::option<best::str> value_name = [] {
 \* ////////////////////////////////////////////////////////////////////////// */
 
 namespace best {
-constexpr type_names::type_names(best::str name) : full_name_(name) {
+constexpr type_names::type_names(names_internal::priv, best::str name)
+    : full_name_(name) {
   first_angle_ = full_name_.find('<').value_or(full_name_.size());
 
   last_colcol_ = first_angle_ - names_internal::remove_namespace(
@@ -150,15 +117,5 @@ constexpr type_names::type_names(best::str name) : full_name_(name) {
                                     .size();
 }
 
-template <typename T>
-inline constexpr type_names type_names::of{[] {
-  auto offsets = names_internal::TypeOffsets;
-  auto raw = names_internal::raw_name<T>();
-  return best::str(unsafe("the compiler made this string, it better be UTF-8"),
-                   raw[{
-                       .start = offsets.prefix,
-                       .count = raw.size() - offsets.prefix - offsets.suffix,
-                   }]);
-}()};
 }  // namespace best
-#endif  // BEST_META_REFLECT_H_
+#endif  // BEST_META_NAMES_H_

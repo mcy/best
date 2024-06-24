@@ -21,7 +21,8 @@
 #define BEST_META_REFLECT_H_
 
 #include "best/container/row.h"
-#include "best/log/internal/crash.h"
+#include "best/container/span_sort.h"
+#include "best/func/tap.h"
 #include "best/meta/internal/reflect.h"
 #include "best/meta/taxonomy.h"
 #include "best/text/str.h"
@@ -49,9 +50,9 @@ namespace best {
 /// Whether `T` can be reflected, i.e., it is a struct or enum type that has a
 /// working `BestReflect()` FTADLE implementation.
 template <typename T>
-concept reflected = requires(const best::mirror& m, best::as_auto<T>* ptr) {
+concept reflected = requires {
   {
-    BestReflect(m, ptr)
+    reflect_internal::desc<best::as_auto<T>>
   } -> reflect_internal::valid_reflection<best::as_auto<T>>;
 };
 template <typename T>
@@ -67,7 +68,16 @@ concept is_reflected_enum =
 /// `best::reflected_type`, although the exact specialization is not nameable.
 template <best::reflected T>
 inline constexpr auto reflect =
-    best::reflected_type<reflect_internal::info<best::as_auto<T>>>{};
+    best::reflected_type<reflect_internal::desc<best::as_auto<T>>>{};
+
+/// # `best::fields()`
+///
+/// Extracts all of the fields out of a reflected struct and creates a row
+/// of references of them.
+constexpr auto fields(best::is_reflected_struct auto&& value) {
+  return best::reflect<decltype(value)>.apply(
+      [&](auto... f) { return best::row(best::bind, BEST_FWD(value)->*f...); });
+}
 
 /// # `best::mirror`
 ///
@@ -90,18 +100,17 @@ class mirror final {
   /// # `mirror::infer()`
   ///
   /// Infers the default reflection for the type `T`. This value can be updated
-  /// using the taps returned by other methods
-  constexpr auto infer() const;
+  /// using the taps returned by other methods.
+  ///
+  /// When `T` is an enum, it is possible to explicitly specify the range of
+  /// values to consider for finding enum values.
+  constexpr auto infer() const
+    requires best::is_struct<T> &&
+             ((reflect_internal::total_fields<T> <= BEST_REFLECT_MAX_FIELDS_));
 
-  /// # `mirror::with()`
-  ///
-  /// Updates a reflection object to set
-  ///
-  /// Reflects that there exists a type with the given name, the given members,
-  /// and optionally, a row of tag types.
-  constexpr auto operator()(best::str name, auto... members) const;
-  constexpr auto operator()(best::str name, best::is_row auto tags,
-                            auto... members) const;
+  template <best::bounds range = best::bounds{.end = 64}>
+  constexpr auto infer() const
+    requires best::is_enum<T> && (range.try_compute_count({}).has_value());
 
   /// # `mirror.field()`
   ///
@@ -109,8 +118,8 @@ class mirror final {
   ///
   /// This returns a tap that can be applied to a reflection returned by
   /// e.g. `infer()`. This is primarily intended for adding tags to the field.
-  template <best::same<T> Struct, best::is_object Type>
-  constexpr auto field(Type Struct::*, auto... tags) const
+  template <best::is_member_ptr auto mp>
+  constexpr auto field(best::vlist<mp>, auto... tags) const
     requires best::is_struct<T>;
 
   /// # `mirror.value()`
@@ -119,19 +128,20 @@ class mirror final {
   ///
   /// This returns a tap that can be applied to a reflection returned by
   /// e.g. `infer()`. This is primarily intended for adding tags to the value.
-  template <best::same<T> Enum>
-  constexpr auto value(best::str name, Enum value, auto... tags) const
+  template <best::is_enum auto e>
+  constexpr auto value(best::vlist<e>, auto... tags) const
     requires best::is_enum<T>;
 
   /// # `mirror.hide()`
   ///
   /// Returns a tap that causes the given field or value to be hidden from
   /// reflection.
-  template <best::same<T> Struct, best::is_object Type>
-  constexpr auto hide(Type Struct::*) const
+  template <best::is_member_ptr auto mp>
+  constexpr auto hide(best::vlist<mp>) const
     requires best::is_struct<T>;
-  template <best::same<T> Enum>
-  constexpr auto value(Enum value) const
+
+  template <best::is_enum auto e>
+  constexpr auto hide(best::vlist<e>) const
     requires best::is_enum<T>;
 
   mirror(const mirror&) = delete;
@@ -143,27 +153,21 @@ class mirror final {
  public:
   static const mirror BEST_MIRROR_FTADLE_;
 };
-template <typename T>
-inline constexpr mirror<T> mirror<T>::BEST_MIRROR_FTADLE_{};
-#define BEST_MIRROR_FTADLE_ _private
 
 /// # `best::reflected_field`
 ///
-/// A field of some reflected struct. The type parameter is an implementation
+/// A field of some reflected struct. The type parameters are an implementation
 /// detail; this type cannot be instantiated by users.
 ///
 /// A `best::reflected_field` offers accessors for information about the field,
-/// such as its name, access to a member-to-ptr, and so on.
-///
-/// A field can also be used to offset into a struct, with the syntax
-/// `my_struct->*field`. `my_struct` can be a reference or pointer to
-/// the reflected type, or a dereferenceable type that returns one.
-template <auto& info_>
+/// such as its name and tags. It can also be used like a pointer-to-member,
+/// extracting the value of a field from a struct value with `value->*field`.
+template <auto& desc_>
 class reflected_field final {
  private:
-  static_assert(info_.Kind == reflect_internal::Field,
+  static_assert(desc_.Kind == reflect_internal::Field,
                 "cannot instantiate best::reflected_field directly");
-  using info_t = best::as_auto<decltype(info_)>;
+  using info_t = best::as_auto<decltype(desc_)>;
 
  public:
   /// # `reflected_field::reflected`
@@ -179,29 +183,25 @@ class reflected_field final {
   /// # `reflected_field::name()`
   ///
   /// Returns the name of this field as specified in the `BestReflect()` call.
-  constexpr best::str name() const { return info_.name_; }
+  constexpr best::str name() const { return desc_.name_; }
 
   /// # `reflected_field::tags()`
   ///
   /// Returns any tags on this field that can be selected by `Key`.
   template <typename Key>
   constexpr best::is_row auto tags(best::tlist<Key> key = {}) const {
-    return info_.tags_.select(key);
+    return desc_.tags_.select(key);
   }
 
-  /// # `reflected_field::as_offset()`
+  /// # `reflected_field::operator->*`
   ///
-  /// Returns a pointer-to-member that represents this field.
-  constexpr type reflected::*as_offset() const { return info_.ptr_; }
-
-  constexpr friend decltype(auto) operator->*(auto&& r, reflected_field f)
-    requires best::same<best::as_auto<decltype(r)>, reflected>
+  /// Extracts the field described by this reflection from an actual struct
+  /// value.
+  constexpr friend decltype(auto) operator->*(auto&& struct_,
+                                              reflected_field field)
+    requires best::same<best::as_auto<decltype(struct_)>, reflected>
   {
-    return BEST_FWD(r).*(f.as_offset());
-  }
-  constexpr friend decltype(auto) operator->*(
-      best::is_deref<reflected> auto&& r, reflected_field f) {
-    return (*BEST_FWD(r)).*(f.as_offset());
+    return desc_.get_(BEST_FWD(struct_));
   }
 
  private:
@@ -216,12 +216,12 @@ class reflected_field final {
 ///
 /// A `best::reflected_value` offers accessors for information about the field,
 /// such as its name, access to the enum value itself, and so on.
-template <auto& info_>
+template <auto& desc_>
 class reflected_value final {
  private:
-  static_assert(info_.Kind == reflect_internal::Value,
+  static_assert(desc_.Kind == reflect_internal::Value,
                 "cannot instantiate best::reflected_value directly");
-  using info_t = best::as_auto<decltype(info_)>;
+  using info_t = best::as_auto<decltype(desc_)>;
 
  public:
   /// # `reflected_field::reflected`
@@ -232,19 +232,19 @@ class reflected_value final {
   /// # `reflected_field::value`
   ///
   /// The actual reflected value.
-  static constexpr reflected value = info_.elem_;
+  static constexpr reflected value = desc_.elem_;
 
   /// # `reflected_field::name()`
   ///
   /// Returns the name of this field as specified in the `BestReflect()` call.
-  constexpr best::str name() const { return info_.name_; }
+  constexpr best::str name() const { return *best::value_name<desc_.elem_>; }
 
   /// # `reflected_field::tags()`
   ///
   /// Returns any tags on this field that can be selected by `Key`.
   template <typename Key>
   constexpr best::is_row auto tags(best::tlist<Key> key = {}) const {
-    return info_.tags_.select(key);
+    return desc_.tags_.select(key);
   }
 
  private:
@@ -258,187 +258,245 @@ class reflected_value final {
 /// detail; this type cannot be instantiated by users.
 ///
 /// To obtain an instance of this type, use `best::reflect<T>`.
-template <auto& info_>
+template <auto& desc_>
 class reflected_type final {
  private:
-  static_assert(info_.Kind == reflect_internal::Struct ||
-                    info_.Kind == reflect_internal::Enum ||
-                    info_.Kind == reflect_internal::NoFields,
+  static_assert(desc_.Kind == reflect_internal::Type,
                 "cannot instantiate best::field directly");
-  using info_t = best::as_auto<decltype(info_)>;
+  using info_t = best::as_auto<decltype(desc_)>;
 
  public:
   /// # `reflected_type::reflected`
   ///
   /// The type this is a reflection of.
-  using reflected =
-      best::select<info_.Kind == reflect_internal::Struct,
-                   typename info_t::struct_, typename info_t::enum_>;
+  using reflected = info_t::type;
 
   /// # `reflected_type::name()`
   ///
-  /// Returns the name of this type as specified in the `BestReflect()` call.
-  constexpr best::str name() const { return info_.name_; }
+  /// Returns the short name of this type.
+  constexpr best::str name() const { return best::type_name<reflected>; }
 
-  /// # `reflected_type::find(member)`
+  /// # `reflected_type::names()`
   ///
-  /// Looks up the field or value corresponding to a particular member. This
-  /// the member should be a pointer-to-member if this is a reflects a struct,
-  /// or a value of the underlying enum if this reflects an enum.
-  ///
-  /// It will then call `cb` with the appropriate value. Internally, it has the
-  /// semantics of calling `best::choice::match()` on a choice that can contain
-  /// any of the possible reflected field/value types produced by fields() or
-  /// values(), respectively. If no element matches, it is as if the selected
-  /// element has type `void`.
-  ///
-  /// Hence, the best way to use this function is to write something like this.
-  ///
-  /// ```
-  /// auto name = best::reflect<T>.find(xyz,
-  ///   [](auto value) { return value.name() },
-  ///   [] { return best::str("<unknown>"); });
-  /// ```
-  constexpr decltype(auto) find(auto member, auto&&... cases) const;
+  /// Returns access to fully-detailed versions of the name of this type.
+  constexpr best::type_names names() const {
+    return best::type_names::of<reflected>;
+  }
 
   /// # `reflected_type::tags()`
   ///
   /// Returns any tags on this type that can be selected by `Key`.
   template <typename Key>
   constexpr best::is_row auto tags(best::tlist<Key> key = {}) const {
-    return info_.tags_.select(key);
+    return desc_.tags_.select(key);
   }
 
-  /// # `reflected_type::fields()`
+  /// # `reflected_type::apply()`
   ///
-  /// Calls `cb` with a pack of `best::reflected_field`s for this type.
-  constexpr decltype(auto) fields(auto&& cb) const
-    requires best::is_struct<reflected>;
+  /// Calls `cb` with a pack of `best::reflected_field`s or
+  /// `best::reflected_value`s for this type.
+  constexpr decltype(auto) apply(auto&& cb) const;
 
-  /// # `reflected_type::each_field(...)`
+  /// # `reflected_type::each()`
+  ///
+  /// Like `reflected_type::apply`, but `cb` is called one per field/value.
+  constexpr decltype(auto) each(auto&& cb) const;
+
+  /// # `reflected_type::match()`
+  ///
+  /// Finds the corresponding reflection for the item corresponding to `key` and
+  /// calls `cases` with it, with the same semantics as `choice::match()`. If
+  /// not found, this will call `cases` with no arguments.
+  ///
+  /// `key` may either be the exact name of a field, or an enum value.
+  constexpr decltype(auto) match(best::str key, auto&&... cases) const;
+  constexpr decltype(auto) match(reflected key, auto&&... cases) const
+    requires best::is_enum<reflected>;
+
+  /// # `reflected_type::zip_fields(...)`
   ///
   /// Zips together the fields of a bunch of references-to-`reflected`, and
   /// calls `cb` (the last argument of `args...`) on each row of fields.
-  constexpr void each_field(auto&&... args) const
+  constexpr void zip_fields(auto&&... args) const
     requires best::is_struct<reflected>;
 
-  /// # `reflected_type::values()`
-  ///
-  /// Calls `cb` with a pack of `best::reflected_values`s for this type.
-  constexpr decltype(auto) values(auto&& cb) const
-    requires best::is_enum<reflected>;
-
-  constexpr reflected_type() = default;
-
- private:
+  // private:
   /// Workaround for a dumb Clang 17 conformance bug.
   template <size_t i>
-  static constexpr auto item = info_.items_[best::index<i>];
-};
+  static constexpr auto item = desc_.items_[best::index<i>];
 
-/// # `best::fields()`
-///
-/// Extracts all of the fields out of a reflected struct and creates a row
-/// of references of them.
-constexpr auto fields(best::is_reflected_struct auto&& value) {
-  return best::reflect<decltype(value)>.fields(
-      [&](auto... f) { return best::row(best::bind, value->*f...); });
-}
+  template <typename T = reflected_type>
+  static constexpr auto ChoiceTable = T{}.apply([](auto... values) {
+    return std::array{best::choice<void, decltype(values)...>(best::index<0>),
+                      best::choice<void, decltype(values)...>(values)...};
+  });
+
+  struct entry {
+    best::str k;
+    size_t v;
+  };
+  template <typename T = reflected_type>
+  static constexpr auto Name2Index = [] {
+    auto array = T{}.apply([](auto... values) {
+      size_t i = 0;
+      return std::array{entry{values.name(), ++i}...};
+    });
+    best::span(array).sort(&entry::k);
+    return array;
+  }();
+
+  template <typename T = reflected_type>
+  static constexpr size_t index_of(best::str name) {
+    best::mark_sort_header_used();
+    return best::span(Name2Index<T>)
+        .bisect(name, &entry::k)
+        .ok()
+        .map([](auto i) { return Name2Index<T>[i].v; })
+        .value_or(0);
+  }
+};
 }  // namespace best
 
-/******************************************************************************/
-
-///////////////////// !!! IMPLEMENTATION DETAILS BELOW !!! /////////////////////
-
-/******************************************************************************/
+/* ////////////////////////////////////////////////////////////////////////// *\
+ * ////////////////// !!! IMPLEMENTATION DETAILS BELOW !!! ////////////////// *
+\* ////////////////////////////////////////////////////////////////////////// */
 
 namespace best {
-
 template <typename T>
-constexpr auto mirror<T>::empty() const {
-  if constexpr (best::is_struct<T>) {
-    return reflect_internal::struct_info<T, best::row<>, best::row<>>{};
-  } else if constexpr (best::is_enum<T>) {
-    crash_internal::crash("nyi");
-  } else {
-    static_assert(sizeof(T) == 0,
-                  "instantiated mirror<T> with a non-struct, non-enum type");
-  }
-}
+inline constexpr mirror<T> mirror<T>::BEST_MIRROR_FTADLE_{};
+#define BEST_MIRROR_FTADLE_ _private
 
-/// # `mirror::infer()`
-///
-/// Infers the default reflection for the type `T`. This value can be updated
-/// using the taps returned by other methods
-template <typename T>
-constexpr auto mirror<T>::infer() const {
-  if constexpr (best::is_struct<T>) {
-    return reflect_internal::infer_struct<T>();
-  } else if constexpr (best::is_enum<T>) {
-    crash_internal::crash("nyi");
-  } else {
-    static_assert(sizeof(T) == 0,
-                  "instantiated mirror<T> with a non-struct, non-enum type");
-  }
-}
-
-template <auto& info_>
-constexpr decltype(auto) reflected_type<info_>::find(auto member,
-                                                     auto&&... cases) const {
-  if constexpr (best::is_struct<reflected>) {
-    return fields([&](auto... fields) {
-      using Ch = best::choice<void, decltype(fields)...>;
-      Ch ch(best::index<0>);
-
-      ((best::equal(member, fields.as_offset()) ? void(ch = Ch(fields))
-                                                : void()),
-       ...);
-      return ch.match(BEST_FWD(cases)...);
-    });
-  } else {
-    return values([&](auto... values) {
-      using Ch = best::choice<void, decltype(values)...>;
-      Ch ch(best::index<0>);
-
-      ((best::equal(member, values.value) ? void(ch = Ch(values)) : void()),
-       ...);
-      return ch.match(BEST_FWD(cases)...);
-    });
-  }
-}
-
-template <auto& info_>
-constexpr decltype(auto) reflected_type<info_>::fields(auto&& cb) const
-  requires best::is_struct<reflected>
+// The default BEST_REFLECT impl.
+constexpr auto BestReflect(auto& mirror, auto*)
+  requires requires { mirror.infer(); }
 {
-  return best::indices<info_.items_.types.size()>.apply([&]<typename... I> {
-    return best::call(BEST_FWD(cb), best::reflected_field<item<I::value>>{}...);
+  return mirror.infer();
+}
+
+template <typename T>
+template <best::is_member_ptr auto mp>
+constexpr auto mirror<T>::field(best::vlist<mp>, auto... tags) const
+  requires best::is_struct<T>
+{
+  return best::tap([=](reflect_internal::valid_reflection<T> auto&& refl) {
+    return refl.template add<mp>(tags...);
   });
 }
 
-template <auto& info_>
-constexpr void reflected_type<info_>::each_field(auto&&... args) const
-  requires best::is_struct<reflected>
+template <typename T>
+template <best::is_enum auto e>
+constexpr auto mirror<T>::value(best::vlist<e>, auto... tags) const
+  requires best::is_enum<T>
 {
-  if constexpr (sizeof...(args) == 1) {
-    fields([&](auto... fields) { (best::call(args..., fields), ...); });
+  return best::tap([=](reflect_internal::valid_reflection<T> auto&& refl) {
+    return refl.template add<e>(tags...);
+  });
+}
+
+template <typename T>
+template <best::is_member_ptr auto mp>
+constexpr auto mirror<T>::hide(best::vlist<mp>) const
+  requires best::is_struct<T>
+{
+  return best::tap([=](reflect_internal::valid_reflection<T> auto&& refl) {
+    return refl.template hide<mp>();
+  });
+}
+template <typename T>
+template <best::is_enum auto e>
+constexpr auto mirror<T>::hide(best::vlist<e>) const
+  requires best::is_enum<T>
+{
+  return best::tap([=](reflect_internal::valid_reflection<T> auto&& refl) {
+    return refl.template hide<e>();
+  });
+}
+
+template <typename T>
+constexpr auto mirror<T>::empty() const {
+  return reflect_internal::tdesc<T, best::row<>, best::row<>>{};
+}
+
+template <typename T>
+constexpr auto mirror<T>::infer() const
+  requires best::is_struct<T> &&
+           ((reflect_internal::total_fields<T> <= BEST_REFLECT_MAX_FIELDS_))
+{
+  return reflect_internal::tdesc<T>::infer_struct();
+}
+
+template <typename T>
+template <best::bounds range>
+constexpr auto best::mirror<T>::infer() const
+  requires best::is_enum<T> && (range.try_compute_count({}).has_value())
+{
+  return reflect_internal::tdesc<T>::template infer_enum<
+      range.start, *range.try_compute_count({})>();
+}
+
+template <auto& desc_>
+constexpr decltype(auto) reflected_type<desc_>::apply(auto&& cb) const {
+  if constexpr (best::is_struct<reflected>) {
+    return best::indices<desc_.items_.types.size()>.apply([&]<typename... I> {
+      return best::call(BEST_FWD(cb),
+                        best::reflected_field<item<I::value>>{}...);
+    });
   } else {
-    best::row<decltype(args)...> row(BEST_FWD(args)...);
-    each_field([&](auto field) {
-      best::indices<info_.items_.types.size() - 1>.apply([&]<typename... I> {
-        best::call(BEST_MOVE(row).last(),
-                   BEST_MOVE(row)[best::index<I::value>]->*field...);
-      });
+    return best::indices<desc_.items_.types.size()>.apply([&]<typename... I> {
+      return best::call(BEST_FWD(cb),
+                        best::reflected_value<item<I::value>>{}...);
     });
   }
 }
 
-template <auto& info_>
-constexpr decltype(auto) reflected_type<info_>::values(auto&& cb) const
+template <auto& desc_>
+constexpr decltype(auto) reflected_type<desc_>::each(auto&& cb) const {
+  if constexpr (best::is_struct<reflected>) {
+    return best::indices<desc_.items_.types.size()>.apply([&]<typename... I> {
+      return (best::call(BEST_FWD(cb), best::reflected_field<item<I::value>>{}),
+              ...);
+    });
+  } else {
+    return best::indices<desc_.items_.types.size()>.apply([&]<typename... I> {
+      return (best::call(BEST_FWD(cb), best::reflected_value<item<I::value>>{}),
+              ...);
+    });
+  }
+}
+
+template <auto& desc_>
+constexpr decltype(auto) reflected_type<desc_>::match(best::str key,
+                                                      auto&&... cases) const {
+  auto choice = ChoiceTable<>[index_of(key)];
+  return choice.match(BEST_FWD(cases)...);
+}
+
+template <auto& desc_>
+constexpr decltype(auto) reflected_type<desc_>::match(reflected value,
+                                                      auto&&... cases) const
   requires best::is_enum<reflected>
 {
-  return best::indices<info_.items_.types.size()>.apply([&]<typename... I> {
-    return best::call(BEST_FWD(cb), best::reflected_value<item<I::value>>{}...);
+  auto choice = apply([&](auto... values) {
+    size_t idx = 0;
+    ((value == values.value ? true : (++idx, false)) || ...);
+    return ChoiceTable<>[idx + 1];
+  });
+  return choice.match(BEST_FWD(cases)...);
+}
+
+template <auto& desc_>
+constexpr void reflected_type<desc_>::zip_fields(auto&&... args) const
+  requires best::is_struct<reflected>
+{
+  auto row = best::row(best::bind, BEST_FWD(args)...);
+  auto&& cb = BEST_MOVE(row).last();
+  auto rest =
+      BEST_MOVE(row).at(best::vals<best::bounds{.end = sizeof...(args) - 1}>);
+
+  return each([&](auto field) -> decltype(auto) {
+    return BEST_MOVE(rest).apply([&](auto&&... structs) -> decltype(auto) {
+      best::call(BEST_FWD(cb), BEST_FWD(structs)->*field...);
+    });
   });
 }
 }  // namespace best

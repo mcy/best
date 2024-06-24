@@ -124,10 +124,10 @@ class [[nodiscard(
     return best::call(tap.callback(), BEST_FWD(arg));
   }
   constexpr friend decltype(auto) operator->*(auto&& arg, const tap&& tap) {
-    return best::call(tap.callback(), BEST_FWD(arg));
+    return best::call(BEST_MOVE(tap).callback(), BEST_FWD(arg));
   }
   constexpr friend decltype(auto) operator->*(auto&& arg, tap&& tap) {
-    return best::call(tap.callback(), BEST_FWD(arg));
+    return best::call(BEST_MOVE(tap).callback(), BEST_FWD(arg));
   }
 
  private:

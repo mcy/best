@@ -17,22 +17,17 @@
 
 \* ////////////////////////////////////////////////////////////////////////// */
 
-//#include "best/meta/reflect.h"
+#include "best/meta/reflect.h"
 
-#include "best/meta/internal/reflect.h"
 #include "best/test/test.h"
 
 namespace best::reflect_test {
-struct Foo final {
-  int foo, bar, baz;
-};
 
-best::test t = [](auto& t) {
-  constexpr auto i = reflect_internal::infer_struct<Foo>().index<&Foo::bar>();
-  t.expect_eq(i, 1);
-};
+static_assert(best::is_struct<std::array<int, 4>>);
+static_assert(best::is_reflected_struct<std::array<int, 4>>);
+static_assert(!best::is_reflected_struct<std::array<int, 65>>);
 
-/*struct Tag {};
+struct Tag {};
 
 template <typename F>
 struct MyCallback {
@@ -46,25 +41,22 @@ MyCallback(F) -> MyCallback<F>;
 struct MyType final {
   int x, y, z;
   best::str s1, s2;
+  int transient = 0;
 
   constexpr friend auto BestReflect(auto& m, MyType*) {
-    return m("MyType",                                                 //
-             m.field("x", &MyType::x),                                 //
-             m.field("y", &MyType::y),                                 //
-             m.field("z", &MyType::z, MyCallback([] { return 42; })),  //
-             m.field("s1", &MyType::s1),                               //
-             m.field("s2", &MyType::s2));
+    return m.infer()
+               ->*m.field(best::vals<&MyType::y>, MyCallback([] { return 42; }))
+               ->*m.hide(best::vals<&MyType::transient>);
   }
-};
 
+  constexpr bool operator==(const MyType&) const = default;
+};
 static_assert(best::is_reflected_struct<MyType>);
 
 enum class MyEnum { A, B, C };
 constexpr auto BestReflect(auto& m, MyEnum*) {
-  return m("MyEnum",                 //
-           m.value("A", MyEnum::A),  //
-           m.value("B", MyEnum::B),  //
-           m.value("C", MyEnum::C));
+  return m.infer()->*m.value(best::vals<MyEnum::B>,
+                             MyCallback([] { return 57; }));
 }
 
 static_assert(best::is_reflected_enum<MyEnum>);
@@ -83,16 +75,37 @@ best::test Fields = [](auto& t) {
 };
 
 best::test FindTag = [](auto& t) {
-  int found = best::reflect<MyType>.find(
-      &MyType::z,
-      [](auto field) {
-        auto tags = field.tags(best::types<Tag>);
-        if constexpr (!tags.is_empty()) {
-          return tags[best::index<0>].callback();
-        }
-        return 0;
-      },
-      [] { return 0; });
+  int found = -1;
+  best::reflect<MyType>.each([&](auto field) {
+    auto tags = field.tags(best::types<Tag>);
+    if constexpr (!tags.is_empty()) {
+      return found = tags.first().callback();
+    }
+  });
   t.expect_eq(found, 42);
-};*/
+
+  best::reflect<MyEnum>.each([&](auto field) {
+    auto tags = field.tags(best::types<Tag>);
+    if constexpr (!tags.is_empty()) {
+      return found = tags.first().callback();
+    }
+  });
+  t.expect_eq(found, 57);
+};
+
+best::test FindField = [](auto& t) {
+  MyType x0{1, 2, 3, "foo", "bar"};
+  best::reflect<MyType>.match(
+      "x", [&] {},
+      [&](auto f) {
+        if constexpr (best::integer<typename decltype(f)::type>) {
+          x0->*f = 42;
+        }
+      });
+  t.expect_eq(x0, MyType{42, 2, 3, "foo", "bar"});
+
+  auto x1 = best::reflect<MyEnum>.match(
+      "C", [&](auto f) { return f.value; }, [&] { return MyEnum(0); });
+  t.expect_eq(x1, MyEnum::C);
+};
 }  // namespace best::reflect_test
