@@ -85,5 +85,26 @@ best::test Debug = [](auto& t) {
               "{.including_end = 6}");
 };
 
+best::test Iter = [](auto& t) {
+  best::vec<size_t> xs;
+  for (size_t i : best::bounds{.start = 5, .end = 11}) {
+    xs.push(i);
+  }
+  t.expect_eq(xs, {5, 6, 7, 8, 9, 10});
+
+  xs.clear();
+  for (size_t i : best::bounds{.start = 5, .including_end = 11}) {
+    xs.push(i);
+  }
+  t.expect_eq(xs, {5, 6, 7, 8, 9, 10, 11});
+
+  xs.clear();
+  for (size_t i : best::bounds{.start = best::max_of<size_t> - 1,
+                  .including_end = best::max_of<size_t>}) {
+    xs.push(i);
+  }
+  t.expect_eq(xs, {best::max_of<size_t> - 1, best::max_of<size_t>});
+};
+
 // TODO: Once we have death tests, test the check-fail messages.
 }  // namespace best::bounds_test

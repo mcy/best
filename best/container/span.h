@@ -28,6 +28,7 @@
 #include "best/container/object.h"
 #include "best/container/option.h"
 #include "best/container/result.h"
+#include "best/iter/iter.h"
 #include "best/log/location.h"
 #include "best/math/overflow.h"
 #include "best/memory/bytes.h"
@@ -418,6 +419,21 @@ class span final {
   /// Undefined Behavior.
   constexpr best::span<T> at(unsafe, best::bounds range) const;
 
+  /// # `span::iterator`
+  ///
+  /// This span's iterator type.
+  class iter_impl;
+  using iterator = best::iter<iter_impl>;
+
+  /// # `span::iter()`, `span::begin()`, `span::end()`.
+  ///
+  /// Spans are iterable exactly how you'd expect.
+  constexpr iterator iter() const {
+    return iterator(iter_impl(data(), size()));
+  }
+  constexpr auto begin() const { return iter().into_range(); }
+  constexpr auto end() const { return best::iter_range_end{}; }
+
   /// # `span.swap()`
   ///
   /// Swaps the elements at indices `a` and `b`.
@@ -435,23 +451,81 @@ class span final {
   /// Splits this span at `idx` and returns both halves.
   constexpr best::option<std::array<best::span<T>, 2>> split_at(size_t) const;
 
+  /// # `span::find()`.
+  ///
+  /// Finds the first occurrence of a pattern by linear search, and returns its
+  /// position.
+  ///
+  /// A pattern may be:
+  ///
+  /// - Some value that is `best::equatable<T>`.
+  /// - Some range whose elements are `best::equatable<T>`.
+  /// - A predicate on `const T&`.
+  ///
+  /// Where possible, this function will automatically call vectorized
+  /// implementations of e.g. `memchr` and `memcmp` for finding the desired
+  /// pattern. Therefore, when possible, prefer to provide a needle by value.
+  template <best::equatable<T> U = T>
+  constexpr best::option<size_t> find(const U& needle) const;
+  template <best::contiguous R = best::span<const T>>
+  constexpr best::option<size_t> find(const R& needle) const
+    requires best::equatable<T, best::data_type<R>> && (!best::equatable<T, R>);
+  constexpr best::option<size_t> find(
+      best::callable<void(const T&)> auto&& pred) const;
+
   /// # `span::contains()`
   ///
-  /// Performs a linear search for a matching element or subspan and returns
-  /// whether it was found.
-  template <best::equatable<T> U = const T>
-  constexpr bool contains(best::span<U> needle) const;
-  constexpr bool contains(const best::equatable<T> auto& needle) const;
-
-  /// # `span::find()`
+  /// Determines whether an element exists that matches some pattern.
   ///
-  /// Performs a linear search for a matching element or subspan and returns its
-  /// index.
-  template <best::equatable<T> U>
-  constexpr best::option<size_t> find(best::span<U> needle) const;
-  constexpr best::option<size_t> find(
-      const best::equatable<T> auto& needle) const;
+  /// A pattern for a separator may be as in `span::find()`.
+  template <best::equatable<T> U = T>
+  constexpr bool contains(const U& needle) const;
+  template <best::contiguous R = best::span<const T>>
+  constexpr bool contains(const R& needle) const
+    requires best::equatable<T, best::data_type<R>> && (!best::equatable<T, R>);
+  constexpr bool contains(best::callable<void(const T&)> auto&& pred) const;
 
+  /// # `span::split_once()`.
+  ///
+  /// Calls `span::find()` to find the first occurrence of some pattern, and
+  /// if found, returns the subspans before and after the separator.
+  ///
+  /// A pattern for a separator may be as in `span::find()`.
+  template <best::equatable<T> U = T>
+  constexpr best::option<best::row<span<T>, span<T>>> split_once(
+      const U& needle) const;
+  template <best::contiguous R = best::span<const T>>
+  constexpr best::option<best::row<span<T>, span<T>>> split_once(
+      const R& needle) const
+    requires best::equatable<T, best::data_type<R>> && (!best::equatable<T, R>);
+  constexpr best::option<best::row<span<T>, span<T>>> split_once(
+      best::callable<void(const T&)> auto&& pred) const;
+
+  /// # `span::split()`.
+  ///
+  /// Returns an iterator over subspans separated by some pattern. Internally,
+  /// it calls `span::split_once()` until it is out of span.
+  ///
+  /// A pattern for a separator may be as in `span::find()`.
+  template <best::equatable<T> U = T>
+  constexpr auto split(const U& needle) const;
+  template <best::contiguous R = best::span<const T>>
+  constexpr auto split(const R& needle) const
+    requires best::equatable<T, best::data_type<R>> && (!best::equatable<T, R>);
+  constexpr auto split(best::callable<void(const T&)> auto&& pred) const;
+
+  // This overload saves people from passing a temporary into split and doing
+  // something like `auto splits = span.split(4);`
+  template <best::equatable<T> U = T>
+  constexpr auto split(U&& needle) const;
+
+ private:
+  template <typename P>
+  class split_impl;
+  template <typename P>
+  using split_iter = best::iter<split_impl<P>>;
+
+ public:
   /// # `span::starts_with()`, `span::ends_with()`
   ///
   /// Checks if this span starts or ends with a particular pattern.
@@ -552,15 +626,8 @@ class span final {
   constexpr void emplace_from(best::span<U> src) const
     requires(!is_const);
 
-  /// # `span::iter`, `span::begin()`, `span::end()`.
-  ///
-  /// Spans are iterable exactly how you'd expect.
-  struct iter;
-  constexpr iter begin() const { return {data(), size()}; }
-  constexpr iter end() const { return {data() + size(), 0}; }
-
   // TODO(mcyoung): Various other iterators, including:
-  // struct chunk_iter, struct window_iter, struct split_iter, struct ptr_iter.
+  // struct chunk_iter, struct window_iter, struct ptr_iter.
 
   /// # `span::destroy_in_place()`
   ///
@@ -617,6 +684,87 @@ class span final {
       size_{};
 };
 
+/// # `best::span::iter_impl`
+///
+/// The iterator implementation for `best::span`.
+template <best::is_object T, best::option<size_t> n>
+class span<T, n>::iter_impl final {
+ public:
+  /// # `iter->rest()`
+  ///
+  /// Returns the content not yet yielded.
+  constexpr best::span<T> rest() const {
+    return best::span(start_, end_ - start_);
+  }
+
+  using BestIterArrow = void;
+
+ private:
+  friend span;
+  friend best::iter<iter_impl>;
+  friend best::iter<iter_impl&>;
+
+  constexpr iter_impl(T* ptr, size_t idx) : start_(ptr), end_(ptr + idx) {}
+
+  constexpr best::option<T&> next() {
+    if (start_ == end_) return best::none;
+    return best::option<T&>(*start_++);
+  }
+
+  constexpr best::size_hint size_hint() const {
+    return {end_ - start_, end_ - start_};
+  }
+
+  constexpr size_t count() && { return end_ - start_; }
+
+  T* start_;
+  T* end_;
+};
+
+/// # `best::span::split_impl`
+///
+/// The iterator implementation for `best::span`.
+template <best::is_object T, best::option<size_t> n>
+template <typename P>
+class span<T, n>::split_impl final {
+ public:
+  /// # `iter->rest()`
+  ///
+  /// Returns the content not yet yielded.
+  constexpr best::span<T> rest() const { return span_; }
+
+  using BestIterArrow = void;
+
+ private:
+  friend span;
+  friend best::iter<split_impl>;
+  friend best::iter<split_impl&>;
+
+  constexpr explicit split_impl(auto&& pat, best::span<T> span)
+      : pat_(best::in_place, BEST_FWD(pat)), span_(span) {}
+
+  constexpr best::option<best::span<T>> next() {
+    if (done_) return best::none;
+    if (auto found = span_.split_once(*pat_)) {
+      span_ = found->second();
+      return found->first();
+    }
+    done_ = true;
+    auto rest = span_;
+    span_ = {};
+    return rest;
+  }
+
+  constexpr best::size_hint size_hint() const {
+    if (done_) return {0, 0};
+    return {1, span_.size() + 1};
+  }
+
+  [[no_unique_address]] best::object<P> pat_;
+  best::span<T> span_;
+  bool done_ = false;
+};
+
 template <typename T>
 span(T*, size_t) -> span<T>;
 template <typename T>
@@ -632,41 +780,6 @@ span(R&& r) -> span<best::data_type<R>>;
 \* ////////////////////////////////////////////////////////////////////////// */
 
 namespace best {
-template <best::is_object T, best::option<size_t> n>
-struct span<T, n>::iter final {
-  constexpr iter() = default;
-
-  constexpr bool operator==(const iter& that) const = default;
-
-  constexpr decltype(auto) operator*() const { return (*this)[0]; }
-  constexpr best::as_ptr<T> operator->() const { return ptr_.operator->(); }
-  constexpr decltype(auto) operator[](size_t idx) const { return ptr_[idx]; }
-
-  constexpr iter& operator++() {
-    ++ptr_;
-    return *this;
-  }
-  constexpr iter operator++(int) {
-    auto prev = *this;
-    ++*this;
-    return prev;
-  }
-
-  constexpr iter& operator--() {
-    --ptr_;
-    return *this;
-  }
-  constexpr iter operator--(int) {
-    auto prev = *this;
-    --*this;
-    return prev;
-  }
-
- private:
-  friend span;
-  constexpr iter(best::object_ptr<T> ptr, size_t idx) : ptr_(ptr) {}
-  best::object_ptr<T> ptr_;
-};
 
 inline constexpr best::option<size_t> BestStaticSize(auto,
                                                      best::contiguous auto*) {
@@ -886,55 +999,143 @@ constexpr best::option<std::array<best::span<T>, 2>> span<T, n>::split_at(
 }
 
 template <best::is_object T, best::option<size_t> n>
-constexpr bool span<T, n>::contains(
-    const best::equatable<T> auto& needle) const {
-  return find(needle).has_value();
-}
-template <best::is_object T, best::option<size_t> n>
 template <best::equatable<T> U>
-constexpr bool span<T, n>::contains(best::span<U> needle) const {
-  return find(needle).has_value();
+constexpr best::option<size_t> span<T, n>::find(const U& needle) const {
+  return find(best::span(best::addr(needle), 1));
+}
+
+template <best::is_object T, best::option<size_t> n>
+template <best::contiguous R>
+constexpr best::option<size_t> span<T, n>::find(const R& needle) const
+  requires best::equatable<T, best::data_type<R>> && (!best::equatable<T, R>)
+{
+  if (best::size(needle) == 0) return 0;
+
+  if constexpr (best::is_span<R>) {
+    using U = best::data_type<R>;
+    if constexpr (best::constexpr_byte_comparable<T, U>) {
+      return best::search_bytes(*this, needle);
+    } else if (!std::is_constant_evaluated()) {
+      if constexpr (best::byte_comparable<T, U>) {
+        return best::search_bytes(*this, needle);
+      }
+    }
+
+    auto haystack = *this;
+    auto [first, rest] = *needle.split_first();
+    while (haystack.size() >= needle.size()) {
+      // Skip to the next possible start.
+      size_t next = 0;
+      for (const auto& x : haystack) {
+        if (x == first) break;
+        ++next;
+      }
+      if (next == haystack.size()) return best::none;
+
+      // Skip forward.
+      haystack = at(unsafe("we just did a bounds check; avoid going through "
+                           "best::option here for constexpr speed"),
+                    {// SKip the first element for a speedier comparison.
+                     .start = next + 1});
+
+      // Now check if we found the full needle.
+      if (haystack.starts_with(rest)) return size() - haystack.size() - 1;
+    }
+    return best::none;
+  } else {
+    // Canonicalize by tail-call to the version that takes a span to minimize
+    // code bloat.
+    return find(best::span(needle));
+  }
 }
 
 template <best::is_object T, best::option<size_t> n>
 constexpr best::option<size_t> span<T, n>::find(
-    const best::equatable<T> auto& needle) const {
+    best::callable<void(const T&)> auto&& pred) const {
   size_t idx = 0;
-  for (auto& candidate : *this) {
-    if (candidate == needle) return idx;
+  for (const auto& x : *this) {
+    if (pred(x)) return idx;
     ++idx;
   }
   return best::none;
 }
+
 template <best::is_object T, best::option<size_t> n>
 template <best::equatable<T> U>
-constexpr best::option<size_t> span<T, n>::find(best::span<U> needle) const {
-  if (needle.is_empty()) return 0;
+constexpr bool span<T, n>::contains(const U& needle) const {
+  return find(needle).has_value();
+}
+template <best::is_object T, best::option<size_t> n>
+template <best::contiguous R>
+constexpr bool span<T, n>::contains(const R& needle) const
+  requires best::equatable<T, best::data_type<R>> && (!best::equatable<T, R>)
+{
+  return find(needle).has_value();
+}
+template <best::is_object T, best::option<size_t> n>
+constexpr bool span<T, n>::contains(
+    best::callable<void(const T&)> auto&& pred) const {
+  return find(BEST_FWD(pred)).has_value();
+}
 
-  if constexpr (best::constexpr_byte_comparable<T, U>) {
-    return best::search_bytes(*this, needle);
-  } else if (!std::is_constant_evaluated()) {
-    if constexpr (best::byte_comparable<T, U>) {
-      return best::search_bytes(*this, needle);
-    }
-  }
+template <best::is_object T, best::option<size_t> n>
+template <best::equatable<T> U>
+constexpr best::option<best::row<span<T>, span<T>>> span<T, n>::split_once(
+    const U& needle) const {
+  auto idx = find(needle);
+  if (!idx) return best::none;
+  return {{
+      best::span(data(), *idx),
+      best::span(data() + *idx + 1, size() - *idx - 1),
+  }};
+}
+template <best::is_object T, best::option<size_t> n>
+template <best::contiguous R>
+constexpr best::option<best::row<span<T>, span<T>>> span<T, n>::split_once(
+    const R& needle) const
+  requires best::equatable<T, best::data_type<R>> && (!best::equatable<T, R>)
+{
+  auto idx = find(needle);
+  if (!idx) return best::none;
+  return {{
+      best::span(data(), *idx),
+      best::span(data() + *idx + 1, size() - *idx - 1),
+  }};
+}
+template <best::is_object T, best::option<size_t> n>
+constexpr best::option<best::row<span<T>, span<T>>> span<T, n>::split_once(
+    best::callable<void(const T&)> auto&& pred) const {
+  auto idx = find(pred);
+  if (!idx) return best::none;
+  return {{
+      best::span(data(), idx),
+      best::span(data() + *idx + 1, size() - *idx - 1),
+  }};
+}
 
-  auto haystack = *this;
-  auto& first = needle[0];
-  while (haystack.size() >= needle.size()) {
-    // Skip to the next possible start.
-    auto next = haystack.find(first);
-    if (!next) return best::none;
+template <best::is_object T, best::option<size_t> n>
+template <best::equatable<T> U>
+constexpr auto span<T, n>::split(const U& needle) const {
+  return split_iter<const U&>(split_impl<const U&>(needle, *this));
+}
 
-    // Skip forward.
-    haystack = at(unsafe("we just did a bounds check; avoid going through "
-                         "best::option here for constexpr speed"),
-                  {.start = *next});
-
-    // Now check if we found the full needle.
-    if (haystack.starts_with(needle)) return size() - haystack.size();
-  }
-  return false;
+template <best::is_object T, best::option<size_t> n>
+template <best::equatable<T> U>
+constexpr auto span<T, n>::split(U&& needle) const {
+  return split_iter<U>(split_impl<U>(BEST_MOVE(needle), *this));
+}
+template <best::is_object T, best::option<size_t> n>
+template <best::contiguous R>
+constexpr auto span<T, n>::split(const R& needle) const
+  requires best::equatable<T, best::data_type<R>> && (!best::equatable<T, R>)
+{
+  return split_iter(split_impl<const R&>(needle, *this));
+}
+template <best::is_object T, best::option<size_t> n>
+constexpr auto span<T, n>::split(
+    best::callable<void(const T&)> auto&& pred) const {
+  return split_iter<decltype(pred)>(
+      split_impl<decltype(pred)>(BEST_FWD(pred), *this));
 }
 
 template <best::is_object T, best::option<size_t> n>

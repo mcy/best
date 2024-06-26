@@ -20,10 +20,7 @@
 #ifndef BEST_TEST_TEST_H_
 #define BEST_TEST_TEST_H_
 
-#include <functional>
-
 #include "best/log/location.h"
-#include "best/meta/ops.h"
 #include "best/text/format.h"
 #include "best/text/str.h"
 
@@ -55,10 +52,7 @@ class test final {
   /// Creates and registers a new unit test.
   ///
   /// This should ONLY be used to create global variables!
-  template <typename Body>
-  test(Body body, best::location loc = best::here)
-    requires best::callable<Body, void(test&)>
-      : body_(std::move(body)), loc_(loc) {
+  test(auto body, best::location loc = best::here) : body_(body), loc_(loc) {
     init();
   }
 
@@ -195,7 +189,7 @@ class test final {
     return cond;
   }
 
-  std::function<void(test&)> body_;
+  void (*body_)(test&);
   best::location loc_;
 
   best::str name_;

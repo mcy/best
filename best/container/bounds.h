@@ -20,10 +20,14 @@
 #ifndef BEST_CONTAINER_BOUNDS_H_
 #define BEST_CONTAINER_BOUNDS_H_
 
+#include <array>
 #include <cstddef>
+#include <type_traits>
 
+#include "best/base/fwd.h"
 #include "best/container/internal/simple_option.h"
 #include "best/log/location.h"
+#include "best/meta/traits.h"
 
 //! Callsite-readable array access bounds specifications.
 //!
@@ -104,6 +108,15 @@ struct bounds final {
   /// If more than one is specified, the first one in the above list wins.
   opt_size_t end, including_end, count;
 
+  /// # `bounds::iter()`
+  ///
+  /// Returns an iterator over the indices encompassed by this `bounds`.
+  template <typename Delay = void>
+  constexpr auto iter() const {
+    return best::iter<best::dependent<iter_impl, Delay>>(
+        {.start = start, .count = *normalize(max).count});
+  }
+
   /// # `bounds::compute_count()`
   ///
   /// Computes the count (i.e., `end - start`, whatever that might be), given
@@ -111,70 +124,33 @@ struct bounds final {
   ///
   /// If the access would be out of bounds, crashes.
   constexpr size_t compute_count(size_t max_size,
-                                 best::location loc = best::here) const {
-    if (auto result = try_compute_count(max_size)) {
-      return *result;
-    }
-    crash(max_size, loc);
-  }
+                                 best::location loc = best::here) const;
 
   /// # `bounds::compute_count()`
   ///
   /// Like `compute_count()`, indicates failure in the return type.
   ///
-  /// Also allows for a potentially missing `max_size`, in which case an
-  /// explicit end is an error.
-  constexpr opt_size_t try_compute_count(opt_size_t max_size) const {
-    if (max_size && start > *max_size) {
-      return {};
-    }
+  /// Also allows for a potentially missing `max_size`, in which case no
+  /// explicit endpoint is an error.
+  constexpr opt_size_t try_compute_count(opt_size_t max_size) const;
 
-    size_t end;
-    if (this->end) {
-      end = *this->end;
-      if (end < start) {
-        return {};
-      }
-    } else if (including_end) {
-      end = *including_end + 1;
-      if (end <= start) {
-        return {};
-      }
-    } else if (count) {
-      end = start + *count;
-    } else if (max_size) {
-      end = *max_size;
-    } else {
-      return {};
-    }
+  /// # `bounds::wrapping_normalize`
+  ///
+  /// Normalizes this `bounds` so that only `count` is set. If `max_size` is not
+  /// provided, it is assumed to be the maximum possible size.
+  ///
+  /// If in the result, `start + count` would overflow, or no max size is
+  /// provided and this `bounds` has no endpoint set, the count is cleared.
+  constexpr bounds normalize(opt_size_t max_size) const;
 
-    if (max_size && end > *max_size) {
-      return {};
-    }
-
-    return end - start;
-  }
-
-  friend void BestFmt(auto& fmt, const bounds& bounds) {
-    /// NOTE: This does not use the struct printer because we want very
-    /// fine-grained control so this looks like syntax the user would ordinarily
-    /// write.
-    fmt.write('{');
-    if (bounds.start != 0) {
-      fmt.format(".start = {}", bounds.start);
-    }
-    if (bounds.end) {
-      if (bounds.start != 0) fmt.write(", ");
-      fmt.format(".end = {}", *bounds.end);
-    } else if (bounds.including_end) {
-      if (bounds.start != 0) fmt.write(", ");
-      fmt.format(".including_end = {}", *bounds.including_end);
-    } else if (bounds.count) {
-      if (bounds.start != 0) fmt.write(", ");
-      fmt.format(".count = {}", *bounds.count);
-    }
-    fmt.write('}');
-  }
+  /// # `bounds::wrapping_normalize`
+  ///
+  /// Normalizes this `bounds` so that only `count` is set. If `max_size` is not
+  /// provided, it is assumed to be the maximum possible size.
+  ///
+  /// Note that this treats the range of `bounds` as wrapping around: if `end <
+  /// start`, this will compute `end - start` as the count.
+  constexpr bounds wrapping_normalize(size_t max_size = max) const;
 
   /// # `bounds:with_location`
   ///
@@ -215,10 +191,142 @@ struct bounds final {
     return {start, end, including_end, count};
   }
 
+  friend void BestFmt(auto& fmt, const bounds& bounds) {
+    /// NOTE: This does not use the struct printer because we want very
+    /// fine-grained control so this looks like syntax the user would ordinarily
+    /// write.
+    fmt.write('{');
+    if (bounds.start != 0) {
+      fmt.format(".start = {}", bounds.start);
+    }
+    if (bounds.end) {
+      if (bounds.start != 0) fmt.write(", ");
+      fmt.format(".end = {}", *bounds.end);
+    } else if (bounds.including_end) {
+      if (bounds.start != 0) fmt.write(", ");
+      fmt.format(".including_end = {}", *bounds.including_end);
+    } else if (bounds.count) {
+      if (bounds.start != 0) fmt.write(", ");
+      fmt.format(".count = {}", *bounds.count);
+    }
+    fmt.write('}');
+  }
+
  private:
+  struct iter_impl {
+    size_t start, count;
+
+    constexpr opt_size_t next();
+    constexpr std::array<size_t, 2> size_hint() const;
+  };
+
+  static constexpr auto max =
+      std::make_unsigned_t<size_t>(-1) >> std::is_signed_v<size_t>;
   /// Prints a nice error for bounds check failure and crashes.
   [[noreturn]] void crash(size_t max_size, best::location loc) const;
 };
+
 }  // namespace best
 
+/* ////////////////////////////////////////////////////////////////////////// *\
+ * ////////////////// !!! IMPLEMENTATION DETAILS BELOW !!! ////////////////// *
+\* ////////////////////////////////////////////////////////////////////////// */
+
+namespace best {
+constexpr bounds bounds::wrapping_normalize(size_t max_size) const {
+  if (end) {
+    return {.start = start, .count = *end - start};
+  }
+
+  if (including_end) {
+    // NOTE: in the case that start = max and including_end = max, this
+    // correctly produces a one-element range that yields `max`.
+    return {.start = start, .count = *including_end - start + 1};
+  }
+
+  if (count) {
+    return {.start = start, .count = count};
+  }
+
+  return {.start = start, .count = max_size - start};
+}
+
+constexpr bounds bounds::normalize(opt_size_t max_size) const {
+  if (max_size && start > *max_size) {
+    return {.start = start};
+  }
+
+  if (end) {
+    if (start > *end) {
+      return {.start = start};
+    }
+    return {.start = start, .count = *end - start};
+  }
+
+  if (including_end) {
+    // NOTE: in the case that start = max and including_end = max, this
+    // correctly produces a one-element range that yields `max`.
+    if (start > *including_end) {
+      return {.start = start};
+    }
+    return {.start = start, .count = *including_end - start + 1};
+  }
+
+  if (count) {
+    if (start + *count < start) {
+      return {.start = start};
+    }
+    return {.start = start, .count = count};
+  }
+
+  if (!max_size) {
+    return {.start = start, .count = max - start};
+  }
+
+  return {.start = start, .count = *max_size - start};
+}
+
+constexpr size_t bounds::compute_count(size_t max_size,
+                                       best::location loc) const {
+  if (auto result = try_compute_count(max_size)) {
+    return *result;
+  }
+  crash(max_size, loc);
+}
+
+constexpr bounds::opt_size_t bounds::try_compute_count(
+    opt_size_t max_size) const {
+  if (!max_size && !end && !including_end && !count) {
+    return {};
+  }
+
+  auto count = normalize(max_size).count;
+  if (max_size && count &&
+      (start + *count > *max_size || start + *count < start)) {
+    return {};
+  }
+  return count;
+}
+
+constexpr bounds::opt_size_t bounds::iter_impl::next() {
+  if (count == 0) return {};
+  --count;
+  return start++;
+}
+
+/// # `bounds::size_hint()`
+///
+/// For the benefit of `best::iter`.
+constexpr std::array<size_t, 2> bounds::iter_impl::size_hint() const {
+  return {count, count};
+}
+
+template <typename Delay = void>
+constexpr auto begin(const bounds& b) {
+  return b.iter<Delay>().into_range();
+}
+constexpr auto end(const bounds&) { return best::iter_range_end{}; }
+constexpr auto end(bounds&&) { return best::iter_range_end{}; }
+
+}  // namespace best
 #endif  // BEST_CONTAINER_BOUNDS_H_

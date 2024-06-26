@@ -116,21 +116,33 @@ class vec final {
   /// Constructs an owned copy of a range.
   template <contiguous Range>
   explicit vec(Range&& range)
-    requires best::constructible<T, decltype(*best::data(BEST_FWD(range)))> &&
-             (!best::is_ref<T, best::ref_kind::Rvalue>) &&
+    requires best::constructible<T, best::data_type<Range>> &&
              best::constructible<alloc>
       : vec(alloc{}, BEST_FWD(range)) {}
-
-  /// # `vec::vec(alloc, range)`
-  ///
-  /// Constructs an owned copy of a range using the given allocator.
   template <contiguous Range>
   vec(alloc alloc, Range&& range)
-    requires best::constructible<T, decltype(*best::data(BEST_FWD(range)))> &&
-             (!best::is_ref<T, best::ref_kind::Rvalue>)
+    requires best::constructible<T, best::data_type<Range>>
   {
     assign(range);
     // TODO: move optimization?
+  }
+
+  /// # `vec::vec(iterator)`
+  ///
+  /// Constructs a vector by emptying an iterator.
+  template <is_iter Iter>
+  explicit vec(Iter&& iter)
+    requires best::constructible<T, best::iter_type<Iter>> &&
+             best::constructible<alloc>
+      : vec(alloc{}, BEST_FWD(iter)) {}
+  template <is_iter Iter>
+  vec(alloc alloc, Iter&& iter)
+    requires best::constructible<T, best::iter_type<Iter>>
+  {
+    reserve(iter.size_hint().lower);
+    for (auto&& elem : iter) {
+      push(BEST_FWD(elem));
+    }
   }
 
   /// # `vec::vec{...}`
@@ -414,12 +426,14 @@ class vec final {
   /// # `vec::citer`, `vec::iter`, `vec::begin()`, `vec::end()`.
   ///
   /// Spans are iterable exactly how you'd expect.
-  using citer = best::span<const T>::iter;
-  using iter = best::span<T>::iter;
-  citer begin() const { return as_span().begin(); }
-  citer end() const { return as_span().end(); }
-  iter begin() { return as_span().begin(); }
-  iter end() { return as_span().end(); }
+  using const_iterator = best::span<const T>::iterator;
+  using iterator = best::span<T>::iterator;
+  const_iterator iter() const { return as_span().iter(); }
+  iterator iter() { return as_span().iter(); }
+  auto begin() const { return as_span().begin(); }
+  auto end() const { return as_span().end(); }
+  auto begin() { return as_span().begin(); }
+  auto end() { return as_span().end(); }
 
   /// # `vec::reserve()`.
   ///

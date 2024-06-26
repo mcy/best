@@ -241,12 +241,64 @@ best::test Swap = [](auto& t) {
   t.expect_eq(ints, best::span{5, 4, 2, 3, 1});
 };
 
+struct SlowCmp {
+  int x;
+  SlowCmp(int x) : x(x) {}
+  bool operator==(const SlowCmp& that) const {
+    return best::black_box(x) == that.x;
+  }
+};
+
+best::test Find = [](auto& t) {
+  best::span bytes = "1234444456789";
+
+  t.expect_eq(bytes.find('1'), 0);
+  t.expect_eq(bytes.find('4'), 3);
+  t.expect_eq(bytes.find('9'), 12);
+  t.expect_eq(bytes.find('\0'), 13);
+  t.expect_eq(bytes.find('a'), best::none);
+  t.expect_eq(bytes.find(best::span<char>{}), 0);
+  t.expect_eq(bytes.find({'3', '4', '4'}), 2);
+
+  best::vec<best::span<const char>> byte_split(bytes.split('4'));
+  t.expect_eq(
+      byte_split,
+      {{'1', '2', '3'}, {}, {}, {}, {}, {'5', '6', '7', '8', '9', '\0'}});
+
+  int a[] = {1, 2, 3, 4, 4, 4, 4, 4, 5, 6, 7, 8, 9, 0};
+  best::span ints = a;
+
+  t.expect_eq(ints.find(1), 0);
+  t.expect_eq(ints.find(4), 3);
+  t.expect_eq(ints.find(9), 12);
+  t.expect_eq(ints.find(0), 13);  // This exercises the "unstrided false
+                                  // positive" case in best::search_bytes.
+  t.expect_eq(ints.find(50), best::none);
+  t.expect_eq(ints.find(best::span<int>{}), 0);
+  t.expect_eq(ints.find({3, 4, 4}), 2);
+
+  best::vec<best::span<const int>> int_split(ints.split(4));
+  t.expect_eq(int_split, {{1, 2, 3}, {}, {}, {}, {}, {5, 6, 7, 8, 9, 0}});
+
+  SlowCmp b[] = {1, 2, 3, 4, 4, 4, 4, 4, 5, 6, 7, 8, 9, 0};
+  best::span slow = b;
+
+  t.expect_eq(slow.find(1), 0);
+  t.expect_eq(slow.find(4), 3);
+  t.expect_eq(slow.find(9), 12);
+  t.expect_eq(slow.find(0), 13);  // This exercises the "unstrided false
+                                  // positive" case in best::search_bytes.
+  t.expect_eq(slow.find(50), best::none);
+  t.expect_eq(slow.find(best::span<int>{}), 0);
+  t.expect_eq(slow.find({3, 4, 4}), 2);
+
+  best::vec<best::span<const SlowCmp>> slow_split(slow.split(4));
+  t.expect_eq(slow_split, {{1, 2, 3}, {}, {}, {}, {}, {5, 6, 7, 8, 9, 0}});
+};
+
 best::test Affixes = [](auto& t) {
   best::vec<int> ints = {1, 2, 3, 4, 5};
   best::span sp = ints;
-
-  t.expect(sp.contains(4));
-  t.expect(!sp.contains(-1));
 
   t.expect(sp.starts_with({}));
   t.expect(sp.starts_with({1, 2, 3}));

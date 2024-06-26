@@ -16,6 +16,7 @@ cc_test(
   linkopts = ["-rdynamic"],
   deps = [
     ":bounds",
+    "//best/iter",
     "//best/test",
   ],
 )
@@ -167,6 +168,7 @@ cc_library(
   deps = [
     ":option",
     ":result",
+    "//best/iter",
     "//best/memory:bytes",
   ],
 )

@@ -31,32 +31,32 @@ namespace best::call_internal {
 template <typename...>
 struct tag {};
 
-template <typename Class, best::is_func F>
-BEST_INLINE_SYNTHETIC constexpr decltype(auto) call(tag<>, F Class::*member,
-                                                    auto&& self, auto&&... args)
+template <typename Class>
+BEST_INLINE_SYNTHETIC constexpr decltype(auto) call(
+    tag<>, best::is_func auto Class::*member, auto&& self, auto&&... args)
   requires requires { (self.*member)(BEST_FWD(args)...); }
 {
   return (BEST_FWD(self).*member)(BEST_FWD(args)...);
 }
-template <typename Class, best::is_func F>
-BEST_INLINE_SYNTHETIC constexpr decltype(auto) call(tag<>, F Class::*member,
-                                                    auto* self, auto&&... args)
+template <typename Class>
+BEST_INLINE_SYNTHETIC constexpr decltype(auto) call(
+    tag<>, best::is_func auto Class::*member, auto* self, auto&&... args)
   requires requires { (self->*member)(BEST_FWD(args)...); }
 {
   return (self->*member)(BEST_FWD(args)...);
 }
 
-template <typename Class, best::is_object R>
-BEST_INLINE_SYNTHETIC constexpr decltype(auto) call(tag<>, R Class::*member,
-                                                    auto&& self)
-  requires(!best::is_func<R>) && requires { self.*member; }
+template <typename Class>
+BEST_INLINE_SYNTHETIC constexpr decltype(auto) call(
+    tag<>, best::is_object auto Class::*member, auto&& self)
+  requires requires { self.*member; }
 {
   return BEST_FWD(self).*member;
 }
-template <typename Class, typename R>
-BEST_INLINE_SYNTHETIC constexpr decltype(auto) call(tag<>, R Class::*member,
-                                                    auto* self)
-  requires(!best::is_func<R>) && requires { self->*member; }
+template <typename Class>
+BEST_INLINE_SYNTHETIC constexpr decltype(auto) call(
+    tag<>, best::is_object auto Class::*member, auto* self)
+  requires requires { self->*member; }
 {
   return self->*member;
 }

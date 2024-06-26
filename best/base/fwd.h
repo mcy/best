@@ -79,6 +79,17 @@ tap(Cb&&) -> tap<tags_internal_do_not_use::ctad_guard, best::as_auto<Cb>>;
 template <typename Cb>
 tap(best::bind_t, Cb&&) -> tap<tags_internal_do_not_use::ctad_guard, Cb&&>;
 
+// best/func/tap.h
+template <typename>
+class iter;
+template <typename Impl>
+iter(Impl) -> iter<Impl>;
+template <typename>
+class iter_range;
+template <typename Impl>
+iter_range(Impl) -> iter_range<Impl>;
+struct iter_range_end final {};
+
 // best/log/location.h
 template <typename>
 class track_location;
