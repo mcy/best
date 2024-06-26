@@ -51,6 +51,7 @@ pieces of functionality.
 - `best/container` - Container types. We interpret any generic "wrapper" type as
   a container.
 - `best/func` - Helpers for manipulating functions as first-class objects.
+- `best/iter` - Iterators and other functional programming types.
 - `best/log` - Logging utilities.
 - `best/math` - Numeric and integer utilities.
 - `best/memory` - Low-level memory management.
