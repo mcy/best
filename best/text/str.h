@@ -20,10 +20,14 @@
 #ifndef BEST_TEXT_STR_H_
 #define BEST_TEXT_STR_H_
 
+#include <stdio.h>
+
 #include <cstddef>
 
 #include "best/container/span.h"
+#include "best/math/overflow.h"
 #include "best/memory/bytes.h"
+#include "best/meta/taxonomy.h"
 #include "best/text/encoding.h"
 #include "best/text/rune.h"
 #include "best/text/utf.h"
@@ -38,9 +42,6 @@
 //! the UTF-8/16/32 specializations of the above.
 
 namespace best {
-template <typename>
-class text;
-
 /// # `best::str`
 ///
 /// A reference to UTF-8 text data.
@@ -68,6 +69,26 @@ using str32 = best::text<utf32>;
       rune::validate(best::span(literal_, best::size(literal_) - 1), enc_), \
       "string literal must satisfy rune::validate() for the chosen encoding")
 
+/// # `best::is_text`
+///
+/// Whether `T` is `best::text<E>` for some encoding `E`.
+template <typename T>
+concept is_text = requires {
+  typename best::as_auto<T>::encoding;
+  requires best::same<best::as_auto<T>,
+                      best::text<typename best::as_auto<T>::encoding>>;
+};
+
+/// # `best::is_pretext`
+///
+/// Whether `T` is `best::pretext<E>` for some encoding `E`.
+template <typename T>
+concept is_pretext = requires {
+  typename best::as_auto<T>::encoding;
+  requires best::same<best::as_auto<T>,
+                      best::pretext<typename best::as_auto<T>::encoding>>;
+};
+
 /// # `best::text`
 ///
 /// An reference to contiguous textual data.
@@ -81,9 +102,9 @@ using str32 = best::text<utf32>;
 /// It can also be constructed from a pointer, in which case no such check
 /// occurs.
 ///
-/// A `best::text` may not point to invalidly-text data. Constructors from
-/// unauthenticated strings must go through factories that return
-/// `best::optional`.
+/// A `best::text` may not point to invalidly-encoded data; use `best::pretext`
+/// for that. Constructors from unauthenticated strings must go through
+/// factories that return `best::optional`.
 template <typename E>  // Not best::encoding so we can forward-declare it.
 class text final {
  public:
@@ -98,6 +119,11 @@ class text final {
   /// stream.
   using code = encoding::code;
 
+  /// # `text::pretext`
+  ///
+  /// The corresponding unvalidated string type.
+  using pretext = best::pretext<E>;
+
   /// # `text::About`
   ///
   /// Metadata about this strings's encoding.
@@ -106,9 +132,8 @@ class text final {
   /// # `text::text()`
   ///
   /// Creates a new, empty string with the given encoding.
-  constexpr text() : text(encoding{}) {}
-  constexpr explicit text(encoding enc)
-      : text(in_place, best::span(&empty, 0), std::move(enc)) {}
+  constexpr text() : text_() {}
+  constexpr explicit text(encoding enc) : text_(std::move(enc)) {}
 
   /// # `text::text(text)`
   ///
@@ -125,37 +150,28 @@ class text final {
   template <size_t n>
   constexpr text(const code (&lit)[n], encoding enc)
       BEST_IS_VALID_LITERAL(lit, enc)
-      : text(in_place, span(lit, n - 1), std::move(enc)) {}
+      : text_(lit, std::move(enc)) {}
   template <size_t n>
   constexpr text(const code (&lit)[n]) BEST_IS_VALID_LITERAL(lit, encoding{})
-      : text(in_place, span(lit, n - 1), encoding{}) {}
+      : text_(lit) {}
 
   /// # `text::text(unsafe)`
   ///
-  /// Creates a new string from some other `best::string_type`.
-  ///
-  /// Crashes if the string is not correctly text::
-  constexpr explicit text(unsafe, best::span<const code> data,
-                          encoding enc = {})
-      : text(in_place, data, std::move(enc)) {}
+  /// Creates a new string from a pretext. This function performs no validation,
+  /// and misuse may lead to erratic behavior.
+  constexpr explicit text(unsafe, pretext text) : text_(std::move(text)) {}
 
   /// # `text::from()`
   ///
   /// Creates a new string by parsing it from a span of potentially invalid
   /// characters.
-  constexpr static best::option<text> from(best::span<const code> data,
-                                           encoding enc = {});
-  constexpr static best::option<text> from(const string_type auto& that) {
-    return from(span(best::data(that), best::size(that)),
-                best::encoding_of(that));
-  }
+  constexpr static best::option<text> from(pretext text);
 
   /// # `text::from_partial()`
   ///
   /// Creates a new string by decoding the longest valid prefix of `data`.
   /// Returns the valid prefix, and the rest of `data`.
-  constexpr static best::row<text, best::span<const best::code<E>>>
-  from_partial(best::span<const code> data, encoding enc = {});
+  constexpr static best::row<text, pretext> from_partial(pretext text);
 
   /// # `text::from_nul()`
   ///
@@ -163,14 +179,15 @@ class text final {
   /// end in `code{0}`. If `data == `nullptr`, returns an empty string.
   constexpr static best::option<text> from_nul(const code* data,
                                                encoding enc = {}) {
-    return from(best::span<const code>::from_nul(data), std::move(enc));
+    return from(
+        pretext(best::span<const code>::from_nul(data), std::move(enc)));
   }
 
   /// # `text::data()`
   ///
   /// Returns the string's data pointer.
   /// This value is never null.
-  constexpr const code* data() const { return span_.data(); }
+  constexpr const code* data() const { return text_.data(); }
 
   /// # `text::is_empty()`
   ///
@@ -180,17 +197,17 @@ class text final {
   /// # `text::size()`
   ///
   /// Returns the size of the string, in code units.
-  constexpr size_t size() const { return span_.size(); }
+  constexpr size_t size() const { return text_.size(); }
 
   /// # `text::enc()`
   ///
   /// Returns the underlying text encoding.
-  constexpr const encoding& enc() const { return enc_; }
+  constexpr const encoding& enc() const { return text_.enc(); }
 
   /// # `text::as_codes()`
   ///
   /// Returns the span of code units that backs this string.
-  constexpr best::span<const code> as_codes() const { return span_; }
+  constexpr best::span<const code> as_codes() const { return text_.as_codes(); }
 
   /// # `text::is_rune_boundary()`
   ///
@@ -222,30 +239,66 @@ class text final {
   ///
   /// Gets the substring in the given range, performing no bounds checks.
   constexpr text at(unsafe u, best::bounds range) const {
-    return {in_place, span_.at(u, range)};
+    return text(u, text_.at(u, range));
+  }
+
+ private:
+  class rune_iter_impl;
+  class rune_index_iter_impl;
+
+ public:
+  /// # `text::rune_iter`, `text::runes()`.
+  ///
+  /// An iterator over the runes of a `best::text`.
+  using rune_iter = best::iter<rune_iter_impl>;
+  constexpr rune_iter runes() const { return rune_iter(rune_iter_impl(*this)); }
+
+  /// # `text::rune_index_iter`, `text::rune_indices()`.
+  ///
+  /// An iterator over the runes of a `best::text` and the indices they
+  /// occur at in the underlying code span.
+  using rune_index_iter = best::iter<rune_index_iter_impl>;
+  constexpr rune_index_iter rune_indices() const {
+    return rune_index_iter(rune_index_iter_impl(*this));
   }
 
   /// # `text::starts_with()`
   ///
-  /// Checks whether this string begins with the specifies substring or rune.
-  constexpr bool starts_with(rune r) const {
-    return trim_prefix(r).has_value();
+  /// Checks whether this string begins with the specified substring or rune.
+  constexpr bool starts_with(rune prefix) const {
+    return text_.starts_with(prefix);
   }
-  constexpr bool starts_with(const string_type auto& s) const {
-    return trim_prefix(s).has_value();
+  constexpr bool starts_with(const string_type auto& prefix) const {
+    return text_.starts_with(prefix);
   }
-  constexpr bool starts_with(best::callable<bool(rune)> auto&& p) const {
-    return trim_prefix(p).has_value();
+  constexpr bool starts_with(best::callable<bool(rune)> auto&& pred) const {
+    return text_.starts_with(BEST_FWD(pred));
   }
 
   /// # `text::trim_prefix()`
   ///
   /// If this string starts with the given prefix, returns a copy of this string
   /// with that prefix removed.
-  constexpr best::option<text> trim_prefix(rune) const;
-  constexpr best::option<text> trim_prefix(const string_type auto&) const;
-  constexpr best::option<text> trim_prefix(
-      best::callable<bool(rune)> auto&&) const;
+  constexpr best::option<text> strip_prefix(rune prefix) const {
+    if (auto suffix = text_.strip_prefix(prefix)) {
+      return text(unsafe("suffix was created from a best::text"), *suffix);
+    }
+    return best::none;
+  }
+  constexpr best::option<text> strip_prefix(
+      const string_type auto& prefix) const {
+    if (auto suffix = text_.strip_prefix(prefix)) {
+      return text(unsafe("suffix was created from a best::text"), *suffix);
+    }
+    return best::none;
+  }
+  constexpr best::option<text> strip_prefix(
+      best::callable<bool(rune)> auto&& prefix) const {
+    if (auto suffix = text_.strip_prefix(BEST_FWD(prefix))) {
+      return text(unsafe("suffix was created from a best::text"), *suffix);
+    }
+    return best::none;
+  }
 
   /// # `text::consume_prefix()`
   ///
@@ -253,12 +306,12 @@ class text final {
   /// this string to the result of `trim_prefix()`. Otherwise, returns `false`
   /// and leaves this string unchanged.
   constexpr bool consume_prefix(rune r) {
-    auto suffix = trim_prefix(r);
+    auto suffix = strip_prefix(r);
     if (suffix) *this = *suffix;
     return suffix.has_value();
   }
   constexpr bool consume_prefix(const string_type auto& s) {
-    auto suffix = trim_prefix(s);
+    auto suffix = strip_prefix(s);
     if (suffix) *this = *suffix;
     return suffix.has_value();
   }
@@ -268,69 +321,434 @@ class text final {
     return suffix.has_value();
   }
 
-  /// # `text::contains()`
-  ///
-  /// Whether this string contains a particular substring or rune..
-  constexpr bool contains(rune r) const { return !!find(r); }
-  constexpr bool contains(const string_type auto& s) const { return !!find(s); }
-  constexpr bool contains(best::callable<bool(rune)> auto&& s) const {
-    return !!find(s);
-  }
-
-  /// # `text::find()`
-  ///
-  /// Finds the first occurrence of a substring or rune within this string.
-  ///
-  /// If any invalidly text characters are encountered during the search, in
-  /// either the haystack or the needle, this function returns `best::none`.
-  constexpr best::option<size_t> find(rune r) const {
-    return split_on(r).map([](auto r) { return r.first().size(); });
-  }
-  constexpr best::option<size_t> find(const string_type auto& s) const {
-    return split_on(s).map([](auto r) { return r.first().size(); });
-  }
-  constexpr best::option<size_t> find(
-      best::callable<bool(rune)> auto&& p) const {
-    return split_on(BEST_FWD(p)).map([](auto r) { return r.first().size(); });
-  }
-
   /// # `text::split_at()`
   ///
   /// Splits this string into two on the given index. If the desired split point
   /// is out of bounds, returns `best::none`.
   constexpr best::option<best::row<text, text>> split_at(size_t n) const {
     auto prefix = at({.end = n});
-    if (!prefix) return best::none;
-    return {{*prefix, operator[]({.start = n})}};
+    BEST_GUARD(prefix);
+    return {{*prefix, at(unsafe("already did a bounds check"), {.start = n})}};
   }
 
-  /// # `text::split_on()`
+  /// # `text::find()`.
   ///
-  /// Splits this string into two on the first occurrence of the given substring
-  /// or rune, or when the callback returns true. If the desired split point
-  /// is not found, returns `best::none`.
-  constexpr best::option<best::row<text, text>> split_on(rune) const;
-  constexpr best::option<best::row<text, text>> split_on(
-      const string_type auto&) const;
-  constexpr best::option<best::row<text, text>> split_on(
-      best::callable<bool(rune)> auto&& p) const;
+  /// Finds the first occurrence of a pattern by linear search, and returns its
+  /// position.
+  ///
+  /// A pattern may be:
+  ///
+  /// - A rune.
+  /// - A string type.
+  /// - A rune predicate.
+  ///
+  /// Where possible, this function will automatically call vectorized
+  /// implementations of e.g. `memchr` and `memcmp` for finding the desired
+  /// pattern. Therefore, when possible, prefer to provide a needle by value.
+  constexpr best::option<size_t> find(best::rune needle) const {
+    if (auto found = split_once(needle)) return found->first().size();
+    return best::none;
+  }
+  constexpr best::option<size_t> find(
+      const best::string_type auto& needle) const {
+    if (auto found = split_once(needle)) return found->first().size();
+    return best::none;
+  }
+  constexpr best::option<size_t> find(
+      best::callable<bool(rune)> auto&& pred) const {
+    if (auto found = split_once(BEST_FWD(pred))) return found->first().size();
+    return best::none;
+  }
 
-  /// # `text::break_off()`
+  /// # `text::contains()`
   ///
-  /// Parses the first rune in this string and returns it and a substring with
-  /// that rune removed. Returns `best::none` if the string is empty.
-  constexpr best::option<best::row<rune, text>> break_off() const;
+  /// Determines whether a substring exists that matches some pattern.
+  ///
+  /// A pattern may be as in `text::find()`.
+  constexpr bool contains(rune needle) const {
+    return find(needle).has_value();
+  }
+  constexpr bool contains(const string_type auto& needle) const {
+    return find(needle).has_value();
+  }
+  constexpr bool contains(best::callable<bool(rune)> auto&& needle) const {
+    return find(BEST_FWD(needle)).has_value();
+  }
 
-  /// # `text::rune_iter`, `text::runes()`.
+  /// # `text::split_once()`
   ///
-  /// An iterator over the runes of a `best::text`.
+  /// Calls `text::find()` to find the first occurrence of some pattern, and
+  /// if found, returns the substrings before and after the separator.
   ///
-  /// A `best::text` may point to invalidly-text data. If the encoding is
+  /// A pattern for a separator may be as in `text::find()`.
+  constexpr best::option<best::row<text, text>> split_once(rune needle) const {
+    auto split = text_.split_once(needle);
+    BEST_GUARD(split);
+    auto [a, b] = *split;
+    unsafe u("text_ is well-encoded, so split_once() is too.");
+    return {{text(u, a), text(u, b)}};
+  }
+  constexpr best::option<best::row<text, text>> split_once(
+      const string_type auto& needle) const {
+    auto split = text_.split_once(needle);
+    BEST_GUARD(split);
+    auto [a, b] = *split;
+    unsafe u("text_ is well-encoded, so split_once() is too.");
+    return {{text(u, a), text(u, b)}};
+  }
+  constexpr best::option<best::row<text, text>> split_once(
+      best::callable<bool(rune)> auto&& pred) const {
+    auto split = text_.split_once(BEST_FWD(pred));
+    BEST_GUARD(split);
+    auto [a, b] = *split;
+    unsafe u("text_ is well-encoded, so split_once() is too.");
+    return {{text(u, a), text(u, b)}};
+  }
+
+  /// # `text::split()`.
+  ///
+  /// Returns an iterator over substrings separated by some pattern. Internally,
+  /// it calls `text::split_once()` until it is out of string.
+  ///
+  /// A pattern for a separator may be as in `text::find()`.
+  constexpr auto split(best::rune needle) const;
+  constexpr auto split(const best::string_type auto& needle) const;
+  constexpr auto split(best::callable<bool(rune)> auto&& pred) const;
+
+ private:
+  template <typename P>
+  class split_impl;
+  template <typename P>
+  using split_iter = best::iter<split_impl<P>>;
+
+ public:
+  /// # `text::operator==`, `text::operator<=>`
+  ///
+  /// Strings can be compared regardless of encoding, and they may be compared
+  /// with runes, too.
+  constexpr bool operator==(rune r) const { return text_ == r; }
+  constexpr bool operator==(const string_type auto& s) const {
+    return text_ == s;
+  }
+  constexpr bool operator==(const text&) const = default;
+  constexpr bool operator==(best::span<const code> span) const {
+    return text_ == span;
+  }
+  constexpr bool operator==(const code* lit) const {
+    return text_ == best::span<const code>::from_nul(lit);
+  }
+
+  constexpr best::ord operator<=>(rune r) const { return text_ <=> r; }
+  constexpr best::ord operator<=>(const string_type auto& s) const {
+    return text_ <=> s;
+  }
+  constexpr best::ord operator<=>(best::span<const code> span) const {
+    return text_ <=> span;
+  }
+  constexpr best::ord operator<=>(const code* lit) const {
+    return text_ <=> best::span<const code>::from_nul(lit);
+  }
+
+  // Make this into a best::string_type.
+  constexpr friend const encoding& BestEncoding(auto, const text& t) {
+    return t.enc();
+  }
+
+ private:
+  best::pretext<E> text_;
+};
+
+/// # `best::pretext`
+///
+/// A `best::text` without the well-encoded guarantee. This is what you get
+/// before you build a valid text: a "pre" text.
+///
+/// There are many situations in which we might want to operate on a span of
+/// code units that is "probably" valid: for example, the correct type for a
+/// POSIX file path is `best::pretext<utf8>`: it can be almost any byte string,
+/// but we like to believe it's *probably* valid UTF-8.
+///
+/// What's nice is that as long as you stay within the same encoding, pretty
+/// much all of the usual string algorithms are well-defined. If you go
+/// cross-encoding though, things get hairy. We try to fall back in "reasonable"
+/// cases, but for non-synchronizing encodings there may be little that can be
+/// done.
+template <typename E>  // Not best::encoding so we can forward-declare it.
+class pretext final {
+ public:
+  /// # `pretext::encoding`
+  ///
+  /// The encoding for this string.
+  using encoding = E;
+
+  /// # `pretext::code`
+  ///
+  /// The code unit for this encoding. This is the element type of an text
+  /// stream.
+  using code = encoding::code;
+
+  /// # `pretext::About`
+  ///
+  /// Metadata about this strings's encoding.
+  static constexpr best::encoding_about About = E::About;
+
+  /// # `pretext::pretext()`
+  ///
+  /// Creates a new, empty string with the given encoding.
+  constexpr pretext() : pretext(encoding{}) {}
+  constexpr explicit pretext(encoding enc)
+      : pretext(best::span(&empty, 0), std::move(enc)) {}
+
+  /// # `pretext::pretext("...")`
+  ///
+  /// Creates a new string from a string literal with an optional encoding.
+  /// This assumes you're constructing from a string literal. In C++, every
+  /// string literal is an array "helpfully" suffixed with a NUL. These
+  /// functions discard that NUL.
+  template <size_t n>
+  constexpr pretext(const code (&lit)[n], encoding enc = {})
+      : pretext(span(lit, n - 1), std::move(enc)) {}
+
+  /// # `pretext::pretext(string)`
+  ///
+  /// Creates a new string from some other string type whose encoding we can
+  /// divine.
+  constexpr pretext(const best::string_type auto& data)
+      : span_(data), enc_(best::encoding_of(data)) {}
+
+  /// # `pretext::pretext(span)`
+  ///
+  /// Creates a new string from an arbitrary span.
+  template <best::contiguous R>
+  constexpr pretext(const R& data, encoding enc = {})
+    requires best::same<best::unqual<best::data_type<R>>, code> &&
+                 (!best::string_type<R>)
+      : span_(data), enc_(BEST_MOVE(enc)) {}
+
+  /// # `pretext::from_nul()`
+  ///
+  /// Creates a new string by parsing it from a NUL-terminated string. It must
+  /// end in `code{0}`. If `data == `nullptr`, returns an empty string.
+  constexpr static pretext from_nul(const code* data, encoding enc = {}) {
+    return pretext(best::span<const code>::from_nul(data), std::move(enc));
+  }
+
+  /// # `pretext::data()`
+  ///
+  /// Returns the string's data pointer.
+  /// This value is never null.
+  constexpr const code* data() const { return span_.data(); }
+
+  /// # `pretext::is_empty()`
+  ///
+  /// Checks whether the string is empty.
+  constexpr bool is_empty() const { return size() == 0; }
+
+  /// # `pretext::size()`
+  ///
+  /// Returns the size of the string, in code units.
+  constexpr size_t size() const { return span_.size(); }
+
+  /// # `pretext::enc()`
+  ///
+  /// Returns the underlying text encoding.
+  constexpr const encoding& enc() const { return enc_; }
+
+  /// # `pretext::as_codes()`
+  ///
+  /// Returns the span of code units that backs this string.
+  constexpr best::span<const code> as_codes() const { return span_; }
+
+  /// # `pretext[{...}]`
+  ///
+  /// Gets the substring in the given range. Crashes on out-of-bounds access.
+  constexpr pretext operator[](best::bounds::with_location range) const {
+    return pretext(span_[range], enc());
+  }
+
+  /// # `text::at()`
+  ///
+  /// Gets the substring in the given range. Returns `best::none` where
+  /// `operator[]` would crash.
+  ///
+  /// Beware: this check is O(n) for non-synchronizing encoding.
+  constexpr best::option<pretext> at(best::bounds range) const {
+    return span_.at(range).map([&](auto sp) { return pretext(sp, enc()); });
+  }
+
+  /// # `text::at(unsafe)`
+  ///
+  /// Gets the substring in the given range, performing no bounds checks.
+  constexpr pretext at(unsafe u, best::bounds range) const {
+    return pretext(span_.at(u, range), enc());
+  }
+
+ private:
+  class rune_iter_impl;
+  class rune_index_iter_impl;
+  class rune_try_iter_impl;
+
+ public:
+  /// # `pretext::rune_iter`, `pretext::runes()`.
+  //
+  /// An iterator over the runes of a `best::pretext`.
+  ///
+  /// A `best::pretext` may point to invalidly-text data. If the encoding is
   /// self-synchronizing, the stream of Unicode characters is interpreted as
   /// replacing each invalid code unit with a Unicode replacement character
   /// (U+FFFD). If the encoding is not self-synchronizing, the stream is
   /// interpreted to end at that position, with a replacement character.
-  constexpr rune::iter<E> runes() const { return rune::iter<E>(span_, enc_); }
+  using rune_iter = best::iter<rune_iter_impl>;
+  constexpr rune_iter runes() const {
+    return rune_iter(rune_iter_impl(try_runes()));
+  }
+
+  /// # `pretext::rune_index_iter`, `pretext::rune_indices()`.
+  ///
+  /// An iterator over the runes of a `best::pretext` and the indices they
+  /// occur at in the underlying code span.
+  ///
+  /// This has the same replacement character behavior as `runes()`.
+  using rune_index_iter = best::iter<rune_index_iter_impl>;
+  constexpr rune_index_iter rune_indices() const {
+    return rune_index_iter(rune_index_iter_impl(try_runes()));
+  }
+
+  /// # `pretext::rune_try_iter`, `pretext::try_runes()`.
+  ///
+  /// A fallible iterator over the runes of a `best::pretext`.
+  ///
+  /// Similar to `pretext::runes()`, except it will return a `best::result` on
+  /// decode failure.
+  using rune_try_iter = best::iter<rune_try_iter_impl>;
+  constexpr rune_try_iter try_runes() const {
+    return rune_try_iter(rune_try_iter_impl(*this));
+  }
+
+  /// # `pretext::split_at()`
+  ///
+  /// Splits this string into two on the given index. If the desired split point
+  /// is out of bounds, returns `best::none`.
+  constexpr best::option<best::row<pretext, pretext>> split_at(size_t n) const {
+    auto prefix = at({.end = n});
+    BEST_GUARD(prefix);
+    return {{*prefix, at(unsafe("already did a bounds check"), {.start = n})}};
+  }
+
+  /// # `pretext::find()`.
+  ///
+  /// Finds the first occurrence of a pattern by linear search, and returns its
+  /// position.
+  ///
+  /// A pattern may be:
+  ///
+  /// - A rune.
+  /// - A string type.
+  /// - A rune predicate.
+  ///
+  /// Where possible, this function will automatically call vectorized
+  /// implementations of e.g. `memchr` and `memcmp` for finding the desired
+  /// pattern. Therefore, when possible, prefer to provide a needle by value.
+  constexpr best::option<size_t> find(best::rune needle) const {
+    if (auto found = split_once(needle)) return found->first().size();
+    return best::none;
+  }
+  constexpr best::option<size_t> find(
+      const best::string_type auto& needle) const {
+    if (auto found = split_once(needle)) return found->first().size();
+    return best::none;
+  }
+  constexpr best::option<size_t> find(
+      best::callable<bool(rune)> auto&& pred) const {
+    if (auto found = split_once(BEST_FWD(pred))) return found->first().size();
+    return best::none;
+  }
+
+  /// # `pretext::contains()`
+  ///
+  /// Determines whether a substring exists that matches some pattern.
+  ///
+  /// A pattern may be as in `pretext::find()`.
+  constexpr bool contains(best::rune needle) const {
+    return find(needle).has_value();
+  }
+  constexpr bool contains(const best::string_type auto& needle) const {
+    return find(needle).has_value();
+  }
+  constexpr bool contains(best::callable<bool(rune)> auto&& pred) const {
+    return find(BEST_FWD(pred)).has_value();
+  }
+
+  /// # `pretext::split_once()`
+  ///
+  /// Calls `pretext::find()` to find the first occurrence of some pattern, and
+  /// if found, returns the substrings before and after the separator.
+  ///
+  /// A pattern for a separator may be as in `pretext::find()`.
+  constexpr best::option<best::row<pretext, pretext>> split_once(
+      best::rune needle) const;
+  constexpr best::option<best::row<pretext, pretext>> split_once(
+      const best::string_type auto& needle) const;
+  constexpr best::option<best::row<pretext, pretext>> split_once(
+      best::callable<bool(rune)> auto&& pred) const;
+
+  /// # `pretext::split()`.
+  ///
+  /// Returns an iterator over substrings separated by some pattern. Internally,
+  /// it calls `pretext::split_once()` until it is out of string.
+  ///
+  /// A pattern for a separator may be as in `pretext::find()`.
+  constexpr auto split(best::rune needle) const;
+  constexpr auto split(const best::string_type auto& needle) const;
+  constexpr auto split(best::callable<bool(rune)> auto&& pred) const;
+
+ private:
+  template <typename P>
+  class split_impl;
+  template <typename P>
+  using split_iter = best::iter<split_impl<P>>;
+
+ public:
+  /// # `pretext::starts_with()`, `pretext::ends_with()`
+  ///
+  /// Checks if this string starts with a particular substring.
+  constexpr bool starts_with(best::rune prefix) const {
+    return strip_prefix(prefix).has_value();
+  }
+  constexpr bool starts_with(const best::string_type auto& prefix) const {
+    return strip_prefix(prefix).has_value();
+  }
+
+  /// # `pretext::strip_prefix()`
+  ///
+  /// If this string starts with `prefix` removes it and returns the rest;
+  /// otherwise returns `best::none.
+  constexpr best::option<pretext> strip_prefix(best::rune prefix) const;
+  constexpr best::option<pretext> strip_prefix(
+      const best::string_type auto& prefix) const;
+  constexpr best::option<pretext> strip_prefix(
+      best::callable<bool(rune)> auto&& pred) const;
+
+  /// # `pretext::consume_prefix()`
+  ///
+  /// Like `strip_prefix()` but returns a bool on success and updates the span
+  /// in-place.
+  constexpr bool consume_prefix(best::rune prefix) {
+    auto rest = strip_prefix(prefix);
+    if (rest) *this = *rest;
+    return rest.has_value();
+  }
+  constexpr bool consume_prefix(const best::string_type auto& prefix) {
+    auto rest = strip_prefix(prefix);
+    if (rest) *this = *rest;
+    return rest.has_value();
+  }
+
+  constexpr bool consume_prefix(best::callable<bool(rune)> auto&& pred) {
+    auto rest = strip_prefix(BEST_FWD(pred));
+    if (rest) *this = *rest;
+    return rest.has_value();
+  }
 
   /// # `text::operator==`, `text::operator<=>`
   ///
@@ -338,7 +756,7 @@ class text final {
   /// with runes, too.
   constexpr bool operator==(rune) const;
   constexpr bool operator==(const string_type auto&) const;
-  constexpr bool operator==(const text&) const = default;
+  constexpr bool operator==(const pretext&) const = default;
   constexpr bool operator==(best::span<const code> span) const {
     return span_ == span;
   }
@@ -356,38 +774,184 @@ class text final {
   }
 
   // Make this into a best::string_type.
-  constexpr friend const encoding& BestEncoding(auto, const text& t) {
+  constexpr friend const encoding& BestEncoding(auto, const pretext& t) {
     return t.enc();
   }
 
  private:
-  constexpr explicit text(best::in_place_t, best::span<const code> span,
-                          encoding enc)
-      : span_(span), enc_(std::move(enc)) {
-    if (span_.data() == nullptr) span_ = {&empty, 0};
-  }
-
-  constexpr bool can_memeq(const auto& that) const {
-    return !std::is_constant_evaluated() &&
-           (best::equal(this, best::addr(that)) ||
-            best::same_encoding(*this, that));
-  }
-
-  constexpr bool can_memcmp(const auto& that) const {
-    return can_memeq(that) && best::byte_comparable<code> &&
-           E::About.is_lexicographic;
-  }
-
-  constexpr bool can_memmem(const auto& that) const {
-    return can_memeq(that) && best::byte_comparable<code> &&
-           E::About.is_self_syncing;
-  }
-
   best::span<const code> span_{&empty, 0};
   [[no_unique_address]] encoding enc_;
 
   static constexpr code empty{};
 };
+template <best::encoding E>
+pretext(E) -> pretext<E>;
+template <best::string_type S>
+pretext(const S&) -> pretext<best::encoding_type<S>>;
+
+template <typename E>
+class text<E>::rune_iter_impl final {
+ public:
+  /// # `iter->rest()`
+  ///
+  /// Returns the content not yet yielded.
+  constexpr text rest() const { return text_; }
+
+  using BestIterArrow = void;
+
+ private:
+  friend text;
+  friend best::iter<rune_iter_impl>;
+  friend best::iter<rune_iter_impl&>;
+
+  constexpr explicit rune_iter_impl(text text) : text_(std::move(text)) {}
+  constexpr best::option<best::rune> next();
+  constexpr best::size_hint size_hint() const;
+  // constexpr size_t count() && { return BEST_MOVE(iter_).count(); }
+
+  text text_;
+};
+
+template <typename E>
+class text<E>::rune_index_iter_impl final {
+ public:
+  /// # `iter->rest()`
+  ///
+  /// Returns the content not yet yielded.
+  constexpr pretext rest() const { return iter_->rest(); }
+
+  using BestIterArrow = void;
+
+ private:
+  friend pretext;
+  friend best::iter<rune_iter_impl>;
+  friend best::iter<rune_iter_impl&>;
+
+  constexpr explicit rune_index_iter_impl(text text) : iter_(text.runes()) {}
+  constexpr best::option<best::row<size_t, best::rune>> next();
+  constexpr best::size_hint size_hint() const { return iter_.size_hint(); }
+  constexpr size_t count() && { return BEST_MOVE(iter_).count(); }
+
+  rune_iter iter_;
+  size_t idx_ = 0;
+};
+
+template <typename E>
+class pretext<E>::rune_iter_impl final {
+ public:
+  /// # `iter->rest()`
+  ///
+  /// Returns the content not yet yielded.
+  constexpr pretext rest() const { return iter_->rest(); }
+
+  using BestIterArrow = void;
+
+ private:
+  friend pretext;
+  friend best::iter<rune_iter_impl>;
+  friend best::iter<rune_iter_impl&>;
+
+  constexpr explicit rune_iter_impl(rune_try_iter iter) : iter_(iter) {}
+  constexpr best::option<best::rune> next() {
+    return iter_.next().map(
+        [](auto r) { return r.ok().value_or(rune::Replacement); });
+  }
+  constexpr best::size_hint size_hint() const { return iter_.size_hint(); }
+  constexpr size_t count() && { return BEST_MOVE(iter_).count(); }
+
+  rune_try_iter iter_;
+};
+
+template <typename E>
+class pretext<E>::rune_index_iter_impl final {
+ public:
+  /// # `iter->rest()`
+  ///
+  /// Returns the content not yet yielded.
+  constexpr pretext rest() const { return iter_->rest(); }
+
+  using BestIterArrow = void;
+
+ private:
+  friend pretext;
+  friend best::iter<rune_iter_impl>;
+  friend best::iter<rune_iter_impl&>;
+
+  constexpr explicit rune_index_iter_impl(rune_try_iter iter) : iter_(iter) {}
+  constexpr best::option<best::row<size_t, best::rune>> next();
+  constexpr best::size_hint size_hint() const { return iter_.size_hint(); }
+  constexpr size_t count() && { return BEST_MOVE(iter_).count(); }
+
+  rune_try_iter iter_;
+  size_t idx_ = 0;
+};
+
+template <typename E>
+class pretext<E>::rune_try_iter_impl final {
+ public:
+  /// # `iter->rest()`
+  ///
+  /// Returns the content not yet yielded.
+  constexpr pretext rest() const { return text_; }
+
+  using BestIterArrow = void;
+
+ private:
+  friend pretext;
+  friend best::iter<rune_try_iter_impl>;
+  friend best::iter<rune_try_iter_impl&>;
+
+  constexpr explicit rune_try_iter_impl(pretext text) : text_(text) {}
+  constexpr best::option<best::result<best::rune, best::encoding_error>> next();
+  constexpr best::size_hint size_hint() const;
+  // constexpr size_t count() && {
+  //   TODO: implement this one we implement a count() extension for encodings.
+  // }
+
+  pretext text_;
+};
+
+template <typename E>
+template <typename P>
+class pretext<E>::split_impl final {
+ public:
+  /// # `iter->rest()`
+  ///
+  /// Returns the content not yet yielded.
+  constexpr pretext rest() const { return text_; }
+
+  using BestIterArrow = void;
+
+ private:
+  friend pretext;
+  friend best::iter<split_impl>;
+  friend best::iter<split_impl&>;
+
+  constexpr explicit split_impl(auto&& pat, pretext text)
+      : pat_(best::in_place, BEST_FWD(pat)), text_(text) {}
+
+  constexpr best::option<pretext> next() {
+    if (done_) return best::none;
+    if (auto found = text_.split_once(*pat_)) {
+      text_ = found->second();
+      return found->first();
+    }
+    done_ = true;
+    auto rest = text_;
+    text_.span_ = {};
+    return rest;
+  }
+
+  constexpr best::size_hint size_hint() const {
+    if (done_) return {0, 0};
+    return {1, text_.size() + 1};
+  }
+
+  [[no_unique_address]] best::object<P> pat_;
+  pretext text_;
+  bool done_ = false;
+};
+
 }  // namespace best
 
 /* ////////////////////////////////////////////////////////////////////////// *\
@@ -396,27 +960,29 @@ class text final {
 
 namespace best {
 template <typename E>
-constexpr best::option<text<E>> text<E>::from(best::span<const code> data,
-                                              encoding enc) {
-  if (!rune::validate(data, enc)) {
+constexpr best::option<text<E>> text<E>::from(pretext data) {
+  if (!rune::validate(data.as_codes(), data.enc())) {
     return best::none;
   }
 
-  return text(best::in_place, data, std::move(enc));
+  return text(unsafe("validated just above"), data);
 }
 
 template <typename E>
-constexpr best::row<text<E>, best::span<const code<E>>> text<E>::from_partial(
-    best::span<const code> data, encoding enc) {
-  auto orig = data;
-  while (!data.is_empty()) {
-    if (!rune::decode(&data, enc)) {
-      return {text{in_place, orig[{.end = orig.size() - data.size()}],
-                   std::move(enc)},
-              data};
-    }
+constexpr best::row<text<E>, pretext<E>> text<E>::from_partial(pretext data) {
+  size_t split_at = 0;
+  auto runes = data.runes();
+  for (auto r : runes) {
+    if (r->err()) break;
+    split_at = data.size() - runes->rest();
   }
-  return {text{in_place, orig, std::move(enc)}, {}};
+
+  unsafe u("the loop above did an implicit bounds check for us");
+  return {
+      text(unsafe("this is as far as we verified"),
+           data.at(u, {.end = split_at})),
+      data.at(u, {.start = split_at}),
+  };
 }
 
 template <typename E>
@@ -427,7 +993,7 @@ constexpr bool text<E>::is_rune_boundary(size_t idx) const {
 template <typename E>
 constexpr text<E> text<E>::operator[](best::bounds::with_location range) const {
   // First, perform a bounds check.
-  auto chunk = span_[range];
+  auto chunk = text_[range];
 
   auto at_boundary = is_rune_boundary(range.start) &&
                      is_rune_boundary(range.start + chunk.size());
@@ -440,187 +1006,290 @@ constexpr text<E> text<E>::operator[](best::bounds::with_location range) const {
         range.start, range.start + chunk.size());
   }
 
-  return text{in_place, chunk, enc()};
+  return text{unsafe("see boundary check above"), chunk};
 }
 
 template <typename E>
 constexpr option<text<E>> text<E>::at(best::bounds range) const {
-  auto chunk = span_.at(range);
-  if (!chunk) return best::none;
+  auto chunk = text_.at(range);
+  BEST_GUARD(chunk);
 
   auto at_boundary = is_rune_boundary(range.start) &&
                      is_rune_boundary(range.start + chunk->size());
   if (!at_boundary) return best::none;
 
-  return text{in_place, *chunk, enc()};
+  return text{unsafe("see boundary check above"), *chunk};
 }
 
 template <typename E>
-constexpr option<text<E>> text<E>::trim_prefix(rune r) const {
-  return trim_prefix([=](rune r2) { return r == r2; });
+constexpr auto text<E>::split(best::rune needle) const {
+  return text_.split(needle).map([](auto pre) {
+    return text{unsafe("valid because text_ was already valid"), pre};
+  });
 }
-
 template <typename E>
-constexpr option<text<E>> text<E>::trim_prefix(
-    const string_type auto& str) const {
-  rune::iter needle(str);
-  rune::iter haystack(*this);
-
-  if constexpr (best::same_encoding_code<text, decltype(str)>()) {
-    if (can_memeq(str)) {
-      auto that = needle.rest();
-      auto prefix = span_.at({.end = that.size()});
-      if (!prefix) return best::none;
-      if (!best::equate_bytes(*prefix, that)) return none;
-      return operator[]({.start = that.size()});
-    }
-    return best::none;
-  }
-
-  while (auto r1 = needle.next()) {
-    if (r1 != haystack.next()) return best::none;
-  }
-  return text{in_place, haystack.rest(), enc()};
+constexpr auto text<E>::split(const best::string_type auto& needle) const {
+  return text_.split(needle).map([](auto pre) {
+    return text{unsafe("valid because text_ was already valid"), pre};
+  });
 }
-
 template <typename E>
-constexpr option<text<E>> text<E>::trim_prefix(
-    best::callable<bool(rune)> auto&& r) const {
-  return break_off().then([&](auto x) -> option<text> {
-    if (best::call(BEST_FWD(r), x.first())) return x.second();
-    return best::none;
+constexpr auto text<E>::split(best::callable<bool(rune)> auto&& pred) const {
+  return text_.split(BEST_MOVE(pred)).map([](auto pre) {
+    return text{unsafe("valid because text_ was already valid"), pre};
   });
 }
 
 template <typename E>
-constexpr best::option<best::row<text<E>, text<E>>> text<E>::split_on(
-    rune r1) const {
-  if (can_memmem(*this)) {
-    code buf[About.max_codes_per_rune];
-    auto that = r1.encode(buf, enc());
-    if (!that) return best::none;
+constexpr best::option<best::rune> text<E>::rune_iter_impl::next() {
+  if (text_.is_empty()) return best::none;
+  auto span = text_.as_codes();
+  rune next = rune::decode(&span, text_.enc())
+                  .ok()
+                  .value(unsafe("text_ is well-encoded"));
+  text_ = text(unsafe("text_ is well-encoded"), {span, text_.enc()});
+  return option(next);
+}
+template <typename E>
+constexpr best::option<best::row<size_t, best::rune>>
+text<E>::rune_index_iter_impl::next() {
+  size_t cur_len = iter_->rest().size();
+  auto next = iter_.next();
+  BEST_GUARD(next);
 
-    auto idx = best::search_bytes(span_, *that);
-    if (!idx) return best::none;
-    return {{
-        text(in_place, span_[{.end = *idx}], enc()),
-        text(in_place, span_[{.start = *idx + that->size()}], enc()),
-    }};
+  size_t idx = idx_;
+  idx_ += cur_len - iter_->rest().size();
+  return {{idx, *next}};
+}
+template <typename E>
+constexpr best::option<best::row<size_t, best::rune>>
+pretext<E>::rune_index_iter_impl::next() {
+  size_t cur_len = iter_->rest().size();
+  auto next = iter_.next();
+  BEST_GUARD(next);
+
+  size_t idx = idx_;
+  idx_ += cur_len - iter_->rest().size();
+  return {{idx, next->value_or(rune::Replacement)}};
+}
+template <typename E>
+constexpr best::option<best::result<best::rune, best::encoding_error>>
+pretext<E>::rune_try_iter_impl::next() {
+  if (text_.is_empty()) return best::none;
+
+  auto next = rune::decode(&text_.span_, text_.enc());
+  if (!next) {
+    // If we encountered an error, we can skip over a single code only if this
+    // is a self-syncing encoding; otherwise we need to stop here.
+    if (About.is_self_syncing) {
+      text_ = text_[{.start = 1}];
+    } else {
+      text_ = text_[{.end = 0}];
+    }
   }
-
-  return split_on([=](rune r2) { return r1 == r2; });
+  return next;
 }
 
 template <typename E>
-constexpr best::option<best::row<text<E>, text<E>>> text<E>::split_on(
-    const string_type auto& str) const {
-  rune::iter haystack_start(*this);
-  rune::iter needle_start(str);
+constexpr best::size_hint text<E>::rune_iter_impl::size_hint() const {
+  auto codes = text_.size();
+  // Regardless of encoding, there are no invalid runes, so we can assume we
+  // will yield all codes.
+  return {best::ceildiv(codes, About.max_codes_per_rune), codes};
+}
+template <typename E>
+constexpr best::size_hint pretext<E>::rune_try_iter_impl::size_hint() const {
+  auto codes = text_.size();
 
-  if constexpr (best::same_encoding_code<text, decltype(str)>()) {
-    if (can_memmem(str)) {
-      best::span that = needle_start.rest();
-      auto idx = best::search_bytes(span_, that);
-      if (!idx) return best::none;
-      return {{
-          text(in_place, span_[{.end = *idx}], enc()),
-          text(in_place, span_[{.start = *idx + that.size()}], enc()),
-      }};
-    }
+  if (About.is_self_syncing) {
+    // If this is a self-synching encoding, we will yield every code: in the
+    // lower bound, every rune is maximally encoded; otherwise, each code is
+    // a rune.
+    return {best::ceildiv(codes, About.max_codes_per_rune), codes};
+  } else {
+    // Non-self-syncing encodings will give up on the first error. We will
+    // always yield at least one value if there are codes left.
+    return {codes > 0, codes};
   }
-
-  auto haystack = haystack_start;
-  auto needle = needle_start;
-  while (auto n = needle.next()) {
-    if (haystack.next() == n) continue;
-
-    if (!haystack_start.next()) return best::none;
-    haystack = haystack_start;
-    needle = needle_start;
-  }
-
-  size_t start = size() - haystack_start.rest().size();
-  size_t end = size() - haystack.rest().size();
-
-  return {{
-      text(in_place, span_[{.end = start}], enc()),
-      text(in_place, span_[{.start = end}], enc()),
-  }};
 }
 
 template <typename E>
-constexpr best::option<best::row<text<E>, text<E>>> text<E>::split_on(
-    best::callable<bool(rune)> auto&& pred) const {
-  best::rune::iter iter(*this);
-  size_t prev = 0;
-  while (auto next = iter.next()) {
-    if (!best::call(BEST_FWD(pred), *next)) {
-      prev = size() - iter.rest().size();
-      continue;
-    }
-
-    return {{
-        text(in_place, span_[{.end = prev}], enc()),
-        text(in_place, iter.rest(), enc()),
-    }};
+constexpr best::option<pretext<E>> pretext<E>::strip_prefix(
+    best::rune r) const {
+  // TODO add an extension point so that e.g. UTF-8 can avoid the decode
+  // cost here.
+  auto haystack = try_runes();
+  if (haystack.next() == r) {
+    return haystack->rest();
   }
-
   return best::none;
 }
 
 template <typename E>
-constexpr bool text<E>::operator==(rune r) const {
-  if (is_empty()) return false;
-  auto [r2, rest] = *break_off();
-  return rest.is_empty() && r == r2;
+constexpr best::option<pretext<E>> pretext<E>::strip_prefix(
+    const best::string_type auto& s) const {
+  if constexpr (best::is_pretext<best::as_auto<decltype(s)>>) {
+    if constexpr (best::same_encoding_code<pretext, decltype(s)>() &&
+                  About.is_self_syncing) {
+      auto rest = span_.strip_prefix(s.as_codes());
+      BEST_GUARD(rest);
+      return pretext{*rest, enc()};
+    }
+
+    auto haystack = try_runes();
+    auto needle = s.runes();
+
+    while (auto r1 = needle.next()) {
+      auto r2 = haystack.next();
+      if (r2.is_empty() || r2->err() || *r1 != **r2) return best::none;
+    }
+    return haystack->rest();
+  } else {
+    return strip_prefix(best::pretext(s));
+  }
 }
 
 template <typename E>
-constexpr bool text<E>::operator==(const string_type auto& s) const {
-  return trim_prefix(s).has_value(&text::is_empty);
+constexpr best::option<pretext<E>> pretext<E>::strip_prefix(
+    best::callable<bool(rune)> auto&& pred) const {
+  auto haystack = try_runes();
+  if (best::call(BEST_FWD(pred), haystack.next())) {
+    return haystack->rest();
+  }
+  return best::none;
 }
 
 template <typename E>
-constexpr best::ord text<E>::operator<=>(rune r) const {
+constexpr best::option<best::row<pretext<E>, pretext<E>>>
+pretext<E>::split_once(best::rune needle) const {
+  code buf[About.max_codes_per_rune];
+  auto encoded = needle.encode(buf, enc());
+  return split_once(pretext(*encoded, enc()));
+}
+
+template <typename E>
+constexpr best::option<best::row<pretext<E>, pretext<E>>>
+pretext<E>::split_once(const best::string_type auto& needle) const {
+  if constexpr (best::is_pretext<best::as_auto<decltype(needle)>>) {
+    if (needle.is_empty()) {
+      return {{pretext(enc()), *this}};
+    }
+
+    if constexpr (best::byte_comparable<code> && About.is_self_syncing &&
+                  best::same_encoding_code<pretext, decltype(needle)>()) {
+      auto found = span_.split_once(needle.as_codes());
+      BEST_GUARD(found);
+      return {
+          {pretext(found->first(), enc()), pretext(found->second(), enc())}};
+    }
+
+    auto haystack = try_runes();
+    auto needle_suf = needle.runes();
+    auto first = *needle_suf.next();
+
+    while (!haystack->rest().is_empty()) {
+      // We need to know what index we were at before we find `first` in
+      // haystack, since that's the end of the prefix half.
+      size_t before = 0;
+      while (auto next = haystack.next()) {
+        BEST_GUARD(next->ok());
+        if (**next == first) break;
+        before = size() - haystack->rest().size();
+      }
+
+      // Check if we found what we're looking for.
+      if (auto suf = haystack->rest().strip_prefix(needle_suf->rest())) {
+        return {{
+            at(unsafe("before <= size(), by construction"), {.end = before}),
+            *suf,
+        }};
+      }
+    }
+
+    return best::none;
+  } else {
+    return split_once(best::pretext(needle));
+  }
+}
+template <typename E>
+constexpr best::option<best::row<pretext<E>, pretext<E>>>
+pretext<E>::split_once(best::callable<bool(rune)> auto&& pred) const {
+  size_t before = 0;
+  auto haystack = try_runes();
+  while (auto next = haystack.next()) {
+    BEST_GUARD(next->ok());
+    if (best::call(pred, **next)) {
+      return {{
+          at(unsafe("before <= size(), by construction"), {.end = before}),
+          haystack->rest(),
+      }};
+    }
+    before = size() - haystack->rest().size();
+  }
+  return best::none;
+}
+
+template <typename E>
+constexpr auto pretext<E>::split(best::rune needle) const {
+  return split_iter<rune>(split_impl<rune>(needle), *this);
+}
+template <typename E>
+constexpr auto pretext<E>::split(const best::string_type auto& needle) const {
+  pretext text = needle;
+  return split_iter<decltype(text)>(split_impl<decltype(text)>(text), *this);
+}
+template <typename E>
+constexpr auto pretext<E>::split(best::callable<bool(rune)> auto&& pred) const {
+  return split_iter<decltype(pred)>(
+      split_impl<decltype(pred)>(BEST_FWD(pred), *this));
+}
+
+template <typename E>
+constexpr bool pretext<E>::operator==(rune r) const {
+  return strip_prefix(r).has_value(&pretext::is_empty);
+}
+
+template <typename E>
+constexpr bool pretext<E>::operator==(const string_type auto& s) const {
+  return strip_prefix(s).has_value(&pretext::is_empty);
+}
+
+template <typename E>
+constexpr best::ord pretext<E>::operator<=>(rune r) const {
   if (is_empty()) return best::ord::less;
 
-  auto [r2, rest] = *break_off();
-  if (auto result = r <=> r2; result != 0) {
+  auto iter = runes();
+  if (auto result = *iter.next() <=> r; result != 0) {
     return result;
   }
-  return 0 <=> rest;
+
+  return 0 <=> iter->rest().size();
 }
 
 template <typename E>
-constexpr best::ord text<E>::operator<=>(const string_type auto& str) const {
-  rune::iter a(*this);
-  rune::iter b(str);
-
-  if constexpr (best::same_encoding_code<text, decltype(str)>()) {
-    if (can_memcmp(str)) return a.rest() <=> b.rest();
-  }
-
-  while (true) {
-    auto r1 = a.next();
-    auto r2 = b.next();
-    if (r1.is_empty() && r2.is_empty()) {
-      return best::ord::equal;
+constexpr best::ord pretext<E>::operator<=>(const string_type auto& str) const {
+  if constexpr (best::is_pretext<best::as_auto<decltype(str)>>) {
+    if constexpr (best::byte_comparable<code> && About.is_self_syncing &&
+                  best::same_encoding_code<pretext, decltype(str)>()) {
+      return span_ <=> str.as_codes();
     }
 
-    if (auto result = r1 <=> r2; result != 0) {
-      return result;
+    auto lhs = runes();
+    auto rhs = str.runes();
+    while (true) {
+      auto r1 = lhs.next();
+      auto r2 = rhs.next();
+      if (!r1 && !r2) return best::ord::equal;
+
+      // Note: this comparison relies on best::none < best::option(r) for all
+      // runes.
+      if (auto result = r1 <=> r2; result != 0) return result;
     }
+  } else {
+    return *this <=> best::pretext(str);
   }
 }
 
-template <typename E>
-constexpr best::option<best::row<rune, text<E>>> text<E>::break_off() const {
-  if (is_empty()) return best::none;
-
-  auto suffix = *this;
-  auto rune = rune::decode(&suffix.span_, enc());
-  return {{*rune, suffix}};
-}
 }  // namespace best
 
 #endif  // BEST_TEXT_STR_H_

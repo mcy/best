@@ -348,7 +348,7 @@ class rune final {
   }
 
   // best::rune has a niche representation.
-  constexpr rune(niche) : value_(-1) {}
+  constexpr explicit rune(niche) : value_(-1) {}
   constexpr bool operator==(niche) const { return value_ == -1; }
 
  private:

@@ -1099,7 +1099,7 @@ constexpr best::option<best::row<span<T>, span<T>>> span<T, n>::split_once(
   if (!idx) return best::none;
   return {{
       best::span(data(), *idx),
-      best::span(data() + *idx + 1, size() - *idx - 1),
+      best::span(data() + *idx + needle.size(), size() - *idx - needle.size()),
   }};
 }
 template <best::is_object T, best::option<size_t> n>

@@ -65,12 +65,12 @@ using strbuf32 = best::textbuf<utf32, best::malloc>;
 /// underlying data. It is similar to `std::basic_string_view`, except it uses
 /// a ztd.text-style encoding trait, and provides a generally nicer interface.
 ///
-/// A `best::text` string can be created from a string literal; in this case,
+/// A `best::textbuf` string can be created from a string literal; in this case,
 /// it will be validated for being "correctly text" wrt to the encoding `E`.
 /// It can also be constructed from a pointer, in which case no such check
 /// occurs.
 ///
-/// A `best::text` may not point to invalidly-text data. Constructors from
+/// A `best::textbuf` may not point to invalidly-text data. Constructors from
 /// unauthenticated strings must go through factories that return
 /// `best::optional`.
 template <best::encoding E, best::allocator A = best::malloc>
@@ -97,10 +97,11 @@ class textbuf final {
   /// This string's allocator type.
   using alloc = A;
 
-  /// # `textbuf::view`
+  /// # `textbuf::text`, `textbuf::pretext`.
   ///
-  /// The corresponding view type for this `textbuf`.
+  /// The corresponding view types for this `textbuf`.
   using text = best::text<encoding>;
+  using pretext = best::pretext<encoding>;
 
   /// # `textbuf::vec`
   ///
@@ -135,48 +136,26 @@ class textbuf final {
   /// Creates a new string from a string literal with an optional encoding.
   /// The array must be a constant, and it must contain validly-e\ncoded data.
   template <size_t n>
-  textbuf(const code (&lit)[n], encoding enc) BEST_IS_VALID_LITERAL(lit, enc)
-      : textbuf(in_place, buf(span(lit, n - 1)), std::move(enc)) {}
-  template <size_t n>
   textbuf(const code (&lit)[n]) BEST_IS_VALID_LITERAL(lit, encoding{})
-      : textbuf(in_place, buf(span(lit, n - 1)), encoding{}) {}
-  template <size_t n>
-  textbuf(alloc alloc, const code (&lit)[n], encoding enc)
-      BEST_IS_VALID_LITERAL(lit, enc)
-      : textbuf(in_place, buf(std::move(alloc), span(lit, n - 1)),
-                std::move(enc)) {}
-  template <size_t n>
-  textbuf(alloc alloc, const code (&lit)[n])
-      BEST_IS_VALID_LITERAL(lit, encoding{})
-      : textbuf(in_place, buf(std::move(alloc), span(lit, n - 1)), encoding{}) {
-  }
+      : textbuf(unsafe("statically validated"), buf(span(lit, n - 1)),
+                encoding{}) {}
 
   /// # `textbuf::text(unsafe)`
   ///
-  /// Creates a new string from some other `best::string_type`.
-  ///
-  /// Crashes if the string is not correctly textbuf::
+  /// Creates a new string by wrapping a code buffer or a pretext. It is up to
+  /// the caller to ensure the data is well-encoded.
   explicit textbuf(unsafe, buf buf, encoding enc = {})
-      : textbuf(in_place, data, std::move(enc)) {}
+      : buf_(std::move(buf)), enc_(std::move(enc)) {}
+  explicit textbuf(unsafe, pretext text)
+      : buf_(std::move(text)), enc_(std::move(text.enc())) {}
 
   /// # `textbuf::from()`
   ///
   /// Creates a new string by parsing it from a span of potentially invalid
   /// characters.
-  static best::option<textbuf> from(best::span<const code> data,
-                                    encoding enc = {}) {
-    return from({}, data, std::move(enc));
-  }
-  static best::option<textbuf> from(alloc alloc, best::span<const code> data,
-                                    encoding enc = {});
+  static best::option<textbuf> from(pretext text) { return from({}, text); }
+  static best::option<textbuf> from(alloc alloc, pretext text);
   static best::option<textbuf> from(buf data, encoding enc = {});
-  static best::option<textbuf> from(const string_type auto& that) {
-    return from(alloc{}, that);
-  }
-  static best::option<textbuf> from(alloc alloc, const string_type auto& that) {
-    return from(std::move(alloc), span(best::data(that), best::size(that)),
-                best::encoding_of(that));
-  }
 
   /// # `textbuf::from_nul()`
   ///
@@ -187,8 +166,7 @@ class textbuf final {
   }
   static best::option<textbuf> from_nul(alloc alloc, const code* data,
                                         encoding enc = {}) {
-    return from(std::move(alloc), best::span<const code>::from_nul(data),
-                std::move(enc));
+    return from(std::move(alloc), pretext::from_nul(data, std::move(enc)));
   }
 
   /// # `textbuf::transcode()`
@@ -245,8 +223,8 @@ class textbuf final {
   /// Returns the span of code units that backs this string. This is also
   /// an implicit conversion.
   text as_text() const {
-    return text(unsafe("buf_ is always validly encoded"), buf_.as_span(),
-                enc());
+    return text(unsafe("buf_ is always validly encoded"),
+                {buf_.as_span(), enc()});
   }
   operator text() const { return as_text(); }
 
@@ -299,45 +277,43 @@ class textbuf final {
   /// Gets the substring in the given range, performing no bounds checks.
   text at(unsafe u, best::bounds range) const { return as_text().at(u, range); }
 
+  /// # `text::rune_iter`, `text::runes()`.
+  ///
+  /// An iterator over the runes of a `best::text`.
+  using rune_iter = text::rune_iter;
+  rune_iter runes() const { return as_text().runes(); }
+
+  /// # `text::rune_index_iter`, `text::rune_indices()`.
+  ///
+  /// An iterator over the runes of a `best::text` and the indices they
+  /// occur at in the underlying code span.
+  using rune_index_iter = text::rune_index_iter;
+  rune_index_iter rune_indices() const { return as_text().rune_indices(); }
+
   /// # `textbuf::starts_with()`
   ///
   /// Checks whether this string begins with the specifies substring or rune.
-  bool starts_with(rune r) const { return as_text().starts_with(r); }
-  bool starts_with(const string_type auto& s) const {
-    return as_text().starts_with(s);
+  bool starts_with(rune prefix) const { return as_text().starts_with(prefix); }
+  bool starts_with(const string_type auto& prefix) const {
+    return as_text().starts_with(prefix);
+  }
+  bool starts_with(best::callable<bool(rune)> auto&& pred) const {
+    return as_text().starts_with(BEST_FWD(pred));
   }
 
   /// # `textbuf::trim_prefix()`
   ///
   /// If this string starts with the given prefix, returns a copy of this string
   /// with that prefix removed.
-  best::option<text> trim_prefix(rune r) const {
-    return as_text().starts_with(r);
+  best::option<text> strip_prefix(rune prefix) const {
+    return as_text().strip_prefix(prefix);
   }
-  best::option<text> trim_prefix(const string_type auto& s) const {
-    return as_text().starts_with(s);
+  best::option<text> strip_prefix(const string_type auto& prefix) const {
+    return as_text().strip_prefix(prefix);
   }
-
-  /// # `textbuf::contains()`
-  ///
-  /// Whether this string contains a particular substring or rune..
-  bool contains(rune r) const { return as_text().contains(r); }
-  bool contains(const string_type auto& s) const {
-    return as_text().contains(s);
-  }
-
-  /// # `textbuf::find()`
-  ///
-  /// Finds the first occurrence of a substring or rune within this string.
-  ///
-  /// If any invalidly text characters are encountered during the search, in
-  /// either the haystack or the needle, this function returns `best::none`.
-  best::option<size_t> find(rune r) const { return as_text().find(r); }
-  best::option<size_t> find(const string_type auto& s) const {
-    return as_text().find(s);
-  }
-  best::option<size_t> find(best::callable<bool(rune)> auto&& p) const {
-    return as_text().find(BEST_FWD(p));
+  best::option<text> strip_prefix(
+      best::callable<bool(rune)> auto&& pred) const {
+    return as_text().strip_prefix(BEST_FWD(pred));
   }
 
   /// # `textbuf::split_at()`
@@ -348,33 +324,74 @@ class textbuf final {
     return as_text().split_at(n);
   }
 
-  /// # `textbuf::split_on()`
+  /// # `textbuf::find()`.
   ///
-  /// Splits this string into two on the first occurrence of the given substring
-  /// or rune, or when the callback returns true. If the desired split point
-  /// is not found, returns `best::none`.
-  best::option<best::row<text, text>> split_on(rune r) const {
-    return as_text().split_on(r);
+  /// Finds the first occurrence of a pattern by linear search, and returns its
+  /// position.
+  ///
+  /// A pattern may be:
+  ///
+  /// - A rune.
+  /// - A string type.
+  /// - A rune predicate.
+  ///
+  /// Where possible, this function will automatically call vectorized
+  /// implementations of e.g. `memchr` and `memcmp` for finding the desired
+  /// pattern. Therefore, when possible, prefer to provide a needle by value.
+  best::option<size_t> find(best::rune needle) const {
+    return as_text().find(needle);
   }
-  best::option<best::row<text, text>> split_on(
-      const string_type auto& s) const {
-    return as_text().split_on(s);
+  best::option<size_t> find(const best::string_type auto& needle) const {
+    return as_text().find(needle);
   }
-  best::option<best::row<text, text>> split_on(
-      best::callable<bool(rune)> auto&& p) const {
-    return as_text().split_on(p);
+  best::option<size_t> find(best::callable<bool(rune)> auto&& pred) const {
+    return as_text().find(BEST_FWD(pred));
   }
 
-  /// # `textbuf::rune_iter`, `textbuf::runes()`.
+  /// # `text::contains()`
   ///
-  /// An iterator over the runes of a `best::textbuf`.
+  /// Determines whether a substring exists that matches some pattern.
   ///
-  /// A `best::text` may point to invalidly-text data. If the encoding is
-  /// self-synchronizing, the stream of Unicode characters is interpreted as
-  /// replacing each invalid code unit with a Unicode replacement character
-  /// (U+FFFD). If the encoding is not self-synchronizing, the stream is
-  /// interpreted to end at that position, with a replacement character.
-  rune::iter<E> runes() const { return rune::iter<E>(buf_, enc_); }
+  /// A pattern may be as in `textbuf::find()`.
+  bool contains(rune needle) const { return find(needle).has_value(); }
+  bool contains(const string_type auto& needle) const {
+    return find(needle).has_value();
+  }
+  bool contains(best::callable<bool(rune)> auto&& needle) const {
+    return find(BEST_FWD(needle)).has_value();
+  }
+
+  /// # `text::split_once()`
+  ///
+  /// Calls `text::find()` to find the first occurrence of some pattern, and
+  /// if found, returns the substrings before and after the separator.
+  ///
+  /// A pattern for a separator may be as in `textbuf::find()`.
+  best::option<best::row<text, text>> split_once(rune needle) const {
+    return as_text().split_once(needle);
+  }
+  best::option<best::row<text, text>> split_once(
+      const string_type auto& needle) const {
+    return as_text().split_once(needle);
+  }
+  best::option<best::row<text, text>> split_once(
+      best::callable<bool(rune)> auto&& pred) const {
+    return as_text().split_once(BEST_FWD(pred));
+  }
+
+  /// # `pretext::split()`.
+  ///
+  /// Returns an iterator over substrings separated by some pattern. Internally,
+  /// it calls `text::split_once()` until it is out of string.
+  ///
+  /// A pattern for a separator may be as in `pretext::find()`.
+  auto split(best::rune needle) const { return as_text().split(needle); }
+  auto split(const best::string_type auto& needle) const {
+    return as_text().split(needle);
+  }
+  auto split(best::callable<bool(rune)> auto&& pred) const {
+    return as_text().split(BEST_FWD(pred));
+  }
 
   /// # `textbuf::reserve()`.
   ///
@@ -505,8 +522,6 @@ class textbuf final {
   }
 
  private:
-  explicit textbuf(best::in_place_t, buf buf, encoding enc)
-      : buf_(std::move(buf)), enc_(std::move(enc)) {}
   buf buf_;
   [[no_unique_address]] encoding enc_;
 };
@@ -518,14 +533,11 @@ class textbuf final {
 
 namespace best {
 template <encoding E, allocator A>
-best::option<textbuf<E, A>> textbuf<E, A>::from(alloc alloc,
-                                                best::span<const code> data,
-                                                encoding enc) {
-  if (!rune::validate(data, enc)) {
-    return best::none;
-  }
+best::option<textbuf<E, A>> textbuf<E, A>::from(alloc alloc, pretext t) {
+  auto validated = text::from(t);
+  BEST_GUARD(validated);
 
-  return textbuf(best::in_place, buf(std::move(alloc), data), std::move(enc));
+  return textbuf(best::unsafe("just did validation above"), *validated);
 }
 
 template <encoding E, allocator A>

@@ -128,6 +128,8 @@ class formatter;
 // best/text/str.h
 template <typename>
 class text;
+template <typename>
+class pretext;
 
 // best/text/utf.h
 struct utf8;

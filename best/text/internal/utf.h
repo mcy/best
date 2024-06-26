@@ -47,18 +47,18 @@ constexpr size_t size8(uint32_t rune) {
 constexpr bool validate_utf8_fast(const char* data, size_t len) {
   // This function is hit whenever we create a `best::str` from a literal, so
   // we need to avoid optional/span here.
-  while (len > 0) {
-    uint32_t value = uint8_t(data[0]);
-    ++data, --len;
+  auto end = data + len;
+  while (data != end) {
+    uint32_t value = uint8_t(*data++);
     if (value < 0x80) continue;  // ASCII fast path.
 
     size_t bytes = best::leading_ones(uint8_t(value));
     value &= 0x7f >> bytes;
 
-    if (bytes > 4 || len < bytes - 1) return false;
+    if (bytes > 4 || (end - data) < bytes - 1) return false;
     while (--bytes > 0) {
       char c = data[0];
-      ++data, --len;
+      ++data;
       if (best::leading_ones(c) != 1) return false;
 
       value <<= 6;
