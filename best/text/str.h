@@ -824,8 +824,8 @@ class text<E>::rune_index_iter_impl final {
 
  private:
   friend pretext;
-  friend best::iter<rune_iter_impl>;
-  friend best::iter<rune_iter_impl&>;
+  friend best::iter<rune_index_iter_impl>;
+  friend best::iter<rune_index_iter_impl&>;
 
   constexpr explicit rune_index_iter_impl(text text) : iter_(text.runes()) {}
   constexpr best::option<best::row<size_t, best::rune>> next();
@@ -874,8 +874,8 @@ class pretext<E>::rune_index_iter_impl final {
 
  private:
   friend pretext;
-  friend best::iter<rune_iter_impl>;
-  friend best::iter<rune_iter_impl&>;
+  friend best::iter<rune_index_iter_impl>;
+  friend best::iter<rune_index_iter_impl&>;
 
   constexpr explicit rune_index_iter_impl(rune_try_iter iter) : iter_(iter) {}
   constexpr best::option<best::row<size_t, best::rune>> next();
@@ -1070,7 +1070,7 @@ pretext<E>::rune_index_iter_impl::next() {
 
   size_t idx = idx_;
   idx_ += cur_len - iter_->rest().size();
-  return {{idx, next->value_or(rune::Replacement)}};
+  return {{idx, next->ok().value_or(rune::Replacement)}};
 }
 template <typename E>
 constexpr best::option<best::result<best::rune, best::encoding_error>>
@@ -1095,7 +1095,7 @@ constexpr best::size_hint text<E>::rune_iter_impl::size_hint() const {
   auto codes = text_.size();
   // Regardless of encoding, there are no invalid runes, so we can assume we
   // will yield all codes.
-  return {best::ceildiv(codes, About.max_codes_per_rune), codes};
+  return {best::ceildiv(codes, About.max_codes_per_rune).wrap(), codes};
 }
 template <typename E>
 constexpr best::size_hint pretext<E>::rune_try_iter_impl::size_hint() const {
@@ -1105,7 +1105,7 @@ constexpr best::size_hint pretext<E>::rune_try_iter_impl::size_hint() const {
     // If this is a self-synching encoding, we will yield every code: in the
     // lower bound, every rune is maximally encoded; otherwise, each code is
     // a rune.
-    return {best::ceildiv(codes, About.max_codes_per_rune), codes};
+    return {best::ceildiv(codes, About.max_codes_per_rune).wrap(), codes};
   } else {
     // Non-self-syncing encodings will give up on the first error. We will
     // always yield at least one value if there are codes left.

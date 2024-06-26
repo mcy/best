@@ -25,6 +25,7 @@
 #include "best/container/span.h"
 #include "best/container/vec.h"
 #include "best/memory/allocator.h"
+#include "best/text/encoding.h"
 #include "best/text/rune.h"
 #include "best/text/str.h"
 #include "best/text/utf.h"
@@ -423,33 +424,33 @@ class textbuf final {
     return false;
   }
   bool push(const string_type auto& that) {
-    rune::iter it(that);
-    return push(it.rest(), best::encoding_of(that));
-  }
-  template <best::encoding E2>
-  bool push(best::span<const best::code<E2>> data, const E2& enc) {
-    rune::iter it(data, enc);
-    if constexpr (best::same<code, best::code<E2>> && best::equatable<E, E2>) {
-      if (this->enc() == enc) {
-        buf_.append(it.rest());
+    if constexpr (best::is_text<decltype(that)> &&
+                  best::same_encoding_code<textbuf, decltype(that)>()) {
+      if (best::same_encoding(*this, that)) {
+        buf_.append(that);
         return true;
       }
     }
 
-    size_t watermark = size();
-    for (rune r : it) {
-      reserve(About.max_codes_per_rune);
-      best::span<code> buf = {buf_.data() + buf_.size(),
-                              About.max_codes_per_rune};
-      if (auto codes = r.encode(buf, this->enc())) {
-        buf_.set_size(unsafe("we just wrote this much data in encode()"),
-                      size() + codes->size());
-        continue;
+    if constexpr (best::is_text<decltype(that)> ||
+                  best::is_pretext<decltype(that)>) {
+      size_t watermark = size();
+      for (auto r : that.runes()) {
+        reserve(About.max_codes_per_rune);
+        best::span<code> buf{buf_.data() + buf_.size(),
+                             About.max_codes_per_rune};
+        if (auto codes = r.encode(buf, this->enc())) {
+          buf_.set_size(unsafe("we just wrote this much data in encode()"),
+                        size() + codes->size());
+          continue;
+        }
+        truncate(watermark);
+        return false;
       }
-      truncate(watermark);
-      return false;
+      return true;
+    } else {
+      return push(best::pretext(that));
     }
-    return true;
   }
 
   /// # `textbuf::push_lossy()`.
@@ -470,33 +471,33 @@ class textbuf final {
     }
   }
   void push_lossy(const string_type auto& that) {
-    rune::iter it(that);
-    push_lossy(it.rest(), best::encoding_of(that));
-  }
-  template <best::encoding E2>
-  void push_lossy(best::span<const best::code<E2>> data, const E2& enc) {
-    rune::iter it(data, enc);
-    if constexpr (best::same<code, best::code<E2>> && best::equatable<E, E2>) {
-      if (this->enc() == enc) {
-        buf_.append(it.rest());
+    if constexpr (best::is_text<decltype(that)> &&
+                  best::same_encoding_code<textbuf, decltype(that)>()) {
+      if (best::same_encoding(*this, that)) {
+        buf_.append(that);
         return;
       }
     }
 
-    for (rune r : it) {
-      reserve(About.max_codes_per_rune);
-      best::span<code> buf = {buf_.data() + buf_.size(),
-                              About.max_codes_per_rune};
+    if constexpr (best::is_text<decltype(that)> ||
+                  best::is_pretext<decltype(that)>) {
+      for (auto r : that.runes()) {
+        reserve(About.max_codes_per_rune);
+        best::span<code> buf = {buf_.data() + buf_.size(),
+                                About.max_codes_per_rune};
 
-      unsafe u("we just wrote this much data in encode()");
-      if (auto codes = r.encode(buf, this->enc())) {
-        buf_.set_size(u, size() + codes->size());
-      } else if (auto codes = rune::Replacement.encode(buf, this->enc())) {
-        buf_.set_size(u, size() + codes->size());
-      } else {
-        codes = rune('?').encode(buf, this->enc());
-        buf_.set_size(u, size() + codes->size());
+        unsafe u("we just wrote this much data in encode()");
+        if (auto codes = r.encode(buf, this->enc())) {
+          buf_.set_size(u, size() + codes->size());
+        } else if (auto codes = rune::Replacement.encode(buf, this->enc())) {
+          buf_.set_size(u, size() + codes->size());
+        } else {
+          codes = rune('?').encode(buf, this->enc());
+          buf_.set_size(u, size() + codes->size());
+        }
       }
+    } else {
+      push_lossy(best::pretext(that));
     }
   }
 

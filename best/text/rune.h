@@ -185,26 +185,6 @@ class rune final {
     return undecode(&input, enc);
   }
 
-  /// # `rune::iter`
-  ///
-  /// An iterator over some encoded span that yields runes. The span need not
-  /// be well-encoded: if encoding errors are encountered, then either:
-  ///
-  /// 1. If the encoding is synchronizing, yields one `rune::replacement()`
-  /// for
-  ///    each bad code unit.
-  ///
-  /// 2. If the encoding is not synchronizing, yields one
-  /// `rune::replacement()`
-  ///    and halts further iteration.
-  template <encoding>
-  struct iter;
-
-  template <typename S, typename E>
-  iter(S, const E&) -> iter<E>;
-  template <typename S>
-  iter(const S& s) -> iter<best::as_auto<decltype(best::encoding_of(s))>>;
-
   /// # `rune::from_digit()`
   ///
   /// Returns the appropriate character to represent `num` in the given
@@ -363,85 +343,6 @@ class rune final {
 };
 
 inline constexpr rune rune::Replacement = 0xfffd;
-
-/// See `rune::iter` above.
-template <encoding E>
-struct rune::iter final {
- public:
-  /// # `iter::sentinel`
-  ///
-  /// The end-of-iteration sentinel.
-  struct sentinel {};
-
-  /// # `iter::iter()`
-  ///
-  /// Constructs a new iterator over the given span of code units.
-  constexpr explicit iter(best::span<const code<E>> codes, const E& enc)
-      : codes_(codes), enc_(best::addr(enc)) {}
-
-  /// # `iter::iter(str)`
-  ///
-  /// Constructs a new iterator over a string type.
-  constexpr explicit iter(const best::string_type auto& str)
-      : iter(str, best::encoding_of(str)) {}
-  template <size_t n>
-  constexpr explicit iter(const auto (&str)[n])
-      : iter(best::span(str, n - 1), best::encoding_of(str)) {}
-
-  /// # `iter::next()`
-  ///
-  /// Advances the iterator and returns the next value.
-  constexpr best::option<rune> next() {
-    ++*this;
-    return next_;
-  }
-
-  /// # `iter::rest()`
-  ///
-  /// Returns the part of the code unit span still left to advance.
-  constexpr best::span<const code<E>> rest() const { return codes_; }
-
-  constexpr iter begin() const { return *this; }
-  constexpr sentinel end() const { return {}; }
-
-  constexpr bool operator==(sentinel) const {
-    return next_.is_empty() && codes_.is_empty();
-  };
-  constexpr rune operator*() {
-    if (!next_) ++*this;
-    return next_.value_or();
-  }
-
-  constexpr iter& operator++() {
-    if (codes_.is_empty()) {
-      next_ = best::none;
-      return *this;
-    }
-
-    next_ = decode(&codes_, *enc_).ok();
-    if (next_) return *this;
-
-    next_ = Replacement;
-    if (E::About.is_self_syncing) {
-      codes_ = codes_[{.start = 1}];
-    } else {
-      codes_ = best::span<code<E>>();
-    }
-
-    return *this;
-  }
-
-  constexpr iter operator++(int) {
-    auto prev = *this;
-    ++*this;
-    return prev;
-  }
-
- private:
-  best::option<rune> next_;
-  best::span<const code<E>> codes_;
-  const E* enc_;
-};
 }  // namespace best
 
 /******************************************************************************/

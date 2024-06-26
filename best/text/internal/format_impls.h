@@ -164,6 +164,70 @@ constexpr void BestFmtQuery(auto& query, integer auto*) {
   query.uses_method = [](auto r) { return str("boxX").contains(r); };
 }
 
+void BestFmt(auto& fmt, const best::string_type auto& s) {
+  // Taken liberally from Rust's implementation of Formatter::pad().
+  if constexpr (best::is_pretext<decltype(s)>) {
+    auto str = s;
+    if (fmt.current_spec().method == 'q' || fmt.current_spec().debug) {
+      // Quoted string.
+      fmt.write('"');
+      for (rune r : str.runes()) {
+        fmt.format("{}", r.escaped());
+      }
+      fmt.write('"');
+      return;
+    }
+
+    const auto& spec = fmt.current_spec();
+    if (spec.width == 0 && !spec.prec) {
+      // Fast path.
+      fmt.write(str);
+      return;
+    }
+
+    if (auto prec = spec.prec) {
+      size_t max = *prec;
+      auto runes = str.runes();
+      for (auto r : runes) {
+        (void)r;
+        if (--max == 0) break;
+      }
+      str = str[{.end = str.size() - runes->rest().size()}];
+    }
+
+    if (spec.width == 0) {
+      // No need to pad here!
+      fmt.write(str);
+      return;
+    }
+
+    // Otherwise, we need to figure out the number of characters and potentially
+    // write some padding.
+    size_t runes = str.runes().count();
+    if (runes >= spec.width) {
+      // No need to pad here either!
+      fmt.write(str);
+      return;
+    }
+
+    auto fill = fmt.current_spec().fill;
+    auto [pre, post] =
+        fmt.current_spec().compute_padding(runes, fmt.current_spec().Left);
+    for (size_t i = 0; i < pre; ++i) fmt.write(fill);
+    fmt.write(str);
+    for (size_t i = 0; i < post; ++i) fmt.write(fill);
+  } else {
+    BestFmt(fmt, best::pretext(s));
+  }
+}
+
+constexpr void BestFmtQuery(auto& query, best::string_type auto*) {
+  query.requires_debug = false;
+  query.supports_width = true;
+  query.supports_prec = true;
+  query.uses_method = [](auto r) { return r == 'q'; };
+}
+
 // TODO: invent ranges/iterator traits.
 template <typename R>
 void BestFmt(auto& fmt, const R& range)
