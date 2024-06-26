@@ -34,9 +34,6 @@
 //! best. Users SHOULD NOT forward-declared best types.
 
 namespace best {
-// best/container/bounds.h
-struct bounds;
-
 // best/container/choice.h
 template <typename...>
 class choice;
@@ -89,6 +86,10 @@ class iter_range;
 template <typename Impl>
 iter_range(Impl) -> iter_range<Impl>;
 struct iter_range_end final {};
+
+// best/iter/bounds.h
+template <typename>
+struct int_range;
 
 // best/log/location.h
 template <typename>

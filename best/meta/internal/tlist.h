@@ -28,8 +28,8 @@
 
 #include "best/base/fwd.h"
 #include "best/base/port.h"
-#include "best/container/bounds.h"
 #include "best/func/call.h"
+#include "best/iter/bounds.h"
 
 //! Type traits for working with parameter packs.
 

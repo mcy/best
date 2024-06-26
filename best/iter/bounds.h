@@ -17,8 +17,8 @@
 
 \* ////////////////////////////////////////////////////////////////////////// */
 
-#ifndef BEST_CONTAINER_BOUNDS_H_
-#define BEST_CONTAINER_BOUNDS_H_
+#ifndef BEST_ITER_BOUNDS_H_
+#define BEST_ITER_BOUNDS_H_
 
 #include <array>
 #include <cstddef>
@@ -27,7 +27,7 @@
 #include "best/base/fwd.h"
 #include "best/container/internal/simple_option.h"
 #include "best/log/location.h"
-#include "best/meta/traits.h"
+#include "best/math/overflow.h"
 
 //! Callsite-readable array access bounds specifications.
 //!
@@ -55,7 +55,16 @@
 //! bounds checks.
 
 namespace best {
+/// # `best::bounds`.
+///
 /// A specification for a subrange of some contiguous range.
+using bounds = best::int_range<size_t>;
+
+namespace bounds_internal {
+/// Prints a nice error for bounds check failure and crashes.
+[[noreturn]] void crash(bounds, size_t max_size, best::location loc);
+}  // namespace bounds_internal
+
 ///
 /// To specify slicing a `best::span` starting at index 2 and ending at index 4,
 /// we must specify a start (how much to offset the base pointer) and a count
@@ -87,17 +96,18 @@ namespace best {
 /// ```
 ///
 /// Similarly, start defaults to the beginning of the span (i.e., index 0).
-struct bounds final {
+template <typename Int>
+struct int_range final {
  private:
-  using opt_size_t = container_internal::option<size_t>;
+  using opt_t = container_internal::option<Int>;
 
  public:
-  /// # `bounds::start`
+  /// # `int_range::start`
   ///
   /// The start index for these bounds.
-  size_t start = 0;
+  Int start = 0;
 
-  /// # `bounds::end`, `bounds::including_end`, `bounds::count`
+  /// # `int_range::end`, `int_range::including_end`, `int_range::count`
   ///
   /// The end index for these bounds.
   ///
@@ -106,16 +116,21 @@ struct bounds final {
   /// `count` is measured from `start`.
   ///
   /// If more than one is specified, the first one in the above list wins.
-  opt_size_t end, including_end, count;
+  opt_t end, including_end, count;
 
-  /// # `bounds::iter()`
+  /// # `int_range::iter()`
   ///
-  /// Returns an iterator over the indices encompassed by this `bounds`.
-  template <typename Delay = void>
-  constexpr auto iter() const {
-    return best::iter<best::dependent<iter_impl, Delay>>(
-        {.start = start, .count = *normalize(max).count});
-  }
+  /// Returns an iterator over the indices encompassed by this `int_range`.
+  constexpr auto iter() const;
+
+  /// # `int_range::wrapping_normalize`
+  ///
+  /// Normalizes this `int_range` so that only `count` is set. If `max_size` is
+  /// not provided, it is assumed to be the maximum possible size.
+  ///
+  /// Note that this treats the range of `int_range` as wrapping around: if `end
+  /// < start`, this will compute `end - start` as the count.
+  constexpr int_range wrapping_normalize(Int max_size = Max) const;
 
   /// # `bounds::compute_count()`
   ///
@@ -124,37 +139,21 @@ struct bounds final {
   ///
   /// If the access would be out of bounds, crashes.
   constexpr size_t compute_count(size_t max_size,
-                                 best::location loc = best::here) const;
+                                 best::location loc = best::here) const
+    requires std::is_same_v<size_t, Int>;
 
-  /// # `bounds::compute_count()`
+  /// # `int_range::compute_count()`
   ///
   /// Like `compute_count()`, indicates failure in the return type.
   ///
   /// Also allows for a potentially missing `max_size`, in which case no
   /// explicit endpoint is an error.
-  constexpr opt_size_t try_compute_count(opt_size_t max_size) const;
+  constexpr opt_t try_compute_count(opt_t max_size) const
+    requires std::is_same_v<size_t, Int>;
 
-  /// # `bounds::wrapping_normalize`
+  /// # `int_range:with_location`
   ///
-  /// Normalizes this `bounds` so that only `count` is set. If `max_size` is not
-  /// provided, it is assumed to be the maximum possible size.
-  ///
-  /// If in the result, `start + count` would overflow, or no max size is
-  /// provided and this `bounds` has no endpoint set, the count is cleared.
-  constexpr bounds normalize(opt_size_t max_size) const;
-
-  /// # `bounds::wrapping_normalize`
-  ///
-  /// Normalizes this `bounds` so that only `count` is set. If `max_size` is not
-  /// provided, it is assumed to be the maximum possible size.
-  ///
-  /// Note that this treats the range of `bounds` as wrapping around: if `end <
-  /// start`, this will compute `end - start` as the count.
-  constexpr bounds wrapping_normalize(size_t max_size = max) const;
-
-  /// # `bounds:with_location`
-  ///
-  /// A carbon copy of `bounds` but which captures a `best::location` on
+  /// A carbon copy of `int_range` but which captures a `best::location` on
   /// creation.
   ///
   /// This is needed for the rare case where you want to take a bounds + a
@@ -163,22 +162,24 @@ struct bounds final {
   struct with_location final {
     /// The fields of a `best::bounds`.
     size_t start = 0;
-    opt_size_t end, including_end, count;
+    opt_t end, including_end, count;
 
     /// # `with_location::where`
     ///
     /// The captured location.
     best::location where = best::here;
 
-    /// # `bounds::compute_count()`
+    /// # `int_range::compute_count()`
     ///
-    /// Forwards to `bounds::compute_count()`, but passing in `where` to it
+    /// Forwards to `int_range::compute_count()`, but passing in `where` to it
     /// as the location for the bounds check crash.
-    constexpr size_t compute_count(size_t max_size) const {
+    constexpr size_t compute_count(size_t max_size) const
+      requires std::is_same_v<size_t, Int>
+    {
       return to_bounds().compute_count(max_size, where);
     }
 
-    /// # `bounds::to_bounds()`
+    /// # `int_range::to_bounds()`
     ///
     /// Converts to an equivalent `best::bounds`.
     constexpr bounds to_bounds() const {
@@ -191,7 +192,7 @@ struct bounds final {
     return {start, end, including_end, count};
   }
 
-  friend void BestFmt(auto& fmt, const bounds& bounds) {
+  friend void BestFmt(auto& fmt, const int_range& bounds) {
     /// NOTE: This does not use the struct printer because we want very
     /// fine-grained control so this looks like syntax the user would ordinarily
     /// write.
@@ -214,17 +215,43 @@ struct bounds final {
 
  private:
   struct iter_impl {
-    size_t start, count;
+    Int start, count;
+    bool plus_one = false;
 
-    constexpr opt_size_t next();
-    constexpr std::array<size_t, 2> size_hint() const;
+    constexpr opt_t next() {
+      if (plus_one) {
+        plus_one = false;
+
+        auto ret = start;
+        start = (best::overflow(start) + 1).wrap();
+        return ret;
+      }
+
+      if (count == 0) return {};
+      count = (best::overflow(count) - 1).wrap();
+
+      auto ret = start;
+      start = (best::overflow(start) + 1).wrap();
+      return ret;
+    }
+
+    constexpr std::array<size_t, 2> size_hint() const {
+      // TODO(mcyoung): This will overflow for uint64 ranges, need to return
+      // something else.
+      return {count, count};
+    }
   };
 
-  static constexpr auto max =
-      std::make_unsigned_t<size_t>(-1) >> std::is_signed_v<size_t>;
-  /// Prints a nice error for bounds check failure and crashes.
-  [[noreturn]] void crash(size_t max_size, best::location loc) const;
+  constexpr int_range normalize(opt_t max_size) const;
+
+  static constexpr Int Max =
+      std::make_unsigned_t<Int>(-1) >> std::is_signed_v<Int>;
+  static constexpr Int Min = ~Max;
 };
+template <typename Int>
+int_range(Int) -> int_range<Int>;
+template <typename Int>
+int_range(Int, Int) -> int_range<Int>;
 
 }  // namespace best
 
@@ -233,25 +260,43 @@ struct bounds final {
 \* ////////////////////////////////////////////////////////////////////////// */
 
 namespace best {
-constexpr bounds bounds::wrapping_normalize(size_t max_size) const {
+template <typename Int>
+constexpr auto int_range<Int>::iter() const {
+  // Deal with a funny special case: we need to yield every integer. This
+  // happens when start == min and end/count is not set or including_end is
+  // Max.
+  if (start == Min && ((including_end && *including_end == Max) ||
+                       (!including_end && !end && !count))) {
+    return best::iter(
+        iter_impl{.start = Min, .count = Int(-1), .plus_one = true});
+  }
+
+  return best::iter(iter_impl{.start = start, .count = *normalize(Max).count});
+}
+
+template <typename Int>
+constexpr int_range<Int> int_range<Int>::wrapping_normalize(
+    Int max_size) const {
   if (end) {
-    return {.start = start, .count = *end - start};
+    return {.start = start, .count = (best::overflow(*end) - start).wrap()};
   }
 
   if (including_end) {
     // NOTE: in the case that start = max and including_end = max, this
     // correctly produces a one-element range that yields `max`.
-    return {.start = start, .count = *including_end - start + 1};
+    return {.start = start,
+            .count = (best::overflow(*including_end) - start + 1).wrap()};
   }
 
   if (count) {
     return {.start = start, .count = count};
   }
 
-  return {.start = start, .count = max_size - start};
+  return {.start = start, .count = (best::overflow(max_size) - start).wrap()};
 }
 
-constexpr bounds bounds::normalize(opt_size_t max_size) const {
+template <typename Int>
+constexpr int_range<Int> int_range<Int>::normalize(opt_t max_size) const {
   if (max_size && start > *max_size) {
     return {.start = start};
   }
@@ -260,7 +305,7 @@ constexpr bounds bounds::normalize(opt_size_t max_size) const {
     if (start > *end) {
       return {.start = start};
     }
-    return {.start = start, .count = *end - start};
+    return {.start = start, .count = (best::overflow(*end) - start).wrap()};
   }
 
   if (including_end) {
@@ -269,64 +314,61 @@ constexpr bounds bounds::normalize(opt_size_t max_size) const {
     if (start > *including_end) {
       return {.start = start};
     }
-    return {.start = start, .count = *including_end - start + 1};
+    return {.start = start,
+            .count = (best::overflow(*including_end) - start + 1).wrap()};
   }
 
   if (count) {
-    if (start + *count < start) {
+    if ((best::overflow(start) + *count).overflowed) {
       return {.start = start};
     }
     return {.start = start, .count = count};
   }
 
   if (!max_size) {
-    return {.start = start, .count = max - start};
+    return {.start = start, .count = Max - start};
   }
 
-  return {.start = start, .count = *max_size - start};
+  return {.start = start, .count = (best::overflow(*max_size) - start).wrap()};
 }
 
-constexpr size_t bounds::compute_count(size_t max_size,
-                                       best::location loc) const {
+template <typename Int>
+constexpr size_t int_range<Int>::compute_count(size_t max_size,
+                                               best::location loc) const
+  requires std::is_same_v<size_t, Int>
+{
   if (auto result = try_compute_count(max_size)) {
     return *result;
   }
-  crash(max_size, loc);
+  bounds_internal::crash(*this, max_size, loc);
 }
 
-constexpr bounds::opt_size_t bounds::try_compute_count(
-    opt_size_t max_size) const {
+template <typename Int>
+constexpr int_range<Int>::opt_t int_range<Int>::try_compute_count(
+    opt_t max_size) const
+  requires std::is_same_v<size_t, Int>
+{
   if (!max_size && !end && !including_end && !count) {
     return {};
   }
 
   auto count = normalize(max_size).count;
-  if (max_size && count &&
-      (start + *count > *max_size || start + *count < start)) {
-    return {};
-  }
+  if (!max_size) return count;
+
+  auto [end, of] = (best::overflow(start) + *count);
+  if (of || end > *max_size) return {};
   return count;
 }
 
-constexpr bounds::opt_size_t bounds::iter_impl::next() {
-  if (count == 0) return {};
-  --count;
-  return start++;
+template <typename Int>
+constexpr auto begin(const int_range<Int>& b) {
+  return b.iter().into_range();
 }
 
-/// # `bounds::size_hint()`
-///
-/// For the benefit of `best::iter`.
-constexpr std::array<size_t, 2> bounds::iter_impl::size_hint() const {
-  return {count, count};
+template <typename Int>
+constexpr auto end(const int_range<Int>&) {
+  return best::iter_range_end{};
 }
-
-template <typename Delay = void>
-constexpr auto begin(const bounds& b) {
-  return b.iter<Delay>().into_range();
-}
-constexpr auto end(const bounds&) { return best::iter_range_end{}; }
-constexpr auto end(bounds&&) { return best::iter_range_end{}; }
 
 }  // namespace best
-#endif  // BEST_CONTAINER_BOUNDS_H_
+#endif  // BEST_ITER_BOUNDS_H_

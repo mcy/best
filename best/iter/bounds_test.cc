@@ -17,7 +17,7 @@
 
 \* ////////////////////////////////////////////////////////////////////////// */
 
-#include "best/container/bounds.h"
+#include "best/iter/bounds.h"
 
 #include "best/test/test.h"
 
@@ -104,6 +104,14 @@ best::test Iter = [](auto& t) {
     xs.push(i);
   }
   t.expect_eq(xs, {best::max_of<size_t> - 1, best::max_of<size_t>});
+
+  best::vec<uint8_t> ys;
+  for (auto i : best::int_range{.start = uint8_t(0)}) {
+    ys.push(i);
+  }
+
+  best::vec<size_t> zs(best::bounds{.count = 256}.iter());
+  t.expect_eq(ys, zs);
 };
 
 // TODO: Once we have death tests, test the check-fail messages.

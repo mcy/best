@@ -27,26 +27,38 @@
 #include "best/meta/traits.h"
 
 namespace best::int_internal {
-constexpr size_t widest(auto ints) {
-  size_t idx = 0;
-  size_t cur = 0;
-  size_t size = 0;
-  ints.each([&]<typename T> {
-    if (sizeof(T) > size) {
-      size = sizeof(T);
-      cur = idx;
-    }
-    ++idx;
-  });
-  return cur;
+template <typename T>
+concept is_int =                            //
+    std::is_same_v<T, char> ||              //
+    std::is_same_v<T, signed char> ||       //
+    std::is_same_v<T, signed short> ||      //
+    std::is_same_v<T, signed int> ||        //
+    std::is_same_v<T, signed long> ||       //
+    std::is_same_v<T, signed long long> ||  //
+    std::is_same_v<T, unsigned char> ||     //
+    std::is_same_v<T, unsigned short> ||    //
+    std::is_same_v<T, unsigned int> ||      //
+    std::is_same_v<T, unsigned long> ||     //
+    std::is_same_v<T, unsigned long long>;
+
+template <typename Int, typename... Ints>
+constexpr auto widest() {
+  if constexpr (sizeof...(Ints) == 0) {
+    return Int{};
+  } else if constexpr (sizeof(widest<Ints...>()) < sizeof(Int)) {
+    return Int{};
+  } else {
+    return widest<Ints...>();
+  }
 }
 
-constexpr bool any_unsigned(auto ints) {
-  return ints.template map<std::is_unsigned>().any();
+template <typename... Ints>
+constexpr bool any_unsigned() {
+  return (std::is_unsigned_v<Ints> || ...);
 }
 
-template <auto ints, bool u = any_unsigned(ints),
-          typename W = decltype(ints)::template type<widest(ints)>>
+template <typename... Ints, bool u = any_unsigned<Ints...>(),
+          typename W = decltype(widest<Ints...>())>
 best::select<u, std::make_unsigned_t<W>, W> common();
 }  // namespace best::int_internal
 

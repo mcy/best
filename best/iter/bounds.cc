@@ -17,14 +17,14 @@
 
 \* ////////////////////////////////////////////////////////////////////////// */
 
-#include "best/container/bounds.h"
-
-#include <exception>
+#include "best/iter/bounds.h"
 
 #include "best/log/internal/crash.h"
 
-namespace best {
-[[noreturn]] void bounds::crash(size_t len, best::location loc) const {
+namespace best::bounds_internal {
+[[noreturn]] void crash(bounds bounds, size_t len, best::location loc) {
+  auto [start, end, including_end, count] = bounds;
+
   if (count != 1 && start > len) {
     crash_internal::crash({"bounds-check failed: %zu (start) > %zu (len)", loc},
                           start, len);
@@ -61,6 +61,10 @@ namespace best {
         start, *count, len);
   }
 
-  std::terminate();
+  crash_internal::crash(
+      "failed to print proper bounds check result? this is a bug. %zu %zu/%d "
+      "%zu/%d %zu/%d %zu",
+      start, *end, end.has_value(), *including_end, including_end.has_value(),
+      *count, count.has_value(), len);
 }
-}  // namespace best
+}  // namespace best::bounds_internal

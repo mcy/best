@@ -51,7 +51,6 @@ cc_library(
   deps = [
     "//best/base:fwd",
     "//best/meta:taxonomy",
-    "//best/meta:tlist",
   ],
 )
 
@@ -70,6 +69,7 @@ cc_library(
   hdrs = ["overflow.h"],
   deps = [
     ":int",
+    "//best/base:ord",
   ],
 )
 
