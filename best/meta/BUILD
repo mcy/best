@@ -144,8 +144,8 @@ cc_library(
     ":traits",
     "//best/base:fwd",
     "//best/base:ord",
-    "//best/container:bounds",
     "//best/func:call",
+    "//best/iter:bounds",
   ]
 )
 

@@ -33,6 +33,8 @@ namespace best::container_internal {
 template <typename T>
 class option final {
  public:
+  using type = T;
+
   constexpr option() = default;
   constexpr option(T value) : value_(BEST_MOVE(value)), has_(true) {}
 
@@ -59,13 +61,13 @@ class option final {
     return has_ && value_ == that;
   }
 
-  // TODO: BestFmt
-  template <typename Os>
-  friend Os& operator<<(Os& os, option opt) {
-    if (!opt.has_value()) {
-      return os << "none";
+  friend void BestFmt(auto& fmt, const option& opt)
+    requires requires { fmt.format(opt.value_); }
+  {
+    if (opt.has_) {
+      fmt.format("option({:!})", opt.value_);
     } else {
-      return os << "option(" << *opt << ")";
+      fmt.format("none");
     }
   }
 

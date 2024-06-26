@@ -23,7 +23,7 @@
 #include "best/math/int.h"
 #include "best/math/overflow.h"
 #include "best/meta/guard.h"
-#include "best/text/rune.h"
+#include "best/text/str.h"
 
 //! Number-string conversion primitives.
 
@@ -43,36 +43,38 @@ struct atoi_error final {
 template <best::integer Int>
 constexpr best::result<Int, best::atoi_error> atoi(const string_type auto &str,
                                                    uint32_t radix = 10) {
-  // Adapted slightly from the implementation found in Rust's from_str_radix().
+  if constexpr (best::is_pretext<decltype(str)>) {
+    // Adapted slightly from the implementation found in Rust's
+    // from_str_radix().
 
-  if (radix > 36) {
-    crash_internal::crash("from_digit() radix too large: %u > 36", radix);
-  }
+    if (radix > 36) {
+      crash_internal::crash("from_digit() radix too large: %u > 36", radix);
+    }
 
-  best::rune::iter runes(str);
-  auto next = runes.next();
+    auto runes = str.runes();
+    auto next = runes.next();
 
-  bool neg = false;
-  if (next == '-') {
-    neg = true;
-    next = runes.next();
-  } else if (next == '+') {
-    next = runes.next();
-  }
+    bool neg = false;
+    if (next == '-') {
+      neg = true;
+      next = runes.next();
+    } else if (next == '+') {
+      next = runes.next();
+    }
 
-  if (!next) return best::atoi_error{};
+    if (!next) return best::atoi_error{};
 
-  // We make an approximation that the number of digits provided by `str` is
-  // no larger than its length in code units. The greatest information density
-  // is when the radix is 16; in this case, if the length is less than or equal
-  // to the maximum number if nybbles, it will not overflow. However, if it
-  // is a signed type, we need to subtract off one extra code unit, since
-  // e.g. `80` will overflow `int8_t`.
-  size_t total_codes = best::size(str);
-  size_t maximum_codes_without_overflow =
-      sizeof(Int) * 2 - best::signed_int<Int>;
-  size_t cannot_overflow =
-      radix <= 16 && total_codes <= maximum_codes_without_overflow;
+    // We make an approximation that the number of digits provided by `str` is
+    // no larger than its length in code units. The greatest information density
+    // is when the radix is 16; in this case, if the length is less than or
+    // equal to the maximum number if nybbles, it will not overflow. However, if
+    // it is a signed type, we need to subtract off one extra code unit, since
+    // e.g. `80` will overflow `int8_t`.
+    size_t total_codes = best::size(str);
+    size_t maximum_codes_without_overflow =
+        sizeof(Int) * 2 - best::signed_int<Int>;
+    size_t cannot_overflow =
+        radix <= 16 && total_codes <= maximum_codes_without_overflow;
 
 #define BEST_ATOI_LOOP_(result_, op_)                             \
   do {                                                            \
@@ -82,15 +84,15 @@ constexpr best::result<Int, best::atoi_error> atoi(const string_type auto &str,
     result_ op_ *digit;                                           \
   } while ((next = runes.next()))
 
-  if (cannot_overflow) {
-    Int result = 0;
-    if (neg) {
-      BEST_ATOI_LOOP_(result, -=);
-    } else {
-      BEST_ATOI_LOOP_(result, +=);
+    if (cannot_overflow) {
+      Int result = 0;
+      if (neg) {
+        BEST_ATOI_LOOP_(result, -=);
+      } else {
+        BEST_ATOI_LOOP_(result, +=);
+      }
+      return result;
     }
-    return result;
-  }
 
 #undef BEST_ATOI_LOOP_
 #define BEST_ATOI_LOOP_(result_, op_)                             \
@@ -102,15 +104,19 @@ constexpr best::result<Int, best::atoi_error> atoi(const string_type auto &str,
     BEST_GUARD(result_.checked().ok_or(best::atoi_error{}));      \
   } while ((next = runes.next()))
 
-  best::overflow<Int> result = 0;
-  if (neg) {
-    BEST_ATOI_LOOP_(result, -=);
-  } else {
-    BEST_ATOI_LOOP_(result, +=);
-  }
-  return result.wrap();
-}
+    best::overflow<Int> result = 0;
+    if (neg) {
+      BEST_ATOI_LOOP_(result, -=);
+    } else {
+      BEST_ATOI_LOOP_(result, +=);
+    }
+    return result.wrap();
+
 #undef BEST_ATOI_LOOP_
+  } else {
+    return best::atoi<Int>(best::pretext(str), radix);
+  }
+}
 }  // namespace best
 
 #endif  // BEST_MATH_CONV_H_

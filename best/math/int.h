@@ -22,6 +22,7 @@
 
 #include <stddef.h>
 
+#include <compare>
 #include <type_traits>
 
 #include "best/base/fwd.h"
@@ -29,7 +30,6 @@
 #include "best/base/port.h"
 #include "best/math/internal/common_int.h"
 #include "best/meta/taxonomy.h"
-#include "best/meta/tlist.h"
 
 //! Utilities for working with primitive integer types.
 //!
@@ -41,10 +41,7 @@ namespace best {
 /// Any primitive integer type.
 /// This explicitly excludes `bool` and non-`char` character types.
 template <typename T>
-concept integer = std::is_integral_v<T> && !best::same<best::unqual<T>, bool> &&
-                  !best::same<best::unqual<T>, wchar_t> &&
-                  !best::same<best::unqual<T>, char16_t> &&
-                  !best::same<best::unqual<T>, char32_t>;
+concept integer = int_internal::is_int<best::unqual<T>>;
 
 /// # `best::bits_of<T>`
 ///
@@ -69,8 +66,8 @@ BEST_INLINE_ALWAYS constexpr auto to_signed(integer auto x) {
 /// # `best::signed_cmp()`
 ///
 /// Compares two integers as if they were signed.
-BEST_INLINE_ALWAYS constexpr best::ord signed_cmp(integer auto x,
-                                                  integer auto y) {
+BEST_INLINE_ALWAYS constexpr std::strong_ordering signed_cmp(integer auto x,
+                                                             integer auto y) {
   return best::to_signed(x) <=> best::to_signed(y);
 }
 
@@ -91,21 +88,22 @@ BEST_INLINE_ALWAYS constexpr auto to_unsigned(integer auto x) {
 /// # `best::unsigned_cmp()`
 ///
 /// Compares two integers as if they were unsigned.
-BEST_INLINE_ALWAYS constexpr best::ord unsigned_cmp(integer auto x,
-                                                    integer auto y) {
+BEST_INLINE_ALWAYS constexpr std::strong_ordering unsigned_cmp(integer auto x,
+                                                               integer auto y) {
   return best::to_unsigned(x) <=> best::to_unsigned(y);
 }
 
 /// # `best::int_cmp()`
 ///
 /// Compares two integers as if they had infinite-precision.
-BEST_INLINE_ALWAYS constexpr best::ord int_cmp(integer auto x, integer auto y) {
+BEST_INLINE_ALWAYS constexpr std::strong_ordering int_cmp(integer auto x,
+                                                          integer auto y) {
   if constexpr (signed_int<decltype(x)> == signed_int<decltype(y)>) {
     return x <=> y;
   } else if (x < 0) {
-    return best::ord::less;
+    return std::strong_ordering::less;
   } else if (y < 0) {
-    return best::ord::greater;
+    return std::strong_ordering::greater;
   } else {
     return best::unsigned_cmp(x, y);
   }
@@ -152,7 +150,7 @@ BEST_INLINE_ALWAYS constexpr best::option<Int> checked_cast(integer auto x) {
 /// This is defined to be the larges integer type among them. If any of them
 /// are unsigned, the type is also unsigned.
 template <integer... Ints>
-using common_int = decltype(best::int_internal::common<best::types<Ints...>>());
+using common_int = decltype(best::int_internal::common<Ints...>());
 
 /// # `best::min()`
 ///

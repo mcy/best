@@ -58,7 +58,14 @@ inline constexpr struct none_t {
 /// Whether `T` is some `best::option<U>`.
 template <typename T>
 concept is_option =
-    best::same<best::as_auto<T>, best::option<typename best::as_auto<T>::type>>;
+    best::same<best::as_auto<T>,
+               best::option<typename best::as_auto<T>::type>> ||
+    requires {
+      requires best::is_object<typename best::as_auto<T>::type>;
+      requires best::same<
+          best::as_auto<T>,
+          best::container_internal::option<typename best::as_auto<T>::type>>;
+    };
 
 /// # `best::option_type<T>`
 ///

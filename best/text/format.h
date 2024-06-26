@@ -247,8 +247,6 @@ class formatter final {
   /// transcoded as-needed.
   void write(rune r);
   void write(const best::string_type auto& string);
-  template <best::encoding E>
-  void write(best::span<const code<E>> data, const E& enc);
 
   /// # `formatter::format()`
   ///
@@ -405,12 +403,14 @@ decltype(auto) make_formattable(const auto& value);
  * ////////////////// !!! IMPLEMENTATION DETAILS BELOW !!! ////////////////// *
 \* ////////////////////////////////////////////////////////////////////////// */
 
-namespace best {
-void formatter::write(const best::string_type auto& string) {
-  rune::iter it(string);
-  write(it.rest(), best::encoding_of(string));
-}
+#include "best/text/internal/format_impls.h"
 
+// Silence a tedious clang-tidy warning.
+namespace best::format_internal {
+using mark_as_used2 = mark_as_used;
+}  // namespace best::format_internal
+
+namespace best {
 void formatter::format(const best::format_spec& spec,
                        const best::formattable auto& arg) {
   if (spec.pass_through) {
@@ -422,30 +422,32 @@ void formatter::format(const best::format_spec& spec,
   cur_spec_ = old;
 }
 
-template <best::encoding E>
-void formatter::write(best::span<const code<E>> data, const E& enc) {
-  if (indent_ == 0) {
-    out_->push_lossy(data, enc);
-    return;
-  }
-
-  rune::iter runes(data, enc);
-  size_t idx = 0;
-  size_t watermark = 0;
-  for (rune r : runes) {
-    idx += r.size(enc).ok().value_or(1);
-    if (r != '\n') continue;
-    if (idx != watermark + 1) {
-      update_indent();
-      out_->push_lossy(data[{.start = watermark, .end = idx - 1}], enc);
+void formatter::write(const best::string_type auto& string) {
+  if constexpr (best::is_pretext<decltype(string)>) {
+    if (indent_ == 0) {
+      out_->push_lossy(string);
+      return;
     }
-    watermark = idx;
-    out_->push_lossy("\n");
-    at_new_line_ = true;
-  }
-  if (watermark != data.size()) {
-    update_indent();
-    out_->push_lossy(data[{.start = watermark}], enc);
+
+    size_t watermark = 0;
+    for (auto [idx, r] : string.rune_indices()) {
+      if (r != '\n') continue;
+      if (idx != watermark + 1) {
+        update_indent();
+        out_->push_lossy(string[{.start = watermark, .end = idx - 1}]);
+      }
+
+      watermark = idx;
+      out_->push_lossy("\n");
+      at_new_line_ = true;
+    }
+
+    if (watermark < string.size()) {
+      update_indent();
+      out_->push_lossy(string[{.start = watermark}]);
+    }
+  } else {
+    write(best::pretext(string));
   }
 }
 
@@ -571,12 +573,5 @@ void eprintln(best::format_template<Args...> templ, const Args&... args) {
   ::fwrite(result.data(), 1, result.size(), stderr);
 }
 }  // namespace best
-
-#include "best/text/internal/format_impls.h"
-
-// Silence a tedious clang-tidy warning.
-namespace best::format_internal {
-using mark_as_used2 = mark_as_used;
-}  // namespace best::format_internal
 
 #endif  // BEST_TEXT_FORMAT_H_

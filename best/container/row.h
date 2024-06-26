@@ -83,7 +83,7 @@ args(Args&&...) -> args<Args&&...>;
 
 /// # `best::row<...>`
 ///
-/// A list of heterogenous things. Note that the semantics of `best::row`
+/// A list of heterogenous thing0s. Note that the semantics of `best::row`
 /// for non-object types does not match `std::tuple`. Instead, a `best::row`
 /// models a sequence of `best::object`s. In particular, a `best::row<T>` and
 /// a `best::choice<T>` have the same internal semantics.

@@ -19,6 +19,8 @@
 
 #include "best/text/str.h"
 
+#include <string_view>
+
 #include "best/container/vec.h"
 #include "best/test/test.h"
 
@@ -244,21 +246,21 @@ best::test SplitAt16 = [](auto& t) {
 best::test SplitOn = [](auto& t) {
   best::str haystack = "a complicated string. see solomon: 🐈‍⬛";
 
-  t.expect_eq(haystack.split_on("solomon"),
+  t.expect_eq(haystack.split_once("solomon"),
               best::row{"a complicated string. see ", ": 🐈‍⬛"});
-  t.expect_eq(haystack.split_on("daisy"), best::none);
-  t.expect_eq(haystack.split_on(u"solomon"),
+  t.expect_eq(haystack.split_once("daisy"), best::none);
+  t.expect_eq(haystack.split_once(u"solomon"),
               best::row{"a complicated string. see ", ": 🐈‍⬛"});
-  t.expect_eq(haystack.split_on(u"daisy"), best::none);
+  t.expect_eq(haystack.split_once(u"daisy"), best::none);
 
-  t.expect_eq(haystack.split_on(U'🐈'),
+  t.expect_eq(haystack.split_once(U'🐈'),
               best::row{"a complicated string. see solomon: ", "\u200d⬛"});
-  t.expect_eq(haystack.split_on('z'), best::none);
-  t.expect_eq(haystack.split_on(U'🍣'), best::none);
-  t.expect_eq(haystack.split_on(U"🐈‍⬛"),
+  t.expect_eq(haystack.split_once('z'), best::none);
+  t.expect_eq(haystack.split_once(U'🍣'), best::none);
+  t.expect_eq(haystack.split_once(U"🐈‍⬛"),
               best::row{"a complicated string. see solomon: ", ""});
 
-  t.expect_eq(haystack.split_on(&rune::is_ascii_punct),
+  t.expect_eq(haystack.split_once(&rune::is_ascii_punct),
               best::row{"a complicated string", " see solomon: 🐈‍⬛"});
 };
 }  // namespace best::str_test

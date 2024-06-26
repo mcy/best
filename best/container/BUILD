@@ -1,26 +1,6 @@
 package(default_visibility = ["//visibility:public"])
 
 cc_library(
-  name = "bounds",
-  hdrs = ["bounds.h"],
-  srcs = ["bounds.cc"],
-  deps = [
-    ":simple_option",
-    "//best/log/internal:crash",
-  ],
-)
-
-cc_test(
-  name = "bounds_test",
-  srcs = ["bounds_test.cc"],
-  linkopts = ["-rdynamic"],
-  deps = [
-    ":bounds",
-    "//best/test",
-  ],
-)
-
-cc_library(
   name = "choice",
   hdrs = [
     "choice.h",
@@ -167,6 +147,7 @@ cc_library(
   deps = [
     ":option",
     ":result",
+    "//best/iter",
     "//best/memory:bytes",
   ],
 )

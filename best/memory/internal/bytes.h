@@ -36,6 +36,7 @@ extern "C" {
 void* memcpy(void*, const void*, size_t) noexcept;
 void* memmove(void*, const void*, size_t) noexcept;
 void* memchr(const void*, int, size_t) noexcept;
+void* memrchr(const void*, int, size_t) noexcept;
 void* memmem(const void*, size_t, const void*, size_t) noexcept;
 void* memset(void*, int, size_t) noexcept;
 int memcmp(const void*, const void*, size_t) noexcept;
@@ -119,30 +120,59 @@ BEST_INLINE_ALWAYS constexpr best::ord compare(best::span<T> lhs,
 }
 
 template <typename T, typename U>
+best::option<size_t> constexpr search_byte(best::span<T> haystack,
+                                           best::span<U> needle) {
+  auto* found =
+      BEST_memchr_(haystack.data().raw(), *needle.data(), haystack.size());
+  if (!found) return best::none;
+  return found - haystack.data();
+}
+
+template <typename T, typename U>
 best::option<size_t> constexpr search(best::span<T> haystack,
                                       best::span<U> needle) {
+  if constexpr (sizeof(U) == 1) {
+    if (needle.size() == 1) {
+      return search_byte(haystack, needle);
+    }
+  }
+
   auto* data =
       reinterpret_cast<const char*>(static_cast<const void*>(haystack.data()));
+  auto* start = data;
   size_t size = haystack.size() * sizeof(T);
-  size_t travel = 0;
 
-  do {
+  while (true) {
     void* found = bytes_internal::memmem(data, size, needle.data(),
                                          needle.size() * sizeof(T));
     if (!found) return best::none;
 
-    size_t offset = static_cast<const char*>(found) - data;
-    travel += offset;
-    data += offset;
-    size -= offset;
-  } while (travel % alignof(T) != 0);
+    // Found a potential match.
+    data = static_cast<const char*>(found);
+    size_t offset = data - start;
 
-  return travel / sizeof(T);
+    // If the match is aligned to the stride of `T`, we're done.
+    if (offset % sizeof(T) == 0) return offset / sizeof(T);
+
+    // Otherwise, this is a false positive that we found because memmem is
+    // not a striding search. Skip to the next few bytes so that we begin
+    // searching at the next possible valid match, which is aligned with the
+    // stride of T.
+    size_t misalign = sizeof(T) - offset % sizeof(T);
+    data += misalign;
+    size -= offset + misalign;
+  }
 }
 
 template <typename T, typename U = const T>
 BEST_INLINE_ALWAYS constexpr best::option<size_t> search_constexpr(
     best::span<T> haystack, best::span<U> needle) {
+  if constexpr (sizeof(U) == 1) {
+    if (needle.size() == 1) {
+      return search_byte(haystack, needle);
+    }
+  }
+
   size_t hz = haystack.size();
   size_t nz = needle.size();
 

@@ -132,7 +132,7 @@ inline constexpr auto FieldPtrOffsets = [] {
 }();
 
 constexpr best::str remove_namespace(best::str path) {
-  while (auto split = path.split_on("::")) {
+  while (auto split = path.split_once("::")) {
     path = split->second();
   }
   return path;
