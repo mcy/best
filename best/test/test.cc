@@ -23,6 +23,7 @@
 
 #include <cstdlib>
 
+#include "best/cli/app.h"
 #include "best/container/vec.h"
 
 namespace best {
@@ -49,7 +50,6 @@ best::str symbol_name(const void* ptr, best::location loc) {
   }
 }
 
-static_assert(best::rune::validate("\N{ESCAPE}[0m"));
 inline constexpr best::str Reset = "\N{ESCAPE}[0m";
 inline constexpr best::str Bold = "\N{ESCAPE}[1m";
 inline constexpr best::str Red = "\N{ESCAPE}[31m";
@@ -60,12 +60,13 @@ void test::init() {
   name_ = symbol_name(this, where());
 }
 
-bool test::run_all(int argc, char** argv) {
+bool test::run_all() {
   best::eprint("{}testing:", Bold);
 
-  for (int i = 0; i < argc; ++i) {
-    best::eprint(" {}", *str::from_nul(argv[i]));
+  for (auto arg : best::app::argv()) {
+    best::eprint(" {}", arg);
   }
+
   best::eprintln();
   best::eprintln("executing {} test(s)\n", all_tests.size());
 
@@ -99,7 +100,3 @@ bool test::run_all(int argc, char** argv) {
   return failures.is_empty();
 }
 }  // namespace best
-
-[[gnu::weak]] int main(int argc, char** argv) {
-  return !::best::test::run_all(argc, argv);
-}

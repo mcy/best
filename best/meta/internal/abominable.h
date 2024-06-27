@@ -31,16 +31,18 @@ struct tame {
   static constexpr bool c{}, v{}, l{}, r{};
 };
 
-#define BEST_TAME_(c_, v_, l_, r_, suffix_)           \
-  template <typename O, typename... I>                \
-  struct tame<O(I...) suffix_> {                      \
-    using type = O(I...);                             \
-    static constexpr bool c{c_}, v{v_}, l{l_}, r{r_}; \
-  };                                                  \
-  template <typename O, typename... I>                \
-  struct tame<O(I..., ...) suffix_> {                 \
-    using type = O(I..., ...);                        \
-    static constexpr bool c{c_}, v{v_}, l{l_}, r{r_}; \
+#define BEST_TAME_(c_, v_, l_, r_, suffix_)                              \
+  template <typename O, typename... I>                                   \
+  struct tame<O(I...) suffix_> {                                         \
+    using type = O(I...);                                                \
+    static constexpr bool c{c_}, v{v_}, l{l_}, r{r_};                    \
+    template <template <typename, typename, typename...> typename Trait> \
+    using apply = Trait<O(I...) suffix_, O, I...>;                       \
+  };                                                                     \
+  template <typename O, typename... I>                                   \
+  struct tame<O(I..., ...) suffix_> {                                    \
+    using type = O(I..., ...);                                           \
+    static constexpr bool c{c_}, v{v_}, l{l_}, r{r_};                    \
   }
 
 BEST_TAME_(0, 0, 0, 0, );

@@ -59,7 +59,7 @@ struct utf8 final {
     auto result = best::utf_internal::encode8(*output, rune);
     BEST_GUARD(result);
 
-    *output = (*output)[{.start = *result}];
+    *output = (*output)[{.start = *result.ok()}];
     return best::ok();
   }
 
@@ -69,7 +69,7 @@ struct utf8 final {
     // nice helper functions from best::option here.
     auto result = best::utf_internal::decode8(*input);
     if (!result) return *result.err();
-    auto [bytes, code] = *result;
+    auto [bytes, code] = *result.ok();
     // Elide a bounds check here; this shaves off milliseconds off of the
     // per-rune cost of validating a best::format_template.
     *input = best::span(input->data() + bytes, input->size() - bytes);
@@ -80,7 +80,7 @@ struct utf8 final {
       best::span<const char>* input) {
     auto result = best::utf_internal::undecode8(*input);
     BEST_GUARD(result);
-    auto [bytes, code] = *result;
+    auto [bytes, code] = *result.ok();
 
     *input = (*input)[{.end = input->size() - bytes}];
     return rune::from_int(code).ok_or(encoding_error::Invalid);
@@ -118,7 +118,7 @@ struct wtf8 final {
       best::span<const char>* input) {
     auto result = best::utf_internal::decode8(*input);
     BEST_GUARD(result);
-    auto [bytes, code] = *result;
+    auto [bytes, code] = *result.ok();
 
     *input = (*input)[{.start = bytes}];
     return rune::from_int_allow_surrogates(code).ok_or(encoding_error::Invalid);
@@ -128,7 +128,7 @@ struct wtf8 final {
       best::span<const char>* input) {
     auto result = best::utf_internal::undecode8(*input);
     BEST_GUARD(result);
-    auto [bytes, code] = *result;
+    auto [bytes, code] = *result.ok();
 
     *input = (*input)[{.end = input->size() - bytes}];
     return rune::from_int_allow_surrogates(code).ok_or(encoding_error::Invalid);
@@ -163,7 +163,7 @@ struct utf16 final {
     auto result = best::utf_internal::encode16(*output, rune);
     BEST_GUARD(result);
 
-    *output = (*output)[{.start = *result}];
+    *output = (*output)[{.start = *result.ok()}];
     return best::ok();
   }
 
@@ -171,7 +171,7 @@ struct utf16 final {
       best::span<const char16_t>* input) {
     auto result = best::utf_internal::decode16(*input);
     BEST_GUARD(result);
-    auto [bytes, code] = *result;
+    auto [bytes, code] = *result.ok();
 
     *input = (*input)[{.start = bytes}];
     return rune::from_int(code).ok_or(encoding_error::Invalid);
@@ -181,7 +181,7 @@ struct utf16 final {
       best::span<const char16_t>* input) {
     auto result = best::utf_internal::undecode16(*input);
     BEST_GUARD(result);
-    auto [bytes, code] = *result;
+    auto [bytes, code] = *result.ok();
 
     *input = (*input)[{.end = input->size() - bytes}];
     return rune::from_int(code).ok_or(encoding_error::Invalid);
@@ -215,8 +215,8 @@ struct utf32 final {
   template <int = 0>
   static constexpr best::result<void, encoding_error> encode(
       best::span<char32_t>* output, rune rune) {
-    auto next = output->take_first(1).ok_or(encoding_error::OutOfBounds);
-    BEST_GUARD(next);
+    auto next = output->take_first(1);
+    BEST_GUARD(next.ok_or(encoding_error::OutOfBounds));
 
     (*next)[0] = rune;
     return best::ok();
@@ -225,8 +225,8 @@ struct utf32 final {
   template <int = 0>
   static constexpr best::result<rune, encoding_error> decode(
       best::span<const char32_t>* input) {
-    auto next = input->take_first(1).ok_or(encoding_error::OutOfBounds);
-    BEST_GUARD(next);
+    auto next = input->take_first(1);
+    BEST_GUARD(next.ok_or(encoding_error::OutOfBounds));
 
     return rune::from_int((*next)[0]).ok_or(encoding_error::Invalid);
   }
@@ -234,8 +234,8 @@ struct utf32 final {
   template <int = 0>
   static constexpr best::result<rune, encoding_error> undecode(
       best::span<const char32_t>* input) {
-    auto next = input->take_last(1).ok_or(encoding_error::OutOfBounds);
-    BEST_GUARD(next);
+    auto next = input->take_last(1);
+    BEST_GUARD(next.ok_or(encoding_error::OutOfBounds));
 
     return rune::from_int((*next)[0]).ok_or(encoding_error::Invalid);
   }

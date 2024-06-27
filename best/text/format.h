@@ -572,6 +572,20 @@ void eprintln(best::format_template<Args...> templ, const Args&... args) {
   result.push('\n');
   ::fwrite(result.data(), 1, result.size(), stderr);
 }
+
+namespace result_internal {
+// See the matching decl in result.h.
+struct fmt final {
+  template <typename T, typename E>
+  BEST_INLINE_SYNTHETIC static void check_ok(const best::result<T, E>* result) {
+    if (auto err = result->err()) {
+      auto message = best::format("unwrapped a best::err({:?})",
+                                  best::make_formattable(*err));
+      best::crash_internal::crash("%.*s", message.size(), message.data());
+    }
+  }
+};
+}  // namespace result_internal
 }  // namespace best
 
 #endif  // BEST_TEXT_FORMAT_H_

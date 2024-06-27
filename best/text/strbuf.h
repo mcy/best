@@ -441,7 +441,7 @@ class textbuf final {
                              About.max_codes_per_rune};
         if (auto codes = r.encode(buf, this->enc())) {
           buf_.set_size(unsafe("we just wrote this much data in encode()"),
-                        size() + codes->size());
+                        size() + codes.ok()->size());
           continue;
         }
         truncate(watermark);
@@ -488,12 +488,12 @@ class textbuf final {
 
         unsafe u("we just wrote this much data in encode()");
         if (auto codes = r.encode(buf, this->enc())) {
-          buf_.set_size(u, size() + codes->size());
+          buf_.set_size(u, size() + codes.ok()->size());
         } else if (auto codes = rune::Replacement.encode(buf, this->enc())) {
-          buf_.set_size(u, size() + codes->size());
+          buf_.set_size(u, size() + codes.ok()->size());
         } else {
           codes = rune('?').encode(buf, this->enc());
-          buf_.set_size(u, size() + codes->size());
+          buf_.set_size(u, size() + codes.ok()->size());
         }
       }
     } else {

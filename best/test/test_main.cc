@@ -17,23 +17,9 @@
 
 \* ////////////////////////////////////////////////////////////////////////// */
 
-#ifndef BEST_LOG_INTERNAL_CRASH_H_
-#define BEST_LOG_INTERNAL_CRASH_H_
+#include "best/cli/app.h"
+#include "best/test/test.h"
 
-#include <stddef.h>
-
-#include "best/func/fnref.h"
-#include "best/log/location.h"
-
-namespace best::crash_internal {
-/// Implementation of `best::wtf()`.
-[[noreturn]] void die(
-    best::location loc,
-    best::fnref<void(char*, size_t, best::fnref<void(const char*, size_t)>)>
-        write_message);
-
-/// Internal shim for crashing without depending on the logging headers.
-[[noreturn]] void crash(best::track_location<const char*> fmt, ...);
-}  // namespace best::crash_internal
-
-#endif  // BEST_LOG_INTERNAL_CRASH_H_
+namespace best {
+best::app TestApp = [] { return int(!best::test::run_all()); };
+}  // namespace best

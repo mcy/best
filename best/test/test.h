@@ -164,10 +164,11 @@ class test final {
   /// Runs all registered unit tests.
   ///
   /// Linking in the test library will automatically cause this to be called
-  /// by main(). If you define your own main(), you must call this manually.
+  /// by the built-in `best::app`. If you define your own main(), you must call
+  /// this manually. This function expects to be called from a `best::app`.
   ///
   /// Returns whether all tests passed.
-  static bool run_all(int argc, char** argv);
+  static bool run_all();
 
  private:
   void init();
