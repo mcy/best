@@ -14,6 +14,27 @@ cc_library(
 )
 
 cc_library(
+  name = "fnref",
+  hdrs = [
+    "fnref.h",
+    "internal/fnref.h",
+  ],
+  deps = [
+    ":call",
+  ]
+)
+
+cc_test(
+  name = "fnref_test",
+  srcs = ["fnref_test.cc"],
+  linkopts = ["-rdynamic"],
+  deps = [
+    ":fnref",
+    "//best/test",
+  ],
+)
+
+cc_library(
   name = "tap",
   hdrs = ["tap.h"],
   deps = [

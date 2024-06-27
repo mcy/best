@@ -110,9 +110,8 @@ constexpr best::result<best::row<size_t, uint32_t>, encoding_error> undecode8(
     best::span<const char> input) {
   size_t len = 0;
   for (; len < 4; ++len) {
-    auto next =
-        input.at(input.size() - len - 1).ok_or(encoding_error::OutOfBounds);
-    BEST_GUARD(next);
+    auto next = input.at(input.size() - len - 1);
+    BEST_GUARD(next.ok_or(encoding_error::OutOfBounds));
 
     if (best::leading_ones(*next) != 1) {
       break;
@@ -121,7 +120,7 @@ constexpr best::result<best::row<size_t, uint32_t>, encoding_error> undecode8(
   if (len == 4) return encoding_error::Invalid;
 
   auto result = decode8(input[{.start = input.size() - len - 1}]);
-  if (!result || result->at(best::index<0>) != len)
+  if (!result || result.ok()->at(best::index<0>) != len)
     return encoding_error::Invalid;
   return result;
 }
@@ -157,13 +156,14 @@ inline constexpr uint32_t Max = 0xe000;
 
 constexpr best::result<best::row<size_t, uint32_t>, encoding_error> decode16(
     best::span<const char16_t> input) {
-  auto hi = input.first().ok_or(encoding_error::OutOfBounds);
+  auto hi = input.first();
+  BEST_GUARD(hi.ok_or(encoding_error::OutOfBounds));
 
   if (hi < High || hi >= Max) return best::ok(1, *hi);
   if (hi >= Low) return encoding_error::Invalid;
 
-  auto lo = input.at(1).ok_or(encoding_error::OutOfBounds);
-  BEST_GUARD(lo);
+  auto lo = input.at(1);
+  BEST_GUARD(lo.ok_or(encoding_error::OutOfBounds));
 
   if (lo < Low || lo >= Max) return encoding_error::Invalid;
 
@@ -173,15 +173,15 @@ constexpr best::result<best::row<size_t, uint32_t>, encoding_error> decode16(
 
 constexpr best::result<best::row<size_t, uint32_t>, encoding_error> undecode16(
     best::span<const char16_t> input) {
-  auto hi = input.first().ok_or(encoding_error::OutOfBounds);
-  BEST_GUARD(hi);
+  auto hi = input.first();
+  BEST_GUARD(hi.ok_or(encoding_error::OutOfBounds));
 
   auto is_surrogate = *hi >= High && *hi < Max;
   auto len = is_surrogate ? 2 : 1;
   if (input.size() < len) return encoding_error::OutOfBounds;
 
   auto result = decode16(input[{.start = input.size() - len}]);
-  if (!result || result->at(best::index<0>) != len)
+  if (!result || result.ok()->at(best::index<0>) != len)
     return encoding_error::Invalid;
   return result;
 }

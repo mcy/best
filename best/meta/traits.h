@@ -76,7 +76,7 @@ using dependent = traits_internal::dependent<T, Deps...>::type;
 /// Lies to the compiler that we can materialize a `T`. This is just a shorter
 /// `std::declval()`.
 template <traits_internal::nonvoid T>
-T lie = [] {
+T&& lie = [] {
   static_assert(
       sizeof(T) == 0,
       "attempted to tell a best::lie: this value cannot be materialized");

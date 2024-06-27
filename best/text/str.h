@@ -1141,7 +1141,7 @@ constexpr best::option<pretext<E>> pretext<E>::strip_prefix(
 
     while (auto r1 = needle.next()) {
       auto r2 = haystack.next();
-      if (r2.is_empty() || r2->err() || *r1 != **r2) return best::none;
+      if (r2.is_empty() || r2->err() || *r1 != *r2->ok()) return best::none;
     }
     return haystack->rest();
   } else {
@@ -1164,7 +1164,7 @@ constexpr best::option<best::row<pretext<E>, pretext<E>>>
 pretext<E>::split_once(best::rune needle) const {
   code buf[About.max_codes_per_rune];
   auto encoded = needle.encode(buf, enc());
-  return split_once(pretext(*encoded, enc()));
+  return split_once(pretext(*encoded.ok(), enc()));
 }
 
 template <typename E>
@@ -1193,7 +1193,7 @@ pretext<E>::split_once(const best::string_type auto& needle) const {
       size_t before = 0;
       while (auto next = haystack.next()) {
         BEST_GUARD(next->ok());
-        if (**next == first) break;
+        if (*next->ok() == first) break;
         before = size() - haystack->rest().size();
       }
 

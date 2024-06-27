@@ -7,6 +7,7 @@ cc_library(
     "//best/base:port",
     "//best/base:fwd",
     "//best/meta:taxonomy",
+    "//best/func:fnref",
   ],
 )
 
@@ -18,4 +19,12 @@ cc_test(
     ":location",
     "//best/test",
   ]
+)
+
+cc_library(
+  name = "wtf",
+  hdrs = ["wtf.h"],
+  deps = [
+    "//best/text:format",
+  ],
 )
