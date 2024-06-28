@@ -310,39 +310,31 @@ class option final {
   /// In other words, if this is an `option<T&>`, it constructs an `option<T>`
   /// by calling the copy constructor; if this is an `option<T&&>`, it calls the
   /// move constructor.
-  constexpr best::option<value_type> copy() const& {
-    return best::option<value_type>(*this);
-  }
-  constexpr best::option<value_type> copy() && {
+  constexpr auto copy() const& { return best::option<value_type>(*this); }
+  constexpr auto copy() && {
     return best::option<value_type>(BEST_MOVE(*this));
   }
 
   /// # `option::as_ref()`.
   ///
   /// Constructs a version of this option that contains an appropriate `T&`.
-  constexpr best::option<cref> as_ref() const& { return *this; }
-  constexpr best::option<ref> as_ref() & { return *this; }
-  constexpr best::option<crref> as_ref() const&& {
+  constexpr auto as_ref() const& { return best::option<cref>(*this); }
+  constexpr auto as_ref() & { return best::option<ref>(*this); }
+  constexpr auto as_ref() const&& {
     return best::option<crref>(BEST_MOVE(*this));
   }
-  constexpr best::option<rref> as_ref() && {
-    return best::option<rref>(BEST_MOVE(*this));
-  }
+  constexpr auto as_ref() && { return best::option<rref>(BEST_MOVE(*this)); }
 
   /// # `option::as_object()`.
   ///
   /// Constructs a version of this option that contains a reference to the
   /// corresponding `best::object` type.
-  constexpr best::option<const object<T>&> as_object() const& {
-    return impl().object(best::index<1>);
-  }
-  constexpr best::option<object<T>&> as_object() & {
-    return impl().object(best::index<1>);
-  }
-  constexpr best::option<const object<T>&&> as_object() const&& {
+  constexpr auto as_object() const& { return impl().object(best::index<1>); }
+  constexpr auto as_object() & { return impl().object(best::index<1>); }
+  constexpr auto as_object() const&& {
     return BEST_MOVE(*this).impl().object(best::index<1>);
   }
-  constexpr best::option<object<T>&&> as_object() && {
+  constexpr auto as_object() && {
     return BEST_MOVE(*this).impl().object(best::index<1>);
   }
 
@@ -669,12 +661,14 @@ class option final {
   // clang-format on
 
   friend void BestFmt(auto& fmt, const option& opt)
-    requires requires { fmt.format(*opt.as_object()); }
+    requires(best::is_void<T>) || requires { fmt.format(*opt); }
   {
     if (!opt.has_value()) {
       fmt.write("none");
-    } else {
+    } else if constexpr (best::is_void<T>) {
       fmt.format("option({:!})", *opt.as_object());
+    } else {
+      fmt.format("option({:!})", *opt);
     }
   }
 
@@ -717,13 +711,14 @@ class option final {
   }
   template <best::equatable<T> U>
   constexpr bool operator==(const U& u) const {
-    return operator==(best::option<const U&>(u));
+    return has_value() && value(unsafe("just checked has_value()")) == u;
   }
   template <best::equatable<T> U>
   constexpr bool operator==(const U* u) const
     requires best::is_ref<T>
   {
-    return operator==(best::option<const U&>(u));
+    return (!has_value() && u == nullptr) ||
+           (has_value() && value(unsafe("just checked has_value()")) == *u);
   }
   constexpr bool operator==(const best::none_t&) const { return is_empty(); }
 

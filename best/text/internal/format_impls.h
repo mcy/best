@@ -26,6 +26,7 @@
 #include "best/meta/reflect.h"
 #include "best/text/rune.h"
 #include "best/text/str.h"
+#include "best/text/utf16.h"
 
 //! Misc. formatting impls that don't have a clear other place to live.
 
@@ -35,6 +36,37 @@ void BestFmt(auto& fmt, bool value) {
 }
 template <typename T>
 constexpr void BestFmtQuery(auto& query, bool* range) {
+  query.requires_debug = false;
+  query.supports_width = true;
+}
+
+void BestFmt(auto& fmt, char8_t value) { fmt.format(*rune::from_int(value)); }
+template <typename T>
+constexpr void BestFmtQuery(auto& query, char8_t* range) {
+  query.requires_debug = false;
+  query.supports_width = true;
+}
+
+void BestFmt(auto& fmt, char16_t value) {
+  fmt.format(*rune::from_int_allow_surrogates(value));
+}
+template <typename T>
+constexpr void BestFmtQuery(auto& query, char16_t* range) {
+  query.requires_debug = false;
+  query.supports_width = true;
+}
+
+void BestFmt(auto& fmt, char32_t value) {
+  if (auto r = rune::from_int_allow_surrogates(value)) {
+    fmt.format(*r);
+  } else if (fmt.current_spec().debug) {
+    fmt.format("'<U+{:X}>'", unsigned(value));
+  } else {
+    fmt.format("<U+{:X}>", unsigned(value));
+  }
+}
+template <typename T>
+constexpr void BestFmtQuery(auto& query, char32_t* range) {
   query.requires_debug = false;
   query.supports_width = true;
 }
@@ -63,14 +95,14 @@ void BestFmt(auto& fmt, T* value) {
     }
 
     if constexpr (best::same<T, const char16_t>) {
-      if (auto s = best::str16::from_nul(value)) {
+      if (auto s = best::dependent<best::str16, T>::from_nul(value)) {
         fmt.format(*s);
         return;
       }
     }
 
     if constexpr (best::same<T, const char32_t>) {
-      if (auto s = best::str32::from_nul(value)) {
+      if (auto s = best::dependent<best::str32, T>::from_nul(value)) {
         fmt.format(*s);
         return;
       }
@@ -227,6 +259,30 @@ constexpr void BestFmtQuery(auto& query, best::string_type auto*) {
   query.supports_prec = true;
   query.uses_method = [](auto r) { return r == 'q'; };
 }
+
+// These are *very* common instantiations that we can cheapen by making them
+// extern templates. The corresponding explicit instantiation lives in
+// format.cc.
+extern template void BestFmt(best::formatter&, const char*);
+extern template void BestFmt(best::formatter&, const char16_t*);
+extern template void BestFmt(best::formatter&, const char32_t*);
+extern template void BestFmt(best::formatter&, const best::pretext<utf8>&);
+extern template void BestFmt(best::formatter&, const best::text<utf8>&);
+extern template void BestFmt(best::formatter&, const best::pretext<utf16>&);
+extern template void BestFmt(best::formatter&, const best::text<utf16>&);
+extern template void BestFmt(best::formatter&, const best::pretext<wtf8>&);
+extern template void BestFmt(best::formatter&, const best::text<wtf8>&);
+extern template void BestFmt(best::formatter&, char);
+extern template void BestFmt(best::formatter&, signed char);
+extern template void BestFmt(best::formatter&, signed short);
+extern template void BestFmt(best::formatter&, signed int);
+extern template void BestFmt(best::formatter&, signed long);
+extern template void BestFmt(best::formatter&, signed long long);
+extern template void BestFmt(best::formatter&, unsigned char);
+extern template void BestFmt(best::formatter&, unsigned short);
+extern template void BestFmt(best::formatter&, unsigned int);
+extern template void BestFmt(best::formatter&, unsigned long);
+extern template void BestFmt(best::formatter&, unsigned long long);
 
 // TODO: invent ranges/iterator traits.
 template <typename R>

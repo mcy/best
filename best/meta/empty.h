@@ -22,7 +22,6 @@
 
 #include <stddef.h>
 
-#include <compare>
 #include <type_traits>
 
 #include "best/meta/init.h"

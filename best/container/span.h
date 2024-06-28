@@ -832,9 +832,8 @@ constexpr best::option<best::span<T, m>> span<T, n>::last(
 template <best::is_object T, best::option<size_t> n>
 constexpr auto span<T, n>::split_first() const
     -> best::option<best::row<T&, span<T, minus<1>>>> {
-  return split_first(best::index<1>).map([](auto pair) {
-    return best::row<T&, span<T, minus<1>>>{pair.first()[0], pair.second()};
-  });
+  if (is_empty()) return best::none;
+  return {{*data(), span<T, minus<1>>(data() + 1, size() - 1)}};
 }
 template <best::is_object T, best::option<size_t> n>
 template <size_t m>
@@ -848,9 +847,8 @@ constexpr auto span<T, n>::split_first(best::index_t<m>) const
 template <best::is_object T, best::option<size_t> n>
 constexpr auto span<T, n>::split_last() const
     -> best::option<best::row<T&, span<T, minus<1>>>> {
-  return split_last(best::index<1>).map([](auto pair) {
-    return best::row<T&, span<T, minus<1>>>{pair.first()[0], pair.second()};
-  });
+  if (is_empty()) return best::none;
+  return {{data()[size() - 1], span<T, minus<1>>(data(), size() - 1)}};
 }
 template <best::is_object T, best::option<size_t> n>
 template <size_t m>

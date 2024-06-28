@@ -21,8 +21,8 @@
 #define BEST_CONTAINER_OBJECT_H_
 
 #include <stddef.h>
+#include <string.h>
 
-#include <memory>
 #include <type_traits>
 
 #include "best/base/ord.h"
@@ -247,14 +247,15 @@ class object_ptr final {
   BEST_INLINE_SYNTHETIC constexpr void construct_in_place(Args&&... args) const
     requires best::constructible<T, Args&&...>
   {
+    // TODO: Add array traits, support multi-dimensional arrays?
     if constexpr (std::is_bounded_array_v<T> && sizeof...(Args) == 1 &&
                   ((std::extent_v<best::as_auto<Args>> ==
                     std::extent_v<T>)&&...)) {
       for (size_t i = 0; i < std::extent_v<T>; ++i) {
-        std::construct_at(best::addr((*raw())[i]), args[i]...);
+        new (best::addr((*raw())[i])) std::remove_extent_t<T>(args[i]...);
       }
     } else if constexpr (best::is_object<T>) {
-      std::construct_at(raw(), BEST_FWD(args)...);
+      new (raw()) T(BEST_FWD(args)...);
     } else if constexpr (best::is_ref<T>) {
       *const_cast<best::unqual<pointee>*>(raw()) = best::addr(args...);
     } else if constexpr (best::is_func<T>) {
@@ -278,7 +279,7 @@ class object_ptr final {
     requires best::has_niche<T>
   {
     if constexpr (best::is_object<T>) {
-      std::construct_at(raw(), niche{});
+      new (raw()) T(niche{});
     } else if constexpr (best::is_ref<T>) {
       *const_cast<best::unqual<pointee>*>(raw()) = nullptr;
     }
@@ -305,9 +306,9 @@ class object_ptr final {
     requires best::destructible<T>
   {
     if constexpr (best::is_object<T>) {
-      std::destroy_at(raw());
+      raw()->~T();
       if (!std::is_constant_evaluated() && best::is_debug()) {
-        std::memset(raw(), 0xcd, sizeof(pointee));
+        ::memset(raw(), 0xcd, sizeof(pointee));
       }
     }
   }
@@ -413,12 +414,7 @@ using wrap = best::unptr<decltype(wrap_impl<T>())>;
 /// This type wraps any `T` and reproduces its properties. The wrapped `T` can
 /// be accessed via `operator*` and `operator->`.
 template <typename T>
-class object final :
-    // Public so we can be structural.
-    public best::ebo<object_internal::wrap<T>, T> {
- private:
-  using base = best::ebo<object_internal::wrap<T>, T>;
-
+class object final {
  public:
   /// # `object::wrapped_type`
   ///
@@ -464,10 +460,10 @@ class object final :
   constexpr explicit object(best::in_place_t, Args&&... args)
     requires best::constructible<T, Args&&...> &&
              (best::is_object<T> && !std::is_array_v<T>)
-      : base(best::in_place, BEST_FWD(args)...) {}
+      : BEST_OBJECT_VALUE_(BEST_FWD(args)...) {}
   constexpr explicit object(best::in_place_t, best::niche)
     requires best::is_ref<T>
-      : base(best::in_place, nullptr) {}
+      : BEST_OBJECT_VALUE_(nullptr) {}
 
   /// # `object::operator=()`
   ///
@@ -484,10 +480,10 @@ class object final :
   ///
   /// Extracts an `object_ptr<T>` pointing to this object.
   constexpr best::object_ptr<const T> as_ptr() const {
-    return best::object_ptr<const T>(best::addr(base::get()));
+    return best::object_ptr<const T>(best::addr(BEST_OBJECT_VALUE_));
   }
   constexpr best::object_ptr<T> as_ptr() {
-    return best::object_ptr<T>(best::addr(base::get()));
+    return best::object_ptr<T>(best::addr(BEST_OBJECT_VALUE_));
   }
 
   /// # `object_ptr::operator*`, `object_ptr::operator->`
@@ -495,8 +491,8 @@ class object final :
   /// Retrieves the wrapped value.
   constexpr cref operator*() const& { return *as_ptr(); }
   constexpr ref operator*() & { return *as_ptr(); }
-  constexpr crref operator*() const&& { return BEST_MOVE(**this); }
-  constexpr rref operator*() && { return BEST_MOVE(**this); }
+  constexpr crref operator*() const&& { return static_cast<crref>(**this); }
+  constexpr rref operator*() && { return static_cast<rref>(**this); }
   constexpr cptr operator->() const { return as_ptr().operator->(); }
   constexpr ptr operator->() { return as_ptr().operator->(); }
 
@@ -532,7 +528,11 @@ class object final :
   friend constexpr void BestFmtQuery(auto& query, object*) {
     query = query.template of<T>;
   }
+
+ public:
+  [[no_unique_address]] wrapped_type BEST_OBJECT_VALUE_;
 };
+#define BEST_OBJECT_VALUE_ _private
 }  // namespace best
 
 #endif  // BEST_CONTAINER_OBJECT_H_

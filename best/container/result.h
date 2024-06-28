@@ -203,6 +203,13 @@ class [[nodiscard(
              best::constructible<E, best::refcopy<best::err_type<R>, R&&>> &&
              cannot_init_from<R>;
 
+  /// # `result::is_ok()`, `result::is_err()`
+  ///
+  /// Indicates which side of this result is active.
+  constexpr bool is_ok() const { return impl().which() == 0; }
+  constexpr bool is_err() const { return impl().which() == 1; }
+  constexpr explicit operator bool() const { return impl().which() == 0; }
+
   /// # `result::ok()`
   ///
   /// Extracts the ok value of this result, if present, and returns it in an
@@ -211,7 +218,6 @@ class [[nodiscard(
   constexpr best::option<ok_ref> ok() &;
   constexpr best::option<ok_crref> ok() const&&;
   constexpr best::option<ok_rref> ok() &&;
-  constexpr explicit operator bool() const { return impl().which() == 0; }
 
   /// # `result::ok()`
   ///
@@ -272,28 +278,30 @@ class [[nodiscard(
       const best::result<U, F>& that) const {
     return impl() == that.impl();
   }
+
+  /// NOTE: these implementations are written to minimize gratuitous
+  /// instantiations of option<auto&>.
   BEST_INLINE_SYNTHETIC constexpr bool operator==(
       const best::equatable<T> auto& u) const {
-    return ok() == u;
+    return is_ok() && impl()[best::index<0>] == u;
   }
   BEST_INLINE_SYNTHETIC constexpr bool operator==(
       const best::equatable<E> auto& u) const {
-    return err() == u;
+    return is_err() && impl()[best::index<1>] == u;
   }
   template <best::equatable<T> U>
   BEST_INLINE_SYNTHETIC constexpr bool operator==(best::ok<U> u) const {
-    return ok() == u.args.row[best::index<0>];
+    return is_ok() && impl()[best::index<0>] == u.args.row[best::index<0>];
   }
   template <best::equatable<E> U>
   BEST_INLINE_SYNTHETIC constexpr bool operator==(best::err<U> u) const {
-    return err() == u.args.row[best::index<0>];
+    return is_err() && impl()[best::index<1>] == u.args.row[best::index<0>];
   }
-
   BEST_INLINE_SYNTHETIC constexpr bool operator==(best::ok<> u) const {
-    return ok().has_value();
+    return is_ok();
   }
   BEST_INLINE_SYNTHETIC constexpr bool operator==(best::err<> u) const {
-    return err().has_value();
+    return is_err();
   }
 
   template <best::comparable<T> U, best::comparable<E> F>
@@ -335,9 +343,17 @@ class [[nodiscard(
              requires { fmt.format(res.err()); }
   {
     if (auto v = res.ok()) {
-      fmt.format("ok({:!})", *v.as_object());
+      if constexpr (best::is_void<T>) {
+        fmt.format("ok({:!})", *v.as_object());
+      } else {
+        fmt.format("ok({:!})", *v);
+      }
     } else if (auto v = res.err()) {
-      fmt.format("err({:!})", *v.as_object());
+      if constexpr (best::is_void<E>) {
+        fmt.format("err({:!})", *v.as_object());
+      } else {
+        fmt.format("err({:!})", *v);
+      }
     }
   }
   template <typename Q>

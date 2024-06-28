@@ -28,7 +28,6 @@
 #include "best/text/encoding.h"
 #include "best/text/rune.h"
 #include "best/text/str.h"
-#include "best/text/utf.h"
 
 //! Unicode string buffers.
 //!
@@ -40,7 +39,7 @@
 //! corresponding to the UTF-8/16/32 specializations of the above.
 
 namespace best {
-template <best::encoding, best::allocator>
+template <typename, best::allocator>
 class textbuf;
 
 /// # `best::str`
@@ -74,7 +73,7 @@ using strbuf32 = best::textbuf<utf32, best::malloc>;
 /// A `best::textbuf` may not point to invalidly-text data. Constructors from
 /// unauthenticated strings must go through factories that return
 /// `best::optional`.
-template <best::encoding E, best::allocator A = best::malloc>
+template <typename E, best::allocator A = best::malloc>
 class textbuf final {
  public:
   /// # `textbuf::encoding`
@@ -533,7 +532,7 @@ class textbuf final {
 \* ////////////////////////////////////////////////////////////////////////// */
 
 namespace best {
-template <encoding E, allocator A>
+template <typename E, allocator A>
 best::option<textbuf<E, A>> textbuf<E, A>::from(alloc alloc, pretext t) {
   auto validated = text::from(t);
   BEST_GUARD(validated);
@@ -541,7 +540,7 @@ best::option<textbuf<E, A>> textbuf<E, A>::from(alloc alloc, pretext t) {
   return textbuf(best::unsafe("just did validation above"), *validated);
 }
 
-template <encoding E, allocator A>
+template <typename E, allocator A>
 best::option<textbuf<E, A>> textbuf<E, A>::from(buf data, encoding enc) {
   if (!rune::validate(data, enc)) {
     return best::none;

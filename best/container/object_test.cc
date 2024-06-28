@@ -22,6 +22,9 @@
 #include "best/test/test.h"
 
 namespace best::object_test {
+static_assert(best::is_empty<best::object<void>>);
+static_assert(best::is_empty<best::object<best::empty>>);
+
 best::test Smoke = [](auto& t) {
   best::object<int> x0(best::in_place, 42);
   t.expect_eq(*x0, 42);

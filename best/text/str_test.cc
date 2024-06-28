@@ -23,6 +23,7 @@
 
 #include "best/container/vec.h"
 #include "best/test/test.h"
+#include "best/text/utf32.h"
 
 namespace best::str_test {
 

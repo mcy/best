@@ -17,10 +17,11 @@
 
 \* ////////////////////////////////////////////////////////////////////////// */
 
-#include "best/text/utf.h"
-
 #include "best/test/test.h"
 #include "best/text/rune.h"
+#include "best/text/utf16.h"
+#include "best/text/utf32.h"
+#include "best/text/utf8.h"
 
 namespace best::utf_test {
 best::test Utf8Encode = [](auto& t) {

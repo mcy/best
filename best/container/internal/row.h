@@ -23,7 +23,6 @@
 #include <utility>
 
 #include "best/container/object.h"
-#include "best/meta/empty.h"
 #include "best/meta/internal/tlist.h"
 #include "best/meta/tlist.h"
 
@@ -118,12 +117,48 @@ inline constexpr auto do_lookup() {
   }
 }
 
+template <size_t i, typename T>
+struct elem {
+  [[no_unique_address]] best::object<T> value;
+};
+
 template <typename, typename...>
 struct impl;
 
+template <typename I>
+struct impl<I> {};
+
+template <typename I, typename A>
+struct impl<I, A> {
+  constexpr const auto& get_impl(best::index_t<0>) const { return x0; }
+  constexpr auto& get_impl(best::index_t<0>) { return x0; }
+  best::object<A> x0;
+};
+
+template <typename I, typename A, typename B>
+struct impl<I, A, B> {
+  constexpr const auto& get_impl(best::index_t<0>) const { return x0; }
+  constexpr auto& get_impl(best::index_t<0>) { return x0; }
+  constexpr const auto& get_impl(best::index_t<1>) const { return x1; }
+  constexpr auto& get_impl(best::index_t<1>) { return x1; }
+  best::object<A> x0;
+  best::object<B> x1;
+};
+
 template <size_t... i, typename... Elems>
-struct impl<const best::vlist<i...>, Elems...>
-    : best::ebo<best::object<Elems>, Elems, i>... {};
+  requires(sizeof...(i) > 2)
+struct impl<const best::vlist<i...>, Elems...> : elem<i, Elems>... {
+  template <size_t j>
+  constexpr const auto& get_impl(best::index_t<j>) const {
+    using T = best::tlist<Elems...>::template type<j>;
+    return static_cast<const elem<j, T>&>(*this).value;
+  }
+  template <size_t j>
+  constexpr auto& get_impl(best::index_t<j>) {
+    using T = best::tlist<Elems...>::template type<j>;
+    return static_cast<elem<j, T>&>(*this).value;
+  }
+};
 
 // See tlist_internal::slice_impl().
 using ::best::tlist_internal::splat;

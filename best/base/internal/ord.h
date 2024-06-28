@@ -20,8 +20,6 @@
 #ifndef BEST_BASE_INTERNAL_ORD_H_
 #define BEST_BASE_INTERNAL_ORD_H_
 
-#include <compare>
-
 #include "best/func/call.h"
 #include "best/meta/taxonomy.h"
 

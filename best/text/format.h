@@ -451,6 +451,16 @@ void formatter::write(const best::string_type auto& string) {
   }
 }
 
+// These are *very* common instantiations that we can cheapen by making them
+// extern templates. The corresponding explicit instantiation lives in
+// format.cc.
+extern template void formatter::write(const best::pretext<utf8>&);
+extern template void formatter::write(const best::text<utf8>&);
+extern template void formatter::write(const best::pretext<wtf8>&);
+extern template void formatter::write(const best::text<wtf8>&);
+extern template void formatter::write(const best::pretext<utf16>&);
+extern template void formatter::write(const best::text<utf16>&);
+
 decltype(auto) make_formattable(const auto& value) {
   if constexpr (best::formattable<decltype(value)>) {
     return value;
