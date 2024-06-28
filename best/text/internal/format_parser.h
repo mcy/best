@@ -22,6 +22,7 @@
 
 #include "best/base/fwd.h"
 #include "best/text/str.h"
+#include "best/text/utf8.h"
 
 namespace best::format_internal {
 constexpr size_t find(const char* data, size_t len, auto cb) {
@@ -258,31 +259,33 @@ constexpr bool visit_template(const char* data, size_t len, Print print,
   return true;
 }
 
+template <typename spec>
+constexpr bool validate(best::span<const typename spec::query> queries,
+                        best::span<const char> templ) {
+  return format_internal::visit_template<spec>(
+      templ.data(), templ.size() - 1, nullptr, [&](size_t n, const spec& s) {
+        if (n > queries.size()) return false;
+        auto& q = queries[n];
+
+        if (q.requires_debug && !s.debug) return false;
+        if (!q.supports_width && s.width > 0) return false;
+        if (!q.supports_prec && s.prec) return false;
+        if (s.method && !q.uses_method(*s.method)) return false;
+        return true;
+      });
+}
+
 template <typename spec, typename... Args>
 class templ final {
  private:
   static constexpr std::array<typename spec::query, sizeof...(Args)> Queries{
       spec::query::template of<Args>...};
 
-  static constexpr bool validate(best::span<const char> templ) {
-    return format_internal::visit_template<spec>(
-        templ.data(), templ.size() - 1, nullptr, [&](size_t n, const spec& s) {
-          if (n > Queries.size()) return false;
-          auto& q = Queries[n];
-
-          if (q.requires_debug && !s.debug) return false;
-          if (!q.supports_width && s.width > 0) return false;
-          if (!q.supports_prec && s.prec) return false;
-          if (s.method && !q.uses_method(*s.method)) return false;
-          return true;
-        });
-  }
-
  public:
   template <size_t n>
   constexpr templ(const char (&chars)[n], best::location loc = best::here)
       BEST_IS_VALID_LITERAL(chars, utf8{})
-          BEST_ENABLE_IF(validate(chars),
+          BEST_ENABLE_IF(validate<spec>(Queries, chars),
                          "invalid format string (better diagnostics NYI)")
       : template_(unsafe("checked by BEST_IS_VALID_LITERAL()"),
                   best::span(chars, n - 1)),

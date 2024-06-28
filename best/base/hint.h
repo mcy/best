@@ -68,6 +68,13 @@ BEST_INLINE_ALWAYS constexpr void assume(bool truth) {
 #endif
 }
 
+/// # `best::unreachable()`
+///
+/// Immediately triggers undefined behavior.
+///
+/// Informs the compiler that this code will not be executed.
+[[noreturn]] inline void unreachable() { __builtin_unreachable(); }
+
 /// # `best::likely()`
 ///
 /// Marks a value as likely to be true. This controls which side of a condition

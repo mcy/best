@@ -131,10 +131,12 @@ class text;
 template <typename>
 class pretext;
 
-// best/text/utf.h
+// best/text/utf8.h
 struct utf8;
 struct wtf8;
+// best/text/utf16.h
 struct utf16;
+// best/text/utf32.h
 struct utf32;
 
 // best/test/test.h

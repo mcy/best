@@ -43,7 +43,9 @@ cc_library(
 cc_library(
   name = "utf",
   hdrs = [
-    "utf.h",
+    "utf8.h",
+    "utf16.h",
+    "utf32.h",
     "internal/utf.h",
   ],
   deps = [

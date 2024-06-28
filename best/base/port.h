@@ -61,6 +61,15 @@ inline constexpr bool is_debug() {
 #define BEST_HAS_FEATURE(x_) __has_feature(x_)
 #endif
 
+/// # BEST_HAS_INCLUDE()`
+///
+/// Tests whether a particular `#include` statement would definitely succeed.
+#ifndef __has_include
+#define BEST_HAS_INCLUDE(x_) 0
+#else
+#define BEST_HAS_INCLUDE(x_) __has_include(x_)
+#endif
+
 /// # `BEST_STRINGIFY()`
 ///
 /// Stringifies a token string.
@@ -134,5 +143,13 @@ inline constexpr bool is_debug() {
 /// the usual mangling. This should be placed after the argument list.
 #define BEST_LINK_NAME(sym_) asm(sym_)
 }  // namespace best
+
+// Avoid including the whole header if we can include just the one that
+// gives us the delicious, baked-into-the-language types.
+#if BEST_HAS_INCLUDE("__compare/ordering.h")
+#include <__compare/ordering.h>
+#else
+#include <compare>
+#endif
 
 #endif  // BEST_BASE_PORT_H_

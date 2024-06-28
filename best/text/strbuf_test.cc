@@ -23,6 +23,7 @@
 
 #include "best/test/test.h"
 #include "best/text/ascii.h"
+#include "best/text/utf32.h"
 
 namespace best::strbuf_test {
 

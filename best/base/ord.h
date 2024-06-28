@@ -20,8 +20,6 @@
 #ifndef BEST_BASE_ORD_H_
 #define BEST_BASE_ORD_H_
 
-#include <compare>
-
 #include "best/base/internal/ord.h"
 #include "best/func/call.h"
 #include "best/meta/init.h"
@@ -154,8 +152,10 @@ constexpr auto compare(const auto& a, const auto& b) {
     return a <=> b;
   } else if constexpr (best::is_ptr<best::as_auto<decltype(a)>> &&
                        best::is_ptr<best::as_auto<decltype(b)>>) {
-    return std::compare_three_way{}((const volatile void*)a,
-                                    (const volatile void*)b);
+    // Not using std::compare_three_way, because the alleged UB of comparing
+    // pointers across allocations is fake news on LLVM, and we would otherwise
+    // need to bring in another (partial) STL header.
+    return (const volatile void*)(a) <=> (const volatile void*)(b);
   } else if constexpr (best::equatable<decltype(a), decltype(b)> && requires {
                          { a < b } -> best::testable;
                          { b < a } -> best::testable;

@@ -22,12 +22,10 @@
 
 #include <stddef.h>
 
-#include <compare>
 #include <type_traits>
 
 #include "best/base/fwd.h"
 #include "best/base/hint.h"
-#include "best/base/port.h"
 #include "best/math/internal/common_int.h"
 #include "best/meta/taxonomy.h"
 

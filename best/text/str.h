@@ -27,10 +27,11 @@
 #include "best/container/span.h"
 #include "best/math/overflow.h"
 #include "best/memory/bytes.h"
+#include "best/meta/guard.h"
 #include "best/meta/taxonomy.h"
 #include "best/text/encoding.h"
 #include "best/text/rune.h"
-#include "best/text/utf.h"
+#include "best/text/utf8.h"
 
 //! Unicode strings.
 //!
@@ -345,20 +346,11 @@ class text final {
   /// Where possible, this function will automatically call vectorized
   /// implementations of e.g. `memchr` and `memcmp` for finding the desired
   /// pattern. Therefore, when possible, prefer to provide a needle by value.
-  constexpr best::option<size_t> find(best::rune needle) const {
-    if (auto found = split_once(needle)) return found->first().size();
-    return best::none;
-  }
+  constexpr best::option<size_t> find(best::rune needle) const;
   constexpr best::option<size_t> find(
-      const best::string_type auto& needle) const {
-    if (auto found = split_once(needle)) return found->first().size();
-    return best::none;
-  }
+      const best::string_type auto& needle) const;
   constexpr best::option<size_t> find(
-      best::callable<bool(rune)> auto&& pred) const {
-    if (auto found = split_once(BEST_FWD(pred))) return found->first().size();
-    return best::none;
-  }
+      best::callable<bool(rune)> auto&& pred) const;
 
   /// # `text::contains()`
   ///
@@ -381,29 +373,11 @@ class text final {
   /// if found, returns the substrings before and after the separator.
   ///
   /// A pattern for a separator may be as in `text::find()`.
-  constexpr best::option<best::row<text, text>> split_once(rune needle) const {
-    auto split = text_.split_once(needle);
-    BEST_GUARD(split);
-    auto [a, b] = *split;
-    unsafe u("text_ is well-encoded, so split_once() is too.");
-    return {{text(u, a), text(u, b)}};
-  }
+  constexpr best::option<best::row<text, text>> split_once(rune needle) const;
   constexpr best::option<best::row<text, text>> split_once(
-      const string_type auto& needle) const {
-    auto split = text_.split_once(needle);
-    BEST_GUARD(split);
-    auto [a, b] = *split;
-    unsafe u("text_ is well-encoded, so split_once() is too.");
-    return {{text(u, a), text(u, b)}};
-  }
+      const string_type auto& needle) const;
   constexpr best::option<best::row<text, text>> split_once(
-      best::callable<bool(rune)> auto&& pred) const {
-    auto split = text_.split_once(BEST_FWD(pred));
-    BEST_GUARD(split);
-    auto [a, b] = *split;
-    unsafe u("text_ is well-encoded, so split_once() is too.");
-    return {{text(u, a), text(u, b)}};
-  }
+      best::callable<bool(rune)> auto&& pred) const;
 
   /// # `text::split()`.
   ///
@@ -649,20 +623,11 @@ class pretext final {
   /// Where possible, this function will automatically call vectorized
   /// implementations of e.g. `memchr` and `memcmp` for finding the desired
   /// pattern. Therefore, when possible, prefer to provide a needle by value.
-  constexpr best::option<size_t> find(best::rune needle) const {
-    if (auto found = split_once(needle)) return found->first().size();
-    return best::none;
-  }
+  constexpr best::option<size_t> find(best::rune needle) const;
   constexpr best::option<size_t> find(
-      const best::string_type auto& needle) const {
-    if (auto found = split_once(needle)) return found->first().size();
-    return best::none;
-  }
+      const best::string_type auto& needle) const;
   constexpr best::option<size_t> find(
-      best::callable<bool(rune)> auto&& pred) const {
-    if (auto found = split_once(BEST_FWD(pred))) return found->first().size();
-    return best::none;
-  }
+      best::callable<bool(rune)> auto&& pred) const;
 
   /// # `pretext::contains()`
   ///
@@ -959,6 +924,79 @@ class pretext<E>::split_impl final {
 \* ////////////////////////////////////////////////////////////////////////// */
 
 namespace best {
+namespace str_internal {
+/// `str_internal::splits()`
+///
+/// Finds the split points for some needle. This is a low-level implementation
+/// detail of the various search functions. They are designed to minimize the
+/// number of templates that must be instantiated when `str::contains()` or a
+/// similar high-level search function is called.
+
+template <typename N, typename H>
+constexpr std::array<size_t, 2> splits(best::pretext<N> haystack,
+                                       best::pretext<H> needle) {
+  if (needle.is_empty()) {
+    return {0, haystack.size()};
+  }
+
+  if constexpr (best::byte_comparable<code<H>> &&
+                haystack.About.is_self_syncing &&
+                best::same_encoding_code<decltype(haystack),
+                                         decltype(needle)>()) {
+    auto found = haystack.as_codes().find(needle.as_codes());
+    if (!found) return {-1, -1};
+    return {{*found, *found + needle.size()}};
+  }
+
+  auto runes = haystack.try_runes();
+  auto needle_suf = needle.runes();
+  auto first = *needle_suf.next();
+
+  while (!runes->rest().is_empty()) {
+    // We need to know what index we were at before we find `first` in
+    // runes, since that's the end of the prefix half.
+    size_t before = 0;
+    while (auto next = runes.next()) {
+      if (!next->ok()) return {-1, -1};
+      if (**next == first) break;
+      before = haystack.size() - runes->rest().size();
+    }
+
+    // Check if we found what we're looking for.
+    // TODO: Avoid strip_prefix here, since that instantiates option<pretext>.
+    if (auto suf = runes->rest().strip_prefix(needle_suf->rest())) {
+      return {before, haystack.size() - suf->size()};
+    }
+  }
+
+  return {-1, -1};
+}
+
+template <typename E>
+constexpr std::array<size_t, 2> splits(best::pretext<E> haystack,
+                                       best::rune needle) {
+  code<E> buf[E::About.max_codes_per_rune];
+  auto encoded = needle.encode(buf, haystack.enc());
+  return str_internal::splits(haystack,
+                              best::pretext<E>(*encoded, haystack.enc()));
+}
+
+template <typename E>
+constexpr std::array<size_t, 2> splits(best::pretext<E> haystack,
+                                       best::callable<bool(rune)> auto&& pred) {
+  size_t before = 0;
+  auto runes = haystack.try_runes();
+  while (auto next = runes.next()) {
+    if (!*next) break;
+    if (best::call(pred, **next)) {
+      return {{before, haystack.size() - runes->rest().size()}};
+    }
+    before = haystack.size() - runes->rest().size();
+  }
+  return {-1, -1};
+}
+}  // namespace str_internal
+
 template <typename E>
 constexpr best::option<text<E>> text<E>::from(pretext data) {
   if (!rune::validate(data.as_codes(), data.enc())) {
@@ -1019,6 +1057,55 @@ constexpr option<text<E>> text<E>::at(best::bounds range) const {
   if (!at_boundary) return best::none;
 
   return text{unsafe("see boundary check above"), *chunk};
+}
+
+template <typename E>
+constexpr best::option<size_t> text<E>::find(best::rune needle) const {
+  auto [a, b] = str_internal::splits(best::pretext(*this), needle);
+  if (a == -1) return best::none;
+  return a;
+}
+template <typename E>
+constexpr best::option<size_t> text<E>::find(
+    const best::string_type auto& needle) const {
+  auto [a, b] =
+      str_internal::splits(best::pretext(*this), best::pretext(needle));
+  if (a == -1) return best::none;
+  return a;
+}
+template <typename E>
+constexpr best::option<size_t> text<E>::find(
+    best::callable<bool(rune)> auto&& pred) const {
+  auto [a, b] = str_internal::splits(best::pretext(*this), BEST_FWD(pred));
+  if (a == -1) return best::none;
+  return a;
+}
+
+template <typename E>
+constexpr best::option<best::row<text<E>, text<E>>> text<E>::split_once(
+    best::rune needle) const {
+  auto [a, b] = str_internal::splits(best::pretext(*this), needle);
+  if (a == -1) return best::none;
+  best::unsafe u("splits() does a bounds-check for us");
+  return {{at(u, {.end = a}), at(u, {.start = b})}};
+}
+
+template <typename E>
+constexpr best::option<best::row<text<E>, text<E>>> text<E>::split_once(
+    const best::string_type auto& needle) const {
+  auto [a, b] =
+      str_internal::splits(best::pretext(*this), best::pretext(needle));
+  if (a == -1) return best::none;
+  best::unsafe u("splits() does a bounds-check for us");
+  return {{at(u, {.end = a}), at(u, {.start = b})}};
+}
+template <typename E>
+constexpr best::option<best::row<text<E>, text<E>>> text<E>::split_once(
+    best::callable<bool(rune)> auto&& pred) const {
+  auto [a, b] = str_internal::splits(best::pretext(*this), BEST_FWD(pred));
+  if (a == -1) return best::none;
+  best::unsafe u("splits() does a bounds-check for us");
+  return {{at(u, {.end = a}), at(u, {.start = b})}};
 }
 
 template <typename E>
@@ -1160,73 +1247,50 @@ constexpr best::option<pretext<E>> pretext<E>::strip_prefix(
 }
 
 template <typename E>
+constexpr best::option<size_t> pretext<E>::find(best::rune needle) const {
+  auto [a, b] = str_internal::splits(*this, needle);
+  if (a == -1) return best::none;
+  return a;
+}
+template <typename E>
+constexpr best::option<size_t> pretext<E>::find(
+    const best::string_type auto& needle) const {
+  auto [a, b] = str_internal::splits(*this, best::pretext(needle));
+  if (a == -1) return best::none;
+  return a;
+}
+template <typename E>
+constexpr best::option<size_t> pretext<E>::find(
+    best::callable<bool(rune)> auto&& pred) const {
+  auto [a, b] = str_internal::splits(*this, BEST_FWD(pred));
+  if (a == -1) return best::none;
+  return a;
+}
+
+template <typename E>
 constexpr best::option<best::row<pretext<E>, pretext<E>>>
 pretext<E>::split_once(best::rune needle) const {
-  code buf[About.max_codes_per_rune];
-  auto encoded = needle.encode(buf, enc());
-  return split_once(pretext(*encoded, enc()));
+  auto [a, b] = str_internal::splits(*this, needle);
+  if (a == -1) return best::none;
+  best::unsafe u("splits() does a bounds-check for us");
+  return {{at(u, {.end = a}), at(u, {.start = b})}};
 }
 
 template <typename E>
 constexpr best::option<best::row<pretext<E>, pretext<E>>>
 pretext<E>::split_once(const best::string_type auto& needle) const {
-  if constexpr (best::is_pretext<best::as_auto<decltype(needle)>>) {
-    if (needle.is_empty()) {
-      return {{pretext(enc()), *this}};
-    }
-
-    if constexpr (best::byte_comparable<code> && About.is_self_syncing &&
-                  best::same_encoding_code<pretext, decltype(needle)>()) {
-      auto found = span_.split_once(needle.as_codes());
-      BEST_GUARD(found);
-      return {
-          {pretext(found->first(), enc()), pretext(found->second(), enc())}};
-    }
-
-    auto haystack = try_runes();
-    auto needle_suf = needle.runes();
-    auto first = *needle_suf.next();
-
-    while (!haystack->rest().is_empty()) {
-      // We need to know what index we were at before we find `first` in
-      // haystack, since that's the end of the prefix half.
-      size_t before = 0;
-      while (auto next = haystack.next()) {
-        BEST_GUARD(next->ok());
-        if (**next == first) break;
-        before = size() - haystack->rest().size();
-      }
-
-      // Check if we found what we're looking for.
-      if (auto suf = haystack->rest().strip_prefix(needle_suf->rest())) {
-        return {{
-            at(unsafe("before <= size(), by construction"), {.end = before}),
-            *suf,
-        }};
-      }
-    }
-
-    return best::none;
-  } else {
-    return split_once(best::pretext(needle));
-  }
+  auto [a, b] = str_internal::splits(*this, best::pretext(needle));
+  if (a == -1) return best::none;
+  best::unsafe u("splits() does a bounds-check for us");
+  return {{at(u, {.end = a}), at(u, {.start = b})}};
 }
 template <typename E>
 constexpr best::option<best::row<pretext<E>, pretext<E>>>
 pretext<E>::split_once(best::callable<bool(rune)> auto&& pred) const {
-  size_t before = 0;
-  auto haystack = try_runes();
-  while (auto next = haystack.next()) {
-    BEST_GUARD(next->ok());
-    if (best::call(pred, **next)) {
-      return {{
-          at(unsafe("before <= size(), by construction"), {.end = before}),
-          haystack->rest(),
-      }};
-    }
-    before = size() - haystack->rest().size();
-  }
-  return best::none;
+  auto [a, b] = str_internal::splits(*this, BEST_FWD(pred));
+  if (a == -1) return best::none;
+  best::unsafe u("splits() does a bounds-check for us");
+  return {{at(u, {.end = a}), at(u, {.start = b})}};
 }
 
 template <typename E>

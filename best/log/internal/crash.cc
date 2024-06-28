@@ -44,6 +44,6 @@ namespace best::crash_internal {
   fprintf(stderr, "\n");
   fflush(stderr);
   va_end(va);
-  std::exit(128);
+  ::exit(128);
 }
 }  // namespace best::crash_internal

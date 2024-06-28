@@ -67,18 +67,22 @@ class tagged {
   best::smallest_uint_t<sizeof...(Ts)> tag_{};
 };
 
-template <typename... Ts>
+template <size_t swap, typename Empty, typename Niched>
 class niched {
  public:
-  static_assert(sizeof...(Ts) == 2);
-
-  static constexpr auto types = best::types<Ts...>;
+  static constexpr auto types = best::types<Empty, Niched>;
   template <size_t n>
-  using type = decltype(types)::template type<n>;
+  using type = decltype(types)::template type<swap ^ n>;
 
-  static constexpr size_t NonEmpty =
-      *types.find([]<typename T> { return best::has_niche<T>; });
-  static constexpr size_t Empty = NonEmpty == 0 ? 1 : 0;
+  // Avoid making a one-element pun if we can avoid it.
+  static constexpr bool NeedPun = !best::destructible<Niched, trivially>;
+  static constexpr auto ctor_tag() {
+    if constexpr (NeedPun) {
+      return best::index<0>;
+    } else {
+      return best::in_place;
+    }
+  }
 
   constexpr niched() = default;
   constexpr niched(const niched&) = default;
@@ -87,58 +91,67 @@ class niched {
   constexpr niched& operator=(niched&&) = default;
 
   template <typename... Args>
-  constexpr explicit niched(best::index_t<Empty>, Args&&... args)
-    requires best::constructible<type<Empty>, trivially, Args&&...>
-      : non_empty_(best::index<0>, best::niche{}) {}
+  constexpr explicit niched(best::index_t<swap ^ 0>, Args&&... args)
+    requires best::constructible<Empty, trivially, Args&&...>
+      : niched_(ctor_tag(), best::niche{}) {}
 
   template <typename... Args>
-  constexpr explicit niched(best::index_t<NonEmpty>, Args&&... args)
-    requires best::constructible<type<NonEmpty>, Args&&...>
-      : non_empty_(best::index<0>, BEST_FWD(args)...) {}
+  constexpr explicit niched(best::index_t<swap ^ 1>, Args&&... args)
+    requires best::constructible<Niched, Args&&...>
+      : niched_(ctor_tag(), BEST_FWD(args)...) {}
 
   constexpr size_t tag() const {
-    return non_empty_
-                   .object(unsafe("the non-empty variant is always engaged,"
-                                  "except when after destructor runs"),
-                           index<0>)
-                   .as_ptr()
-                   .is_niche()
-               ? Empty
-               : NonEmpty;
+    return swap ^ !get(unsafe("we're checking for the niche, so we need "
+                              "to pull out the non-empty side"),
+                       best::index<swap ^ 1>)
+                       .as_ptr()
+                       .is_niche();
   }
 
-  constexpr const best::object<type<Empty>>& get(unsafe,
-                                                 best::index_t<Empty>) const {
-    return empty_;
+  template <size_t n>
+  constexpr const auto& get(unsafe, best::index_t<n>) const {
+    if constexpr ((swap ^ n) == 0) {
+      return empty_;
+    } else if constexpr (NeedPun) {
+      return niched_.object(unsafe("the non-empty variant is always engaged,"
+                                   "except when after destructor runs"),
+                            index<0>);
+    } else {
+      return niched_;
+    }
   }
-  constexpr best::object<type<Empty>>& get(unsafe, best::index_t<Empty>) {
-    return empty_;
-  }
-  constexpr const best::object<type<NonEmpty>>& get(
-      unsafe u, best::index_t<NonEmpty>) const {
-    return non_empty_.object(u, index<0>);
-  }
-  constexpr best::object<type<NonEmpty>>& get(unsafe u,
-                                              best::index_t<NonEmpty>) {
-    return non_empty_.object(u, index<0>);
+  template <size_t n>
+  constexpr auto& get(unsafe, best::index_t<n>) {
+    if constexpr ((swap ^ n) == 0) {
+      return empty_;
+    } else if constexpr (NeedPun) {
+      return niched_.object(unsafe("the non-empty variant is always engaged,"
+                                   "except when after destructor runs"),
+                            index<0>);
+    } else {
+      return niched_;
+    }
   }
 
-  best::pun<type<NonEmpty>> non_empty_;
-  [[no_unique_address]] best::object<type<Empty>> empty_;
+  best::select<NeedPun, best::pun<Niched>, best::object<Niched>> niched_;
+  [[no_unique_address]] best::object<Empty> empty_;
 };
 
 template <typename... Ts>
 tagged<Ts...> which_storage(best::tlist<Ts...>, best::rank<0>);
 
 template <typename A, typename B>
-niched<A, B> which_storage(best::tlist<A, B>, best::rank<1>)
+niched<1, B, A> which_storage(best::tlist<A, B>, best::rank<1>)
   requires(has_niche<A> && best::is_empty<B> &&
-           best::constructible<B, trivially>) ||
-          (has_niche<B> && best::is_empty<A> &&
+           best::constructible<B, trivially>);
+
+template <typename A, typename B>
+niched<0, A, B> which_storage(best::tlist<A, B>, best::rank<2>)
+  requires(has_niche<B> && best::is_empty<A> &&
            best::constructible<A, trivially>);
 
 template <typename... Ts>
-using storage = decltype(which_storage(types<Ts...>, best::rank<1>{}));
+using storage = decltype(which_storage(types<Ts...>, best::rank<2>{}));
 
 template <typename... Ts>
 class impl : public storage<Ts...> {
@@ -157,10 +170,10 @@ class impl : public storage<Ts...> {
   constexpr impl() = default;
 
   constexpr impl(const impl&)
-    requires(info.trivial_copy)
+    requires(info.trivial_copy())
   = default;
   constexpr impl(const impl& that)
-    requires(!info.trivial_copy)
+    requires(!info.trivial_copy())
   {
     that.index_match([&](auto tag, auto&... value) {
       std::construct_at(this, tag, value...);
@@ -168,10 +181,10 @@ class impl : public storage<Ts...> {
   }
 
   constexpr impl& operator=(const impl&)
-    requires(info.trivial_copy)
+    requires(info.trivial_copy())
   = default;
   constexpr impl& operator=(const impl& that)
-    requires(!info.trivial_copy)
+    requires(!info.trivial_copy())
   {
     that.index_match(
         [&](auto tag, auto&... value) { emplace<tag.value>(value...); });
@@ -179,10 +192,10 @@ class impl : public storage<Ts...> {
   }
 
   constexpr impl(impl&&)
-    requires(info.trivial_move)
+    requires(info.trivial_move())
   = default;
   constexpr impl(impl&& that)
-    requires(!info.trivial_move)
+    requires(!info.trivial_move())
   {
     that.index_match([&](auto tag, auto&... value) {
       std::construct_at(this, tag, BEST_MOVE(value)...);
@@ -190,10 +203,10 @@ class impl : public storage<Ts...> {
   }
 
   constexpr impl& operator=(impl&&)
-    requires(info.trivial_move)
+    requires(info.trivial_move())
   = default;
   constexpr impl& operator=(impl&& that)
-    requires(!info.trivial_move)
+    requires(!info.trivial_move())
   {
     that.index_match([&](auto tag, auto&... value) {
       emplace<tag.value>(BEST_MOVE(value)...);
@@ -202,10 +215,10 @@ class impl : public storage<Ts...> {
   }
 
   constexpr ~impl()
-    requires(info.trivial_dtor)
+    requires(info.trivial_dtor())
   = default;
   constexpr ~impl()
-    requires(!info.trivial_dtor)
+    requires(!info.trivial_dtor())
   {
     match([](auto&... value) { (std::destroy_at(best::addr(value)), ...); });
   }
@@ -259,54 +272,38 @@ class impl : public storage<Ts...> {
 
   template <typename F>
   BEST_INLINE_SYNTHETIC constexpr decltype(auto) match(F&& callback) const& {
-    return JumpTable<decltype(make_match_arm(*this,
-                                             BEST_FWD(callback)))>[tag()](
-        make_match_arm(*this, BEST_FWD(callback)));
+    return jump_table(make_match_arm(*this, BEST_FWD(callback)));
   }
   template <typename F>
   BEST_INLINE_SYNTHETIC constexpr decltype(auto) match(F&& callback) & {
-    return JumpTable<decltype(make_match_arm(*this,
-                                             BEST_FWD(callback)))>[tag()](
-        make_match_arm(*this, BEST_FWD(callback)));
+    return jump_table(make_match_arm(*this, BEST_FWD(callback)));
   }
   template <typename F>
   BEST_INLINE_SYNTHETIC constexpr decltype(auto) match(F&& callback) const&& {
-    return JumpTable<decltype(make_match_arm(BEST_MOVE(*this),
-                                             BEST_FWD(callback)))>[tag()](
-        make_match_arm(BEST_MOVE(*this), BEST_FWD(callback)));
+    return jump_table(make_match_arm(BEST_MOVE(*this), BEST_FWD(callback)));
   }
   template <typename F>
   BEST_INLINE_SYNTHETIC constexpr decltype(auto) match(F&& callback) && {
-    return JumpTable<decltype(make_match_arm(BEST_MOVE(*this),
-                                             BEST_FWD(callback)))>[tag()](
-        make_match_arm(BEST_MOVE(*this), BEST_FWD(callback)));
+    return jump_table(make_match_arm(BEST_MOVE(*this), BEST_FWD(callback)));
   }
 
   template <typename F>
   BEST_INLINE_SYNTHETIC constexpr decltype(auto) index_match(
       F&& callback) const& {
-    return JumpTable<decltype(make_index_match_arm(*this,
-                                                   BEST_FWD(callback)))>[tag()](
-        make_index_match_arm(*this, BEST_FWD(callback)));
+    return jump_table(make_index_match_arm(*this, BEST_FWD(callback)));
   }
   template <typename F>
   BEST_INLINE_SYNTHETIC constexpr decltype(auto) index_match(F&& callback) & {
-    return JumpTable<decltype(make_index_match_arm(*this,
-                                                   BEST_FWD(callback)))>[tag()](
-        make_index_match_arm(*this, BEST_FWD(callback)));
+    return jump_table(make_index_match_arm(*this, BEST_FWD(callback)));
   }
   template <typename F>
   BEST_INLINE_SYNTHETIC constexpr decltype(auto) index_match(
       F&& callback) const&& {
-    return JumpTable<decltype(make_index_match_arm(BEST_MOVE(*this),
-                                                   BEST_FWD(callback)))>[tag()](
-        make_index_match_arm(BEST_MOVE(*this), BEST_FWD(callback)));
+    return jump_table(make_index_match_arm(*this, BEST_FWD(callback)));
   }
   template <typename F>
   BEST_INLINE_SYNTHETIC constexpr decltype(auto) index_match(F&& callback) && {
-    return JumpTable<decltype(make_index_match_arm(BEST_MOVE(*this),
-                                                   BEST_FWD(callback)))>[tag()](
-        make_index_match_arm(BEST_MOVE(*this), BEST_FWD(callback)));
+    return jump_table(make_index_match_arm(*this, BEST_FWD(callback)));
   }
 
  private:
@@ -322,7 +319,35 @@ class impl : public storage<Ts...> {
   }
 
   template <typename F>
-  constexpr static auto make_match_arm(auto&& self, F&& callback) {
+  static constexpr auto JumpTable =
+      make_jump_table<F>(std::make_index_sequence<sizeof...(Ts)>{});
+
+  constexpr decltype(auto) jump_table(auto&& arms) const
+    requires(sizeof...(Ts) > 2)
+  {
+    return JumpTable<decltype(arms)>[tag()](BEST_FWD(arms));
+  }
+
+  constexpr decltype(auto) jump_table(auto&& arms) const
+    requires(sizeof...(Ts) == 2)
+  {
+    switch (tag()) {
+      case 0:
+        return arms(best::index<0>);
+      case 1:
+        return arms(best::index<1>);
+      default:
+        best::unreachable();
+    }
+  }
+
+  constexpr decltype(auto) jump_table(auto&& arms) const
+    requires(sizeof...(Ts) == 1)
+  {
+    return arms(best::index<0>);
+  }
+
+  constexpr static auto make_match_arm(auto&& self, auto&& cb) {
     return [&]<size_t n>(best::index_t<n> tag) -> decltype(auto) {
       using Type = best::refcopy<type<n>, decltype(self)&&>;
 
@@ -332,52 +357,46 @@ class impl : public storage<Ts...> {
       using Empty = best::dependent<best::empty, decltype(tag)>;
 
       if constexpr (best::is_void<Type>) {
-        if constexpr (best::callable<F, void()>) {
-          return best::call(BEST_FWD(callback));
+        if constexpr (best::callable<decltype(cb), void()>) {
+          return best::call(BEST_FWD(cb));
         } else {
           best::empty arg;
-          return best::call(BEST_FWD(callback), static_cast<Empty>(arg));
+          return best::call(BEST_FWD(cb), static_cast<Empty>(arg));
         }
       } else {
         unsafe u(
             "this function is only called after"
             "checking tag() via the jump table.");
-        return best::call(BEST_FWD(callback),
-                          static_cast<Type>(*self.get(u, tag)));
+        return best::call(BEST_FWD(cb), static_cast<Type>(*self.get(u, tag)));
       }
     };
   }
 
-  template <typename F>
-  constexpr static auto make_index_match_arm(auto&& self, F&& callback) {
+  constexpr static auto make_index_match_arm(auto&& self, auto&& cb) {
     return [&]<size_t n>(best::index_t<n> tag) -> decltype(auto) {
       using Type = best::refcopy<type<n>, decltype(self)&&>;
 
       // This needs to be dependent on tag, even trivially, so that the call
       // of callback(empty) in one of the if statements below uses two-phase
       // lookup.
-      using Empty = best::dependent<best::empty, decltype(callback)>;
+      using Empty = best::dependent<best::empty, decltype(tag)>;
 
       if constexpr (best::is_void<Type>) {
-        if constexpr (best::callable<F, void(decltype(tag))>) {
-          return best::call(BEST_FWD(callback), tag);
+        if constexpr (best::callable<decltype(cb), void(decltype(tag))>) {
+          return best::call(BEST_FWD(cb), tag);
         } else {
           best::empty arg;
-          return best::call(BEST_FWD(callback), tag, static_cast<Empty>(arg));
+          return best::call(BEST_FWD(cb), tag, static_cast<Empty>(arg));
         }
       } else {
         unsafe u(
             "this function is only called after"
             "checking tag() via the jump table.");
-        return best::call(BEST_FWD(callback), tag,
+        return best::call(BEST_FWD(cb), tag,
                           static_cast<Type>(*self.get(u, tag)));
       }
     };
   }
-
-  template <typename F>
-  static constexpr auto JumpTable =
-      make_jump_table<F>(std::make_index_sequence<sizeof...(Ts)>{});
 };
 
 template <typename... Fs>

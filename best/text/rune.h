@@ -377,34 +377,34 @@ template <encoding E>
 constexpr best::result<best::span<code<E>>, encoding_error> rune::encode(
     best::span<code<E>>* output, const E& enc) const {
   auto orig = *output;
-  return enc.encode(output, *this)
-      .map([&] {
-        size_t written = orig.size() - output->size();
-        return orig[{.count = written}];
-      })
-      .map_err([&](auto e) {
-        *output = orig;
-        return e;
-      });
+  auto result = enc.encode(output, *this);
+  if (result) {
+    size_t written = orig.size() - output->size();
+    return orig[{.count = written}];
+  }
+  *output = orig;
+  return *result.err();
 }
 
 template <encoding E>
 constexpr best::result<rune, encoding_error> rune::decode(
     best::span<const code<E>>* input, const E& enc) {
   auto orig = *input;
-  return enc.decode(input).map_err([&](auto e) {
+  auto result = enc.decode(input);
+  if (result.err()) {
     *input = orig;
-    return e;
-  });
+  }
+  return result;
 }
 template <encoding E>
 constexpr best::result<rune, encoding_error> rune::undecode(
     best::span<const code<E>>* input, const E& enc) {
   auto orig = *input;
-  return enc.undecode(input).map_err([&](auto e) {
+  auto result = enc.undecode(input);
+  if (result.err()) {
     *input = orig;
-    return e;
-  });
+  }
+  return result;
 }
 
 constexpr best::option<rune> rune::from_digit(uint32_t num, uint32_t radix) {
