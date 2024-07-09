@@ -107,6 +107,12 @@ using ok_type = typename best::as_auto<T>::ok_type;
 template <is_result T>
 using err_type = typename best::as_auto<T>::err_type;
 
+namespace result_internal {
+// A helper for threading formatting into result::check_ok. The corresponding
+// definition lives in format.h.
+struct fmt;
+};  // namespace result_internal
+
 template <typename T, typename E>
 class [[nodiscard(
     "best::results may contain an error and must be explicitly "
@@ -228,25 +234,6 @@ class [[nodiscard(
   constexpr best::option<err_crref> err() const&&;
   constexpr best::option<err_rref> err() &&;
 
-  /// # `result::operator*, result::operator->`
-  ///
-  /// `best::result`'s ok contents can be accessed with the smart pointer
-  /// operators. These internally simply defer to `*ok()`.
-  ///
-  // TODO: nicer formatting once we have BestFmt.
-  constexpr ok_cref operator*() const& { return impl()[best::index<0>]; }
-  constexpr ok_ref operator*() & { return impl()[best::index<0>]; }
-  constexpr ok_crref operator*() const&& {
-    return BEST_MOVE(*this).impl()[best::index<0>];
-  }
-  constexpr ok_rref operator*() && {
-    return BEST_MOVE(*this).impl()[best::index<0>];
-  }
-  constexpr ok_cptr operator->() const {
-    return *ok(), impl().as_ptr(index<0>);
-  }
-  constexpr ok_ptr operator->() { return *ok(), impl().as_ptr(index<0>); }
-
   /// # `option::map()`, `option::map_err()`
   ///
   /// Applies a function to the contents of this result, and returns a new
@@ -271,6 +258,47 @@ class [[nodiscard(
   constexpr auto then(auto&& f) &;
   constexpr auto then(auto&& f) const&&;
   constexpr auto then(auto&& f) &&;
+
+  /// # `result::operator*, result::operator->`
+  ///
+  /// `best::result`'s ok contents can be accessed with the smart pointer
+  /// operators. These internally simply defer to `*ok()`.
+  template <int&..., typename F = result_internal::fmt>
+  constexpr ok_cref operator*() const&
+    requires requires { F::check_ok(this); }
+  {
+    return F::check_ok(this), impl()[best::index<0>];
+  }
+  template <int&..., typename F = result_internal::fmt>
+  constexpr ok_ref operator*() &
+    requires requires { F::check_ok(this); }
+  {
+    return F::check_ok(this), impl()[best::index<0>];
+  }
+  template <int&..., typename F = result_internal::fmt>
+  constexpr ok_crref operator*() const&&
+    requires requires { F::check_ok(this); }
+  {
+    return F::check_ok(this), BEST_MOVE(*this).impl()[best::index<0>];
+  }
+  template <int&..., typename F = result_internal::fmt>
+  constexpr ok_rref operator*() &&
+    requires requires { F::check_ok(this); }
+  {
+    return F::check_ok(this), BEST_MOVE(*this).impl()[best::index<0>];
+  }
+  template <int&..., typename F = result_internal::fmt>
+  constexpr ok_cptr operator->() const
+    requires requires { F::check_ok(this); }
+  {
+    return F::check_ok(this), *ok(), impl().as_ptr(index<0>);
+  }
+  template <int&..., typename F = result_internal::fmt>
+  constexpr ok_ptr operator->()
+    requires requires { F::check_ok(this); }
+  {
+    return F::check_ok(this), *ok(), impl().as_ptr(index<0>);
+  }
 
   // Comparisons.
   template <best::equatable<T> U, best::equatable<E> F>

@@ -86,32 +86,30 @@ best::test Debug = [](auto& t) {
 };
 
 best::test Iter = [](auto& t) {
-  best::vec<size_t> xs;
-  for (size_t i : best::bounds{.start = 5, .end = 11}) {
-    xs.push(i);
-  }
-  t.expect_eq(xs, {5, 6, 7, 8, 9, 10});
+  best::bounds b = {.start = 5, .end = 11};
+  t.expect_eq(best::vec(b.iter()), {5, 6, 7, 8, 9, 10});
+  t.expect_eq(b.iter().count(), 6);
+  t.expect_eq(b.iter().last(), 10);
 
-  xs.clear();
-  for (size_t i : best::bounds{.start = 5, .including_end = 11}) {
-    xs.push(i);
-  }
-  t.expect_eq(xs, {5, 6, 7, 8, 9, 10, 11});
+  b = {.start = 5, .including_end = 11};
+  t.expect_eq(best::vec(b.iter()), {5, 6, 7, 8, 9, 10, 11});
+  t.expect_eq(b.iter().count(), 7);
+  t.expect_eq(b.iter().last(), 11);
 
-  xs.clear();
-  for (size_t i : best::bounds{.start = best::max_of<size_t> - 1,
-                  .including_end = best::max_of<size_t>}) {
-    xs.push(i);
-  }
-  t.expect_eq(xs, {best::max_of<size_t> - 1, best::max_of<size_t>});
+  b = {
+      .start = best::max_of<size_t> - 1,
+      .including_end = best::max_of<size_t>,
+  };
+  t.expect_eq(best::vec(b.iter()),
+              {best::max_of<size_t> - 1, best::max_of<size_t>});
+  t.expect_eq(b.iter().count(), 2);
+  t.expect_eq(b.iter().last(), best::max_of<size_t>);
 
-  best::vec<uint8_t> ys;
-  for (auto i : best::int_range{.start = uint8_t(0)}) {
-    ys.push(i);
-  }
-
-  best::vec<size_t> zs(best::bounds{.count = 256}.iter());
-  t.expect_eq(ys, zs);
+  best::int_range i = {.start = uint8_t(0)};
+  t.expect_eq(best::vec(i.iter()),
+              best::vec(best::bounds{.count = 256}.iter()));
+  t.expect_eq(i.iter().count(), 256);
+  t.expect_eq(i.iter().last(), 255);
 };
 
 // TODO: Once we have death tests, test the check-fail messages.

@@ -111,8 +111,8 @@ class textbuf final {
   /// # `textbuf::textbuf()`
   ///
   /// Creates a new, empty string with the given encoding and/or allocator.
-  textbuf() : textbuf(encoding{}) {}
-  explicit textbuf(encoding enc, alloc alloc = {})
+  textbuf() : textbuf(alloc{}) {}
+  explicit textbuf(alloc alloc, encoding enc = {})
       : buf_(std::move(alloc)), enc_(std::move(enc)) {}
 
   /// # `textbuf::textbuf(textbuf)`
@@ -179,8 +179,8 @@ class textbuf final {
   }
   static best::option<textbuf> transcode(alloc alloc,
                                          const string_type auto& that) {
-    textbuf out(alloc, that.enc());
-    if (!out.append(that)) return best::none;
+    textbuf out(alloc);
+    if (!out.push(that)) return best::none;
     return out;
   }
 
@@ -440,7 +440,7 @@ class textbuf final {
                              About.max_codes_per_rune};
         if (auto codes = r.encode(buf, this->enc())) {
           buf_.set_size(unsafe("we just wrote this much data in encode()"),
-                        size() + codes->size());
+                        size() + codes.ok()->size());
           continue;
         }
         truncate(watermark);
@@ -487,12 +487,12 @@ class textbuf final {
 
         unsafe u("we just wrote this much data in encode()");
         if (auto codes = r.encode(buf, this->enc())) {
-          buf_.set_size(u, size() + codes->size());
+          buf_.set_size(u, size() + codes.ok()->size());
         } else if (auto codes = rune::Replacement.encode(buf, this->enc())) {
-          buf_.set_size(u, size() + codes->size());
+          buf_.set_size(u, size() + codes.ok()->size());
         } else {
           codes = rune('?').encode(buf, this->enc());
-          buf_.set_size(u, size() + codes->size());
+          buf_.set_size(u, size() + codes.ok()->size());
         }
       }
     } else {
@@ -519,6 +519,17 @@ class textbuf final {
   // Make this into a best::string_type.
   friend const encoding& BestEncoding(auto, const textbuf& t) {
     return t.enc();
+  }
+
+  constexpr best::ord operator<=>(rune r) const { return as_text() <=> r; }
+  constexpr best::ord operator<=>(const string_type auto& s) const {
+    return as_text() <=> s;
+  }
+  constexpr best::ord operator<=>(best::span<const code> span) const {
+    return as_text() <=> span;
+  }
+  constexpr best::ord operator<=>(const code* lit) const {
+    return as_text() <=> best::span<const code>::from_nul(lit);
   }
 
  private:

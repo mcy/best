@@ -117,6 +117,30 @@ concept is_tame_func = is_func<T> && requires { (T*){}; };
 template <typename T>
 concept is_abominable = is_func<T> && !requires { (T*){}; };
 
+/// # `best::is_const_func`
+///
+/// Whether this is a `const`-qualified abominable function.
+template <typename T>
+concept is_const_func = abominable_internal::tame<T>::c;
+
+/// # `best::is_lref_func`
+///
+/// Whether this is a `&`-qualified abominable function.
+template <typename T>
+concept is_lref_func = abominable_internal::tame<T>::l;
+
+/// # `best::is_rref_func`
+///
+/// Whether this is a `&&`-qualified abominable function.
+template <typename T>
+concept is_rref_func = abominable_internal::tame<T>::r;
+
+/// # `best::is_ref_func`
+///
+/// Whether this is a `&`- or `&&-qualified abominable function.
+template <typename T>
+concept is_ref_func = is_lref_func<T> || is_rref_func<T>;
+
 /// # `best::tame<T>`
 ///
 /// If `T` is an abominable function, returns its "tame" counterpart. Otherwise,

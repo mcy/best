@@ -678,6 +678,11 @@ class vec final {
 
 template <typename T>
 vec(std::initializer_list<T>) -> vec<T>;
+template <contiguous Range>
+vec(Range) -> vec<best::as_auto<typename best::data_type<Range>>>;
+template <is_iter Iter>
+  requires(!contiguous<Iter>)
+vec(Iter) -> vec<best::as_auto<typename best::iter_type<Iter>>>;
 }  // namespace best
 
 /* ////////////////////////////////////////////////////////////////////////// *\

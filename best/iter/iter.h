@@ -27,6 +27,7 @@
 
 #include "best/container/option.h"
 #include "best/func/call.h"
+#include "best/meta/guard.h"
 #include "best/meta/init.h"
 #include "best/meta/taxonomy.h"
 
@@ -121,8 +122,8 @@ class iter final {
   constexpr best::option<item> next() { return impl_.next(); }
 
 #define BEST_ITER_FWD(func_)                           \
-  if constexpr (requires { BEST_MOVE(impl_).func(); }) \
-    return BEST_MOVE(impl_).func();
+  if constexpr (requires { BEST_MOVE(impl_).func_(); }) \
+    return BEST_MOVE(impl_).func_();
 
   /// # `iter::size_hint()`
   ///
@@ -162,6 +163,19 @@ class iter final {
     return total;
   }
 
+  /// # `iter::count()`
+  ///
+  /// Consumes this iterator and returns the last element yielded, if any.
+  constexpr /*default*/ best::option<item> last() && {
+    BEST_ITER_FWD(last);
+
+    best::option<item> last;
+    while (auto v = next()) {
+      last = BEST_MOVE(v);
+    }
+    return last;
+  }
+
   /// # `iter::map()`
   ///
   /// Returns an iterator that applies `cb` to each element yielded by this one.
@@ -174,6 +188,13 @@ class iter final {
   /// value. The inspection callback need not take a value at all.
   constexpr auto inspect(best::callable<void()> auto&& cb) &&;
   constexpr auto inspect(best::callable<void(item&)> auto&& cb) &&;
+
+  /// # `iter::enumerate()`
+  ///
+  /// Converts an iterator yielding `T` to an iterator yielding
+  /// `best::row<size_t, T>`, where the first index is the index of the yielded
+  /// value.
+  constexpr auto enumerate() &&;
 
   /// # `iter::begin()`, `iter::end()`
   ///
@@ -191,6 +212,8 @@ class iter final {
  private:
   impl impl_;
 };
+
+#undef BEST_ITER_FWD
 
 /// # `best::iter_range_end`
 ///
@@ -341,6 +364,36 @@ constexpr auto iter<Impl>::inspect(best::callable<void(item&)> auto&& cb) && {
         return item(value);
       },
   });
+}
+
+namespace iter_internal {
+template <typename Impl>
+class enumerate final {
+ public:
+  constexpr best::option<best::row<size_t, typename iter<Impl>::item>> next() {
+    auto next = iter_.next();
+    BEST_GUARD(next);
+    return {{idx_++, *BEST_MOVE(next)}};
+  }
+
+  constexpr best::size_hint size_hint() const { return iter_.size_hint(); }
+  constexpr size_t count() && { return BEST_MOVE(iter_).count(); }
+
+ private:
+  constexpr explicit enumerate(best::iter<Impl> iter)
+      : iter_(BEST_MOVE(iter)) {}
+
+  friend best::iter<Impl>;
+  [[no_unique_address]] iter<Impl> iter_;
+  size_t idx_ = 0;
+};
+template <typename I>
+enumerate(iter<I>&&) -> enumerate<I>;
+}  // namespace iter_internal
+
+template <typename I>
+constexpr auto iter<I>::enumerate() && {
+  return best::iter(iter_internal::enumerate(std::move(*this)));
 }
 
 }  // namespace best

@@ -480,6 +480,14 @@ class row final
   constexpr decltype(auto) apply(auto&& f) const&&;
   constexpr decltype(auto) apply(auto&& f) &&;
 
+  /// # `row::each()`
+  ///
+  /// Calls `f` once with each element of this tuple, as returned by `at()`.
+  constexpr void each(auto&& f) const&;
+  constexpr void each(auto&& f) &;
+  constexpr void each(auto&& f) const&&;
+  constexpr void each(auto&& f) &&;
+
   /// # `row::as_args()`
   ///
   /// Constructs a corresponding `best::args()` for this row. The elements of
@@ -494,9 +502,7 @@ class row final
     requires requires(best::object<Elems>... els) { (fmt.format(els), ...); }
   {
     auto tup = fmt.tuple();
-    return indices.apply([&]<typename... I> {
-      return (tup.entry(row.object(best::index<I::value>)), ...);
-    });
+    indices.each([&](auto i) { tup.entry(row.object(i)); });
   }
 
   template <typename Q>
@@ -513,10 +519,8 @@ class row final
   constexpr bool operator==(const row<Us...>& that) const
     requires(best::equatable<Elems, Us> && ...)
   {
-    return indices.apply([&]<typename... I> {
-      return (... &&
-              (get(best::index<I::value>) == that.get(best::index<I::value>)));
-    });
+    return indices.apply(
+        [&](auto... i) { return (... && (get(i) == that.get(i))); });
   }
 
   template <typename... Us>
@@ -524,12 +528,15 @@ class row final
     requires(best::comparable<Elems, Us> && ...)
   {
     using Output = best::common_ord<best::order_type<Elems, Us>...>;
-    return indices.apply([&]<typename... I> {
-      Output result = Output::equivalent;
-      return (..., (result == 0 ? result = at(best::index<I::value>) <=>
-                                           that.at(best::index<I::value>)
-                                : result));
+    Output result = Output::equivalent;
+
+    return indices.each([&](auto i) {
+      if (result == 0) {
+        result = get(i) <=> that.get(i);
+      }
     });
+
+    return result;
   }
 };
 
@@ -1384,28 +1391,75 @@ constexpr auto row<A...>::scatter(best::tlist<Ts...> those_types,
 
 template <typename... A>
 constexpr decltype(auto) row<A...>::apply(auto&& f) const& {
-  return indices.apply([&]<typename... I>() -> decltype(auto) {
-    return best::call(BEST_FWD(f), get(best::index<I::value>)...);
+  return indices.apply([&](auto... i) -> decltype(auto) {
+    return best::call(BEST_FWD(f), get(i)...);
   });
 }
 template <typename... A>
 constexpr decltype(auto) row<A...>::apply(auto&& f) & {
-  return indices.apply([&]<typename... I>() -> decltype(auto) {
-    return best::call(BEST_FWD(f), get(best::index<I::value>)...);
+  return indices.apply([&](auto... i) -> decltype(auto) {
+    return best::call(BEST_FWD(f), get(i)...);
   });
 }
 template <typename... A>
 constexpr decltype(auto) row<A...>::apply(auto&& f) const&& {
-  return indices.apply([&]<typename... I>() -> decltype(auto) {
-    return best::call(BEST_FWD(f),
-                      BEST_MOVE(*this).get(best::index<I::value>)...);
+  return indices.apply([&](auto... i) -> decltype(auto) {
+    return best::call(BEST_FWD(f), BEST_MOVE(*this).get(i)...);
   });
 }
 template <typename... A>
 constexpr decltype(auto) row<A...>::apply(auto&& f) && {
-  return indices.apply([&]<typename... I>() -> decltype(auto) {
-    return best::call(BEST_FWD(f),
-                      BEST_MOVE(*this).get(best::index<I::value>)...);
+  return indices.apply([&](auto... i) -> decltype(auto) {
+    return best::call(BEST_FWD(f), BEST_MOVE(*this).get(i)...);
+  });
+}
+
+template <typename... A>
+constexpr void row<A...>::each(auto&& f) const& {
+  indices.each([&]<size_t i> {
+    if constexpr (best::is_void<type<i>> &&
+                  best::callable<decltype(f), void()>) {
+      best::call(
+          static_cast<best::dependent<decltype(f), best::index_t<i>>&&>(f));
+    } else {
+      best::call(BEST_FWD(f), get(best::index<i>));
+    }
+  });
+}
+template <typename... A>
+constexpr void row<A...>::each(auto&& f) & {
+  indices.each([&]<size_t i> {
+    if constexpr (best::is_void<type<i>> &&
+                  best::callable<decltype(f), void()>) {
+      best::call(
+          static_cast<best::dependent<decltype(f), best::index_t<i>>&&>(f));
+    } else {
+      best::call(BEST_FWD(f), get(best::index<i>));
+    }
+  });
+}
+template <typename... A>
+constexpr void row<A...>::each(auto&& f) const&& {
+  indices.each([&]<size_t i> {
+    if constexpr (best::is_void<type<i>> &&
+                  best::callable<decltype(f), void()>) {
+      best::call(
+          static_cast<best::dependent<decltype(f), best::index_t<i>>&&>(f));
+    } else {
+      best::call(BEST_FWD(f), BEST_MOVE(*this).get(best::index<i>));
+    }
+  });
+}
+template <typename... A>
+constexpr void row<A...>::each(auto&& f) && {
+  indices.each([&]<size_t i> {
+    if constexpr (best::is_void<type<i>> &&
+                  best::callable<decltype(f), void()>) {
+      best::call(
+          static_cast<best::dependent<decltype(f), best::index_t<i>>&&>(f));
+    } else {
+      best::call(BEST_FWD(f), BEST_MOVE(*this).get(best::index<i>));
+    }
   });
 }
 }  // namespace best

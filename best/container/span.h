@@ -717,6 +717,11 @@ class span<T, n>::iter_impl final {
 
   constexpr size_t count() && { return end_ - start_; }
 
+  constexpr best::option<T&> last() && {
+    if (start_ == end_) return best::none;
+    return end_[-1];
+  }
+
   T* start_;
   T* end_;
 };

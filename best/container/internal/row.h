@@ -213,7 +213,7 @@ constexpr auto splice(auto&& row, auto those_types, auto&& those) {
 
 // See tlist_internal::gather_impl() and tlist_internal::scatter_impl().
 template <size_t... i>
-auto gather(auto&& row)
+constexpr auto gather(auto&& row)
   requires((i < best::as_auto<decltype(row)>::size()) && ...)
 {
   using Out =
@@ -221,7 +221,7 @@ auto gather(auto&& row)
   return Out{BEST_FWD(row)[best::index<i>]...};
 }
 template <size_t... i>
-auto scatter(auto&& row, auto those_types, auto&& those)
+constexpr auto scatter(auto&& row, auto those_types, auto&& those)
   requires((i < best::as_auto<decltype(row)>::size()) && ...) &&
           (sizeof...(i) <= best::as_auto<decltype(those)>::size()) &&
           (sizeof...(i) <= best::as_auto<decltype(those_types)>::size()) &&

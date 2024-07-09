@@ -78,7 +78,9 @@ static_assert(
 static_assert(best::types<int*, int, void*>.find<void*>() == 2);
 static_assert(best::types<int*, int, int>.find<std::is_integral>() == 1);
 
-static_assert(best::vals<1, 2, 3>.find([](auto x) { return x % 2 == 0; }) == 1);
+static_assert(best::vals<1, 2, 3>.find([](auto x) {
+  return x.value % 2 == 0;
+}) == 1);
 static_assert(best::vals<1, 2, 3>.find(3) == 2);
 static_assert(best::vals<1, 3, 3>.find(3) == 1);
 static_assert(!best::vals<1, 2, 3>.find(4).has_value());

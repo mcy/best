@@ -309,26 +309,27 @@ class formatter::block final {
   /// # `block::entry()`
   ///
   /// Submits a single unkeyed entry to this block.
-  void entry(const best::formattable auto& value);
-  void entry(const best::format_spec& spec,
-             const best::formattable auto& value);
+  block& entry(const best::formattable auto& value);
+  block& entry(const best::format_spec& spec,
+               const best::formattable auto& value);
 
   /// # `block::field()`
   ///
   /// Submits a single keyed entry to this block. This is a wrapper over
   /// `pair()` that always uses a default formatting spec (a `{}`) for the key.
-  void field(best::str name, const best::formattable auto& value);
-  void field(best::str name, const best::format_spec& v_spec,
-             const best::formattable auto& value);
+  block& field(best::str name, const best::formattable auto& value);
+  block& field(best::str name, const best::format_spec& v_spec,
+               const best::formattable auto& value);
 
   /// # `block::pair()`
   ///
   /// Submits a single keyed entry to this block.
-  void pair(const best::formattable auto& key,
-            const best::formattable auto& value);
-  void pair(const best::format_spec& k_spec, const best::formattable auto& key,
-            const best::format_spec& v_spec,
-            const best::formattable auto& value);
+  block& pair(const best::formattable auto& key,
+              const best::formattable auto& value);
+  block& pair(const best::format_spec& k_spec,
+              const best::formattable auto& key,
+              const best::format_spec& v_spec,
+              const best::formattable auto& value);
 
   /// # `block::finish()`
   ///
@@ -489,59 +490,59 @@ void formatter::format(best::format_template<Args...> fmt, const Args&... arg) {
   format_impl(fmt.as_str(), vtable);
 }
 
-void formatter::block::entry(const best::formattable auto& value) {
-  if (!fmt_) return;
+formatter::block& formatter::block::entry(const best::formattable auto& value) {
+  if (!fmt_) return *this;
   separator();
   fmt_->format(value);
+  return *this;
 }
-void formatter::block::entry(const best::format_spec& spec,
-                             const best::formattable auto& value) {
-  if (!fmt_) return;
+formatter::block& formatter::block::entry(const best::format_spec& spec,
+                                          const best::formattable auto& value) {
+  if (!fmt_) return *this;
   separator();
   fmt_->format(spec, value);
+  return *this;
 }
 
-/// # `block::field()`
-///
-/// Submits a single keyed entry to this block. This is a wrapper over
-/// `pair()` that always uses a default formatting spec (a `{}`) for the key.
-void formatter::block::field(best::str name,
-                             const best::formattable auto& value) {
-  if (!fmt_) return;
+formatter::block& formatter::block::field(best::str name,
+                                          const best::formattable auto& value) {
+  if (!fmt_) return *this;
   separator();
   fmt_->format(format_spec{}, name);
   fmt_->write(": ");
   fmt_->format(value);
+  return *this;
 }
-void formatter::block::field(best::str name, const best::format_spec& v_spec,
-                             const best::formattable auto& value) {
-  if (!fmt_) return;
+formatter::block& formatter::block::field(best::str name,
+                                          const best::format_spec& v_spec,
+                                          const best::formattable auto& value) {
+  if (!fmt_) return *this;
   separator();
   fmt_->format(format_spec{}, name);
   fmt_->write(": ");
   fmt_->format(v_spec, value);
+  return *this;
 }
 
-/// # `block::pair()`
-///
-/// Submits a single keyed entry to this block.
-void formatter::block::pair(const best::formattable auto& key,
-                            const best::formattable auto& value) {
-  if (!fmt_) return;
+formatter::block& formatter::block::pair(const best::formattable auto& key,
+                                         const best::formattable auto& value) {
+  if (!fmt_) return *this;
   separator();
   fmt_->format(key);
   fmt_->write(": ");
   fmt_->format(value);
+  return *this;
 }
-void formatter::block::pair(const best::format_spec& k_spec,
-                            const best::formattable auto& key,
-                            const best::format_spec& v_spec,
-                            const best::formattable auto& value) {
-  if (!fmt_) return;
+formatter::block& formatter::block::pair(const best::format_spec& k_spec,
+                                         const best::formattable auto& key,
+                                         const best::format_spec& v_spec,
+                                         const best::formattable auto& value) {
+  if (!fmt_) return *this;
   separator();
   fmt_->format(k_spec, key);
   fmt_->write(": ");
   fmt_->format(v_spec, value);
+  return *this;
 }
 
 template <best::formattable... Args>
@@ -582,6 +583,20 @@ void eprintln(best::format_template<Args...> templ, const Args&... args) {
   result.push('\n');
   ::fwrite(result.data(), 1, result.size(), stderr);
 }
+
+namespace result_internal {
+// See the matching decl in result.h.
+struct fmt final {
+  template <typename T, typename E>
+  BEST_INLINE_SYNTHETIC static void check_ok(const best::result<T, E>* result) {
+    if (auto err = result->err()) {
+      auto message = best::format("unwrapped a best::err({:?})",
+                                  best::make_formattable(*err));
+      best::crash_internal::crash("%.*s", message.size(), message.data());
+    }
+  }
+};
+}  // namespace result_internal
 }  // namespace best
 
 #endif  // BEST_TEXT_FORMAT_H_

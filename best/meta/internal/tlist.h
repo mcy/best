@@ -256,19 +256,13 @@ concept t_callable = (... && best::callable<F, void(), Elems>);
 
 template <typename F, typename... Elems>
 concept v_callable = sizeof...(Elems) > 0 &&
-                     (... && requires(F f) { best::call(f, Elems::value); });
+                     (... && best::callable<F, void(Elems)>);
 
 template <typename F, typename... Elems>
 concept ts_callable = best::callable<F, void(), Elems...>;
 
 template <typename F, typename... Elems>
-concept vs_callable =
-    sizeof...(Elems) > 0 && requires(F f) { best::call(f, Elems{}...); };
-
-template <typename F, typename... Elems>
-concept tvs_callable =
-    sizeof...(Elems) > 0 && requires(F f) { best::call(f, Elems::value...); };
-
+concept vs_callable = sizeof...(Elems) > 0 && best::callable<F, void(Elems...)>;
 }  // namespace best::tlist_internal
 
 #endif  // BEST_META_INTERNAL_TLIST_H_

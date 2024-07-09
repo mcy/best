@@ -318,7 +318,7 @@ class tlist final {
     return opt_size{};
   }
   static constexpr auto find(tlist_internal::v_callable<Elems...> auto pred) {
-    return find([&]<typename V> { return pred(V::value); });
+    return find([&]<typename V> { return best::call(pred, V{}); });
   }
   template <typename T>
   static constexpr auto find() {
@@ -331,7 +331,7 @@ class tlist final {
   static constexpr auto find(auto value)
     requires(best::equatable<decltype(value), decltype(Elems::value)> && ...)
   {
-    return find([&](auto that) { return value == that; });
+    return find([&](auto that) { return value == that.value; });
   }
 
   /// # `tlist::find_unique()`
@@ -349,7 +349,7 @@ class tlist final {
   }
   static constexpr auto find_unique(
       tlist_internal::v_callable<Elems...> auto pred) {
-    return find_unique([&]<typename V> { return pred(V::value); });
+    return find_unique([&]<typename V> { return best::call(pred, V{}); });
   }
   template <typename T>
   static constexpr auto find_unique() {
@@ -364,7 +364,7 @@ class tlist final {
   static constexpr auto find_unique(auto value)
     requires(best::equatable<decltype(value), decltype(Elems::value)> && ...)
   {
-    return find_unique([&](auto that) { return value == that; });
+    return find_unique([&](auto that) { return value == that.value; });
   }
 
   /// # `tlist::map()`
@@ -396,7 +396,7 @@ class tlist final {
     (best::call<Elems>(BEST_FWD(cb)), ...);
   }
   static constexpr void each(tlist_internal::v_callable<Elems...> auto&& cb) {
-    (best::call(BEST_FWD(cb), Elems::value), ...);
+    (best::call(BEST_FWD(cb), Elems{}), ...);
   }
 
   /// # `tlist::apply()`
@@ -409,7 +409,7 @@ class tlist final {
   }
   static constexpr decltype(auto) apply(
       tlist_internal::vs_callable<Elems...> auto&& cb) {
-    return best::call(BEST_FWD(cb), Elems::value...);
+    return best::call(BEST_FWD(cb), Elems{}...);
   };
   template <template <typename...> typename Trait>
   static constexpr Trait<Elems...> apply() {

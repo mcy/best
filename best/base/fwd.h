@@ -98,6 +98,9 @@ class track_location;
 // best/meta/empty.h
 struct empty;
 
+// best/meta/names.h
+class type_names;
+
 // best/meta/reflect.h
 template <typename>
 class mirror;

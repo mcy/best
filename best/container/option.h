@@ -753,7 +753,7 @@ class option final {
 
   constexpr void check_ok(best::location loc = best::here) const {
     if (best::unlikely(is_empty())) {
-      crash_internal::crash({"attempted access of empty best::option", loc});
+      crash_internal::crash({"unwrapped a best::none", loc});
     }
   }
 
