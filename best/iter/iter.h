@@ -121,7 +121,7 @@ class iter final {
   /// requirement that it continue to yield `best::none` forever
   constexpr best::option<item> next() { return impl_.next(); }
 
-#define BEST_ITER_FWD(func_)                           \
+#define BEST_ITER_FWD(func_)                            \
   if constexpr (requires { BEST_MOVE(impl_).func_(); }) \
     return BEST_MOVE(impl_).func_();
 
