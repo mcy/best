@@ -149,15 +149,14 @@ void cli::type_erase_field(auto f) {
       about.names.push(best::format("{}", group.letter), group.vis);
     }
 
-    best::str name = group.name;
-    if (name.is_empty()) name = about.field;
-    about.names.push(best::strbuf(name), group.vis);
+    about.names.push(best::strbuf(group.name), group.vis);
   }
 
   aliases.each([&](auto alias) {
     static_assert(sizeof(alias) == 0 || poses.is_empty(),
                   "cannot apply cli::alias to a positional");
-    about.names.push(best::strbuf(alias.name), alias.vis);
+    about.names.push(best::strbuf(alias.name),
+                     alias.vis.value_or(about.names[0].second()));
   });
 
   if constexpr (!flags.is_empty()) {

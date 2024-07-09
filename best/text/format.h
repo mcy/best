@@ -433,7 +433,7 @@ void formatter::write(const best::string_type auto& string) {
     size_t watermark = 0;
     for (auto [idx, r] : string.rune_indices()) {
       if (r != '\n') continue;
-      if (idx != watermark + 1) {
+      if (idx != watermark + 1 && idx > 0) {
         update_indent();
         out_->push_lossy(string[{.start = watermark, .end = idx - 1}]);
       }

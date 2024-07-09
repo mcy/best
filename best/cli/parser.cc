@@ -173,7 +173,9 @@ void cli::init() {
   // into the lookup tables.
 
   for (auto [idx, f] : impl_->flags.iter().enumerate()) {
-    for (auto& [name, vis] : f.about.names) {
+    auto has_letter = f.tag->letter != '\0';
+    for (auto [name_idx, pair] : f.about.names.iter().enumerate()) {
+      auto& [name, vis] = pair;
       if (vis == Delete) continue;
 
       normalize(name, f.about);
@@ -182,12 +184,11 @@ void cli::init() {
                   f.about.strukt->path(), f.about.field, name);
       }
 
-      bool is_letter = idx == 0 && f.tag->letter != '\0';
       impl_->sorted_flags.push(impl::entry{
           .key = name,
           .idx = idx,
-          .is_letter = is_letter,
-          .is_alias = idx > size_t(is_letter),
+          .is_letter = name_idx == 0 && has_letter,
+          .is_alias = name_idx > size_t(has_letter),
           .vis = vis,
       });
     }
@@ -236,30 +237,35 @@ void cli::init() {
       update(g.about);
     }
 
-    for (auto& [name, vis] : g->about.names) {
+    auto has_letter = g->tag->letter != '\0';
+    for (auto [name_idx, pair] : g->about.names.iter().enumerate()) {
+      auto& [name, vis] = pair;
       if (vis == Delete) continue;
 
-      normalize(name, g->about);
-      if (name == "help" || name == "help-hidden" || name == "version") {
-        best::wtf("field {}::{}'s name ({:?}) is reserved and may not be used",
-                  g->about.strukt->path(), g->about.field, name);
+      bool is_flatten = !has_letter && name.is_empty();
+      if (!is_flatten) {
+        normalize(name, g->about);
+        if (name == "help" || name == "help-hidden" || name == "version") {
+          best::wtf(
+              "field {}::{}'s name ({:?}) is reserved and may not be used",
+              g->about.strukt->path(), g->about.field, name);
+        }
+
+        impl_->sorted_flags.push(impl::entry{
+            .key = name,
+            .idx = idx,
+            .is_group = true,
+            .is_letter = name_idx == 0 && has_letter,
+            .is_alias = name_idx > size_t(has_letter),
+        });
+
+        // Letter names for groups are parsed in a different way that does not
+        // require generating keys for them other than the one above.
+        if (name_idx == 0 && has_letter) continue;
       }
 
-      bool is_letter = idx == 0 && g->tag->letter != '\0';
-      impl_->sorted_flags.push(impl::entry{
-          .key = name,
-          .idx = idx,
-          .is_group = true,
-          .is_letter = is_letter,
-          .is_alias = idx > size_t(is_letter),
-      });
-
-      // Letter names for groups are parsed in a different way that does not
-      // require generating keys for them other than the one above.
-      if (is_letter) continue;
-
       for (auto entry : g->child->impl_->sorted_flags) {
-        if (entry.is_letter) continue;
+        if (!is_flatten && entry.is_letter) continue;
         if (!name.is_empty()) {
           entry.key = best::format("{}.{}", name, entry.key);
         }
@@ -360,6 +366,41 @@ best::result<void, cli::error> cli::parse(
         arg = split->second();
       }
 
+      auto push_group = [&](size_t idx, bool update_arg =
+                                            true) -> best::result<void, error> {
+        // We need to parse a flag from the next argument, of the form e.g.
+        // -C opt-level=3.
+
+        if (update_arg) {
+          // This type of flag cannot use a = argument.
+          if (arg) {
+            return best::err(
+                best::format("{0}: fatal: unexpected argument after {1}",
+                             ctx.exe, *next),
+                /*is_fatal=*/true);
+          }
+
+          auto next_arg = iter.next();
+          if (!next_arg) {
+            return best::err(
+                best::format("{0}: fatal: expected sub-flag after {1}", ctx.exe,
+                             *next),
+                /*is_fatal=*/true);
+          }
+
+          // Update flag and arg.
+          flag = *next_arg;
+          if (auto split = flag.split_once("=")) {
+            flag = split->first();
+            arg = split->second();
+          }
+        }
+
+        // And nest.
+        ctx.cur = ctx.sub->impl_->groups[idx].child;
+        return best::ok();
+      };
+
       if (is_letter) {
         // This may be a run of short flags, like -xvzf file, or a single short
         // flag group, like -Copt-level. To discover this, we need to peel off
@@ -378,8 +419,11 @@ best::result<void, cli::error> cli::parse(
           if (!e || !e->is_letter) break;
           if (e->is_group) {
             // This is a nesting of the form -Copt-level. Unlike the case below,
-            // we do not need to update flag/arg.
-            ctx.cur = ctx.sub->impl_->groups[e->idx].child;
+            // we do not need to update flag/arg if there remain runes to be
+            // consumed.
+            BEST_GUARD(push_group(e->idx, runes->rest().is_empty()));
+            flag = runes->rest();
+            continue;
           }
 
           const auto& f = ctx.cur->impl_->flags[e->idx];
@@ -423,34 +467,7 @@ best::result<void, cli::error> cli::parse(
 
         if (auto e = ctx.cur->impl_->find_flag(flag)) {
           if (e->is_group) {
-            // We need to parse a flag from the next argument, of the form e.g.
-            // -C opt-level=3.
-
-            // This type of flag cannot use a = argument.
-            if (arg) {
-              return best::err(
-                  best::format("{0}: fatal: unexpected argument after {1}",
-                               ctx.exe, *next),
-                  /*is_fatal=*/true);
-            }
-
-            auto next = iter.next();
-            if (!next) {
-              return best::err(
-                  best::format("{0}: fatal: expected sub-flag after {1}",
-                               ctx.exe, *next),
-                  /*is_fatal=*/true);
-            }
-
-            // Update flag and arg.
-            flag = *next;
-            if (auto split = flag.split_once("=")) {
-              flag = split->first();
-              arg = split->second();
-            }
-
-            // And nest.
-            ctx.cur = ctx.sub->impl_->groups[e->idx].child;
+            BEST_GUARD(push_group(e->idx));
             continue;
           }
 
@@ -486,7 +503,7 @@ best::result<void, cli::error> cli::parse(
             best::format("{0}: fatal: unknown flag {1:?}\n"
                          "{0}: you can use `--` if you meant to pass "
                          "this as a positional argument",
-                         ctx.exe, next),
+                         ctx.exe, *next),
             /*is_fatal=*/true);
       }
     }
@@ -566,7 +583,7 @@ best::strbuf cli::usage(best::pretext<wtf8> exe, bool hidden) const {
   // Append all of the letters.
   bool needs_dash = true;
   for (const auto& e : impl_->sorted_flags) {
-    if (!e.is_letter) continue;
+    if (!e.is_letter || !visible(e.vis, hidden)) continue;
     if (std::exchange(needs_dash, false)) {
       out.push(" -");
     }
@@ -627,27 +644,25 @@ best::strbuf cli::usage(best::pretext<wtf8> exe, bool hidden) const {
 
   // This is how wide the column for a flag to be in-line with its
   // help is.
-  constexpr size_t Width = 32;
+  constexpr size_t Width = 28;
 
   // Next, print all of the subcommands.
   bool first = true;
   for (const auto& e : impl_->sorted_subs) {
     if (!visible(e.vis, hidden) || e.is_alias) continue;
 
-    if (!std::exchange(first, false)) {
+    if (std::exchange(first, false)) {
       out.push("# Subcommands\n");
     }
 
-    out.push("  ");
+    indent(6);
     out.push(e.key);
-    size_t extra = Width - width_of(e.key) - 2;
+    size_t extra = Width - width_of(e.key) - 6;
     if (extra <= Width) {
-      indent(extra);
-      out.push("  ");
+      indent(extra + 2);
     } else {
       out.push("\n");
-      indent(Width);
-      out.push("  ");
+      indent(Width + 2);
     }
 
     bool first = true;
@@ -687,7 +702,7 @@ best::strbuf cli::usage(best::pretext<wtf8> exe, bool hidden) const {
       }
     }
 
-    if (has_letter != '\0' && !e.is_letter) continue;
+    if (has_letter && !e.is_letter) continue;
 
     bool is_visible = false;
     for (auto& [name, vis] : about->names) {

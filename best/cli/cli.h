@@ -98,8 +98,9 @@ class cli final {
   struct alias final {
     /// Same restrictions as the `name` field on the corresponding tag.
     best::str name;
-    /// The visibility for this alias.
-    visibility vis = Public;
+    /// The visibility for this alias. If not specified, uses the visibility
+    /// of the tag it is attached to.
+    best::option<visibility> vis;
   };
 
   /// # `cli::flag`

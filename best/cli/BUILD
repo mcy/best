@@ -52,6 +52,25 @@ cc_test(
   deps = [
     ":cli",
     ":parser",
+    ":toy_flags",
     "//best/test",
+  ]
+)
+
+cc_library(
+  name = "toy_flags",
+  hdrs = ["toy_flags.h"],
+  deps = [
+    ":cli",
+  ],
+  visibility = ["//visibility:private"],
+)
+
+cc_binary(
+  name = "toy",
+  srcs = ["toy.cc"],
+  deps = [
+    ":app",
+    ":toy_flags",
   ]
 )
