@@ -22,9 +22,9 @@
 
 #include <cstddef>
 
+#include "best/base/guard.h"
 #include "best/container/option.h"
 #include "best/container/span.h"
-#include "best/meta/guard.h"
 #include "best/text/rune.h"
 
 //! ASCII and other 7- and 8-bit encodings. Unlike the encodings from `utf.h`,

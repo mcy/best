@@ -23,13 +23,13 @@
 #include <array>
 #include <cstddef>
 
+#include "best/base/tags.h"
 #include "best/container/internal/pun.h"
 #include "best/container/object.h"
 #include "best/container/pun.h"
 #include "best/math/int.h"
 #include "best/meta/init.h"
 #include "best/meta/internal/init.h"
-#include "best/meta/tags.h"
 
 //! Internal implementation of best::choice.
 

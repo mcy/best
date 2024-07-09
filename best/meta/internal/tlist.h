@@ -253,21 +253,21 @@ concept uniq = (set<>{} + ... + entry<Ts>{}).value;
 // type or value arguments.
 template <typename F, typename... Elems>
 concept t_callable = (... && best::callable<F, void(), Elems>);
-
-template <typename F, typename... Elems>
-concept v_callable = sizeof...(Elems) > 0 &&
-                     (... && requires(F f) { best::call(f, Elems::value); });
-
 template <typename F, typename... Elems>
 concept ts_callable = best::callable<F, void(), Elems...>;
 
 template <typename F, typename... Elems>
-concept vs_callable =
-    sizeof...(Elems) > 0 && requires(F f) { best::call(f, Elems{}...); };
+concept v_callable = sizeof...(Elems) > 0 &&
+                     (... && best::callable<F, void(Elems)>);
+template <typename F, typename... Elems>
+concept vs_callable = sizeof...(Elems) > 0 && best::callable<F, void(Elems...)>;
 
 template <typename F, typename... Elems>
-concept tvs_callable =
-    sizeof...(Elems) > 0 && requires(F f) { best::call(f, Elems::value...); };
+concept vt_callable = sizeof...(Elems) > 0 &&
+                      (... && requires(F f) { best::call<Elems::value>(f); });
+template <typename F, typename... Elems>
+concept vts_callable =
+    sizeof...(Elems) > 0 && requires(F f) { best::call<Elems::value...>(f); };
 
 }  // namespace best::tlist_internal
 

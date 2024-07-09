@@ -20,9 +20,9 @@
 #ifndef BEST_MATH_CONV_H_
 #define BEST_MATH_CONV_H_
 
+#include "best/base/guard.h"
 #include "best/math/int.h"
 #include "best/math/overflow.h"
-#include "best/meta/guard.h"
 #include "best/text/str.h"
 
 //! Number-string conversion primitives.

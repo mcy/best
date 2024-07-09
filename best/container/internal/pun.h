@@ -23,8 +23,8 @@
 #include <type_traits>
 
 #include "best/base/port.h"
+#include "best/base/tags.h"
 #include "best/container/object.h"
-#include "best/meta/tags.h"
 #include "best/meta/tlist.h"
 
 //! Internal implementation of best::pun.

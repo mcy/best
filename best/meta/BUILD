@@ -1,11 +1,6 @@
 package(default_visibility = ["//visibility:public"])
 
 cc_library(
-  name = "tags",
-  hdrs = ["tags.h"],
-)
-
-cc_library(
   name = "bit_enum",
   hdrs = ["bit_enum.h"],
 )
@@ -43,23 +38,14 @@ cc_library(
 )
 
 cc_library(
-  name = "guard",
-  hdrs = ["guard.h"],
-  deps = [
-    ":tlist",
-  ]
-)
-
-cc_library(
   name = "init",
   hdrs = [
     "init.h",
     "internal/init.h",
   ],
   deps = [
-    ":bit_enum",
-    ":tags",
     ":taxonomy",
+    "//best/base:tags",
   ]
 )
 

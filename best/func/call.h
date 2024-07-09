@@ -42,33 +42,49 @@ namespace best {
 ///
 /// Additionally, any type parameters passed to this function will be forwarded
 /// to `call`.
-template <typename... TParams>
+template <typename... Ts>
 BEST_INLINE_SYNTHETIC constexpr decltype(auto) call(auto &&...args)
   requires requires {
-    call_internal::call(call_internal::tag<TParams...>{}, BEST_FWD(args)...);
+    call_internal::call(call_internal::tag<Ts...>{}, BEST_FWD(args)...);
   }
 {
-  return call_internal::call(call_internal::tag<TParams...>{},
-                             BEST_FWD(args)...);
+  return call_internal::call(call_internal::tag<Ts...>{}, BEST_FWD(args)...);
+}
+template <auto... vs>
+BEST_INLINE_SYNTHETIC constexpr decltype(auto) call(auto &&f, auto &&...args)
+  requires(sizeof...(vs) > 0) && requires {
+    BEST_FWD(f).template operator()<vs...>(BEST_FWD(args)...);
+  }
+{
+  return BEST_FWD(f).template operator()<vs...>(BEST_FWD(args)...);
 }
 
 /// # `best::call_devoid()`
 ///
 /// `best::call`s a function, and replaces a `void` return with a `best::empty`.
-template <typename... TParams>
+template <typename... Ts>
 BEST_INLINE_SYNTHETIC constexpr decltype(auto) call_devoid(auto &&...args)
-  requires requires {
-    call_internal::call(call_internal::tag<TParams...>{}, BEST_FWD(args)...);
-  }
+  requires requires { best::call<Ts...>(BEST_FWD(args)...); }
 {
-  using Out = decltype(call_internal::call(call_internal::tag<TParams...>{},
-                                           BEST_FWD(args)...));
+  using Out = decltype(best::call<Ts...>(BEST_FWD(args)...));
   if constexpr (best::is_void<Out>) {
-    call_internal::call(call_internal::tag<TParams...>{}, BEST_FWD(args)...);
+    best::call<Ts...>(BEST_FWD(args)...);
     return best::empty{};
   } else {
-    return call_internal::call(call_internal::tag<TParams...>{},
-                               BEST_FWD(args)...);
+    return best::call<Ts...>(BEST_FWD(args)...);
+  }
+}
+template <auto... vs>
+BEST_INLINE_SYNTHETIC constexpr decltype(auto) call_devoid(auto &&...args)
+  requires(sizeof...(vs) > 0) &&
+          requires { best::call<vs...>(BEST_FWD(args)...); }
+{
+  using Out = decltype(best::call<vs...>(BEST_FWD(args)...));
+  if constexpr (best::is_void<Out>) {
+    best::call<vs...>(BEST_FWD(args)...);
+    return best::empty{};
+  } else {
+    return best::call<vs...>(BEST_FWD(args)...);
   }
 }
 
@@ -93,8 +109,8 @@ BEST_INLINE_SYNTHETIC constexpr decltype(auto) call_devoid(auto &&...args)
 ///
 /// Arguments after the function signature are explicit template parameters for
 /// `operator()`.
-template <typename F, typename Signature, typename... TParams>
-concept callable = call_internal::can_call<F>(call_internal::tag<TParams...>{},
+template <typename F, typename Signature, typename... Ts>
+concept callable = call_internal::can_call<F>(call_internal::tag<Ts...>{},
                                               (Signature *)nullptr);
 
 /// # `best::call_result`.

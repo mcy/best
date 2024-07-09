@@ -215,30 +215,44 @@ struct int_range final {
 
  private:
   struct iter_impl {
-    Int start, count;
-    bool plus_one = false;
+    Int start_, count_;
+    bool plus_one_ = false;
+
+   private:
+    friend int_range;
+    friend best::iter<iter_impl>;
+    friend best::iter<iter_impl&>;
 
     constexpr opt_t next() {
-      if (plus_one) {
-        plus_one = false;
+      if (plus_one_) {
+        plus_one_ = false;
 
-        auto ret = start;
-        start = (best::overflow(start) + 1).wrap();
+        auto ret = start_;
+        start_ = (best::overflow(start_) + 1).wrap();
         return ret;
       }
 
-      if (count == 0) return {};
-      count = (best::overflow(count) - 1).wrap();
+      if (count_ == 0) return {};
+      count_ = (best::overflow(count_) - 1).wrap();
 
-      auto ret = start;
-      start = (best::overflow(start) + 1).wrap();
+      auto ret = start_;
+      start_ = (best::overflow(start_) + 1).wrap();
       return ret;
     }
 
     constexpr std::array<size_t, 2> size_hint() const {
       // TODO(mcyoung): This will overflow for uint64 ranges, need to return
       // something else.
-      return {count, count};
+      return {count_, count_};
+    }
+
+    constexpr size_t count() && {
+      // We can just wrap here if count_ is larger than best::max_of<size_t>.
+      return size_t(count_) + size_t(plus_one_);
+    }
+
+    constexpr best::option<Int> last() && {
+      return (best::overflow(start_) + count_ + Int(plus_one_) - 1).wrap();
     }
   };
 
@@ -268,10 +282,11 @@ constexpr auto int_range<Int>::iter() const {
   if (start == Min && ((including_end && *including_end == Max) ||
                        (!including_end && !end && !count))) {
     return best::iter(
-        iter_impl{.start = Min, .count = Int(-1), .plus_one = true});
+        iter_impl{.start_ = Min, .count_ = Int(-1), .plus_one_ = true});
   }
 
-  return best::iter(iter_impl{.start = start, .count = *normalize(Max).count});
+  return best::iter(
+      iter_impl{.start_ = start, .count_ = *normalize(Max).count});
 }
 
 template <typename Int>

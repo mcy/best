@@ -24,10 +24,10 @@
 
 #include <cstddef>
 
+#include "best/base/guard.h"
 #include "best/container/span.h"
 #include "best/math/overflow.h"
 #include "best/memory/bytes.h"
-#include "best/meta/guard.h"
 #include "best/meta/taxonomy.h"
 #include "best/text/encoding.h"
 #include "best/text/rune.h"
@@ -488,6 +488,7 @@ class pretext final {
   /// Creates a new string from some other string type whose encoding we can
   /// divine.
   constexpr pretext(const best::string_type auto& data)
+    requires best::same<encoding, best::encoding_type<decltype(data)>>
       : span_(data), enc_(best::encoding_of(data)) {}
 
   /// # `pretext::pretext(span)`
@@ -496,7 +497,8 @@ class pretext final {
   template <best::contiguous R>
   constexpr pretext(const R& data, encoding enc = {})
     requires best::same<best::unqual<best::data_type<R>>, code> &&
-                 (!best::string_type<R>)
+                 (!best::string_type<R> ||
+                  !best::same<encoding, best::encoding_type<decltype(data)>>)
       : span_(data), enc_(BEST_MOVE(enc)) {}
 
   /// # `pretext::from_nul()`
@@ -738,8 +740,12 @@ class pretext final {
     return span_ <=> best::span<const code>::from_nul(lit);
   }
 
-  // Make this into a best::string_type.
-  constexpr friend const encoding& BestEncoding(auto, const pretext& t) {
+  // Make this into a best::string_type. Need to make this into a funny template
+  // to avoid infinite recursion while checking
+  // best::string_type<best::pretext>.
+  constexpr friend const encoding& BestEncoding(auto, const auto& t)
+    requires best::same<decltype(t), const pretext&>
+  {
     return t.enc();
   }
 
@@ -958,7 +964,7 @@ constexpr std::array<size_t, 2> splits(best::pretext<N> haystack,
     size_t before = 0;
     while (auto next = runes.next()) {
       if (!next->ok()) return {-1, -1};
-      if (**next == first) break;
+      if (*next->ok() == first) break;
       before = haystack.size() - runes->rest().size();
     }
 
@@ -978,7 +984,7 @@ constexpr std::array<size_t, 2> splits(best::pretext<E> haystack,
   code<E> buf[E::About.max_codes_per_rune];
   auto encoded = needle.encode(buf, haystack.enc());
   return str_internal::splits(haystack,
-                              best::pretext<E>(*encoded, haystack.enc()));
+                              best::pretext<E>(*encoded.ok(), haystack.enc()));
 }
 
 template <typename E>
@@ -1228,7 +1234,7 @@ constexpr best::option<pretext<E>> pretext<E>::strip_prefix(
 
     while (auto r1 = needle.next()) {
       auto r2 = haystack.next();
-      if (r2.is_empty() || r2->err() || *r1 != **r2) return best::none;
+      if (r2.is_empty() || r2->err() || *r1 != *r2->ok()) return best::none;
     }
     return haystack->rest();
   } else {
@@ -1295,12 +1301,12 @@ pretext<E>::split_once(best::callable<bool(rune)> auto&& pred) const {
 
 template <typename E>
 constexpr auto pretext<E>::split(best::rune needle) const {
-  return split_iter<rune>(split_impl<rune>(needle), *this);
+  return split_iter<rune>(split_impl<rune>(needle, *this));
 }
 template <typename E>
 constexpr auto pretext<E>::split(const best::string_type auto& needle) const {
   pretext text = needle;
-  return split_iter<decltype(text)>(split_impl<decltype(text)>(text), *this);
+  return split_iter<decltype(text)>(split_impl<decltype(text)>(text, *this));
 }
 template <typename E>
 constexpr auto pretext<E>::split(best::callable<bool(rune)> auto&& pred) const {

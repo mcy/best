@@ -24,7 +24,7 @@
 
 #include <cstdint>
 
-#include "best/meta/tags.h"
+#include "best/base/tags.h"
 #include "best/meta/taxonomy.h"
 
 //! Forward declarations of all types in best that can be forward-declared.
@@ -97,6 +97,9 @@ class track_location;
 
 // best/meta/empty.h
 struct empty;
+
+// best/meta/names.h
+class type_names;
 
 // best/meta/reflect.h
 template <typename>

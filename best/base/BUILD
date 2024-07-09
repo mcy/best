@@ -4,14 +4,19 @@ cc_library(
   name = "fwd",
   hdrs = ["fwd.h"],
   deps = [
+    ":tags",
     "//best/meta:taxonomy",
-    "//best/meta:tags",
   ]
 )
 
 cc_library(
   name = "port",
   hdrs = ["port.h"],
+)
+
+cc_library(
+  name = "tags",
+  hdrs = ["tags.h"],
 )
 
 cc_library(
@@ -24,6 +29,15 @@ cc_library(
   name = "unsafe",
   hdrs = ["unsafe.h"],
   deps = [":port"],
+)
+
+cc_library(
+  name = "guard",
+  hdrs = ["guard.h"],
+  deps = [
+    ":tags",
+    "//best/meta:taxonomy",
+  ]
 )
 
 cc_library(

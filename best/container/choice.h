@@ -23,11 +23,11 @@
 #include <initializer_list>
 
 #include "best/base/ord.h"
+#include "best/base/tags.h"
 #include "best/container/internal/choice.h"
 #include "best/log/internal/crash.h"
 #include "best/log/location.h"
 #include "best/meta/init.h"
-#include "best/meta/tags.h"
 
 //! A sum type, like `std::variant`.
 //!

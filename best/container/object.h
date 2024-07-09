@@ -27,9 +27,9 @@
 
 #include "best/base/ord.h"
 #include "best/base/port.h"
+#include "best/base/tags.h"
 #include "best/meta/empty.h"
 #include "best/meta/init.h"
-#include "best/meta/tags.h"
 #include "best/meta/traits.h"
 
 //! Objectification: turn any C++ type into a something you can use as a class

@@ -62,6 +62,14 @@ best::test ToString = [](auto& t) {
   t.expect_eq(best::format("{:?}", x3), "(1, void, 3)");
 };
 
+best::test Each = [](auto& t) {
+  best::row x0 = {1, 2};
+
+  int sum = 0;
+  x0.each([&](int x) { sum += x; });
+  t.expect_eq(sum, 3);
+};
+
 struct Tag {
   using BestRowKey = Tag;
   bool operator==(const Tag&) const = default;
