@@ -35,7 +35,15 @@ void app::install() {
   }
 }
 
-best::span<const best::pretext<wtf8>> app::argv() { return real_argv; }
+best::pretext<wtf8> app::exe() {
+  if (real_argv.is_empty()) return "";
+  return real_argv[0];
+}
+
+best::span<const best::pretext<wtf8>> app::argv() {
+  if (real_argv.is_empty()) return {};
+  return real_argv[{.start = 1}];
+}
 
 [[noreturn]] void app::start(int argc, char** argv) {
   static std::atomic<bool> called = false;
@@ -52,8 +60,7 @@ best::span<const best::pretext<wtf8>> app::argv() { return real_argv; }
     real_argv.push(best::pretext<wtf8>::from_nul(arg));
   }
 
-  main->shim_(main->main_);
-  std::abort();
+  std::exit(main->shim_(main->main_));
 }
 }  // namespace best
 

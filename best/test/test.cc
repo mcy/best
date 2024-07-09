@@ -60,7 +60,7 @@ void test::init() {
   name_ = symbol_name(this, where());
 }
 
-bool test::run_all() {
+bool test::run_all(const flags& flags) {
   best::eprint("{}testing:", Bold);
 
   for (auto arg : best::app::argv()) {

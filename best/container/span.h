@@ -900,8 +900,7 @@ constexpr span<T, n> span<T, n>::from_nul(T* data) {
   }
 
   auto ptr = data;
-  while (*ptr++ != T{0})
-    ;
+  while (*ptr++ != T{0});
   return best::span(data, ptr - data - 1);
 }
 

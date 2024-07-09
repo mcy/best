@@ -21,5 +21,7 @@
 #include "best/test/test.h"
 
 namespace best {
-best::app TestApp = [] { return int(!best::test::run_all()); };
+best::app TestApp = [](test::flags& flags) {
+  return int(!best::test::run_all(flags));
+};
 }  // namespace best
