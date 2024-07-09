@@ -61,7 +61,7 @@ struct utf32 final {
     auto next = output->take_first(1).ok_or(encoding_error::OutOfBounds);
     BEST_GUARD(next);
 
-    (*next)[0] = rune;
+    (*next.ok())[0] = rune;
     return best::ok();
   }
 
@@ -71,7 +71,7 @@ struct utf32 final {
     auto next = input->take_first(1).ok_or(encoding_error::OutOfBounds);
     BEST_GUARD(next);
 
-    return rune::from_int((*next)[0]).ok_or(encoding_error::Invalid);
+    return rune::from_int((*next.ok())[0]).ok_or(encoding_error::Invalid);
   }
 
   template <int = 0>
@@ -80,7 +80,7 @@ struct utf32 final {
     auto next = input->take_last(1).ok_or(encoding_error::OutOfBounds);
     BEST_GUARD(next);
 
-    return rune::from_int((*next)[0]).ok_or(encoding_error::Invalid);
+    return rune::from_int((*next.ok())[0]).ok_or(encoding_error::Invalid);
   }
 
   constexpr bool operator==(const utf32&) const = default;
