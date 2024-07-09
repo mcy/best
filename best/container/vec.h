@@ -497,9 +497,17 @@ class vec final {
   void splice(size_t idx, const Range& range)
     requires best::constructible<T, decltype(*best::data(range))>
   {
+    // In the case that this == &range, calling insert_uninit will also grow the
+    // size of `range`, because the two pointers alias. Thus, we must read the
+    // size now before we do that.
+    auto size = best::size(range);
+
     auto ptr = insert_uninit(unsafe("we call copy_from immediately after this"),
                              idx, best::size(range));
-    best::span(ptr, best::size(range)).copy_from(best::span(range));
+
+    for (size_t i : best::bounds{.count = size}) {
+      (ptr + i).construct_in_place(best::data(range)[i]);
+    }
   }
 
   /// # `vec::clear()`.
@@ -814,13 +822,12 @@ void vec<T, max_inline, A>::set_size(unsafe, size_t new_size) {
 template <best::relocatable T, size_t max_inline, best::allocator A>
 void vec<T, max_inline, A>::assign(const contiguous auto& that) {
   if (best::equal(this, &that)) return;
+
   using Range = best::unref<decltype(that)>;
   if constexpr (best::is_vec<Range>) {
-    if (!that.on_heap() && best::copyable<T, trivially> &&
+    if (!on_heap() && !that.on_heap() && best::copyable<T, trivially> &&
         best::same<T, typename Range::type> && MaxInline == Range::MaxInline) {
-      std::memcpy(this, &that, that.size() * size_of<T>);
-      set_size(unsafe("updating size to that of the memcpy'd range"),
-               that.size());
+      std::memcpy(this, &that, inlined_region_size());
       return;
     }
   }
