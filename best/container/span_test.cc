@@ -368,6 +368,7 @@ struct NonPod {
   bool operator==(int y) const { return x == y; }
   friend auto& operator<<(auto& os, NonPod np) { return os << np.x; }
 };
+static_assert(!best::relocatable<NonPod, best::trivially>);
 
 best::test Shift = [](auto& t) {
   unsafe u("test");
@@ -389,8 +390,6 @@ best::test Shift = [](auto& t) {
 
   ints.shift_within(u, 1, 3, 4);
   t.expect_eq(best::black_box(ints), best::span{1, 4, 5, 2, 3, d, d, 8});
-  ints[5] = 2;
-  ints[6] = 3;
 
   ints.shift_within(u, 3, 1, 4);
   t.expect_eq(best::black_box(ints), best::span{1, d, d, 4, 5, 2, 3, 8});
@@ -410,10 +409,20 @@ best::test Shift = [](auto& t) {
 
   nps.shift_within(u, 1, 3, 4);
   t.expect_eq(best::black_box(nps), best::span{1, 4, 5, 2, 3, d, d, 8});
-  nps[5] = 2;
-  nps[6] = 3;
 
   nps.shift_within(u, 3, 1, 4);
   t.expect_eq(best::black_box(nps), best::span{1, d, d, 4, 5, 2, 3, 8});
+};
+
+best::test IsSubarray = [](auto& t) {
+  int x[] = {1, 2, 3};
+  int y[] = {1, 2};
+
+  t.expect(best::span(x).has_subarray(x));
+  t.expect(best::span(x).has_subarray(best::span(x)[{.start = 1}]));
+  t.expect(best::span(x).has_subarray(best::span(x)[{.end = 1}]));
+  t.expect(best::span(x).has_subarray(best::span(x)[{.start = 1, .end = 2}]));
+
+  t.expect(!best::span(x).has_subarray(y));
 };
 }  // namespace best::span_test
