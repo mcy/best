@@ -27,7 +27,7 @@ cc_library(
     ":int",
     ":overflow",
     "//best/container:result",
-    "//best/meta:guard",
+    "//best/base:guard",
     "//best/text:str",
   ]
 )

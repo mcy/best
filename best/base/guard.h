@@ -21,6 +21,7 @@
 #define BEST_BASE_GUARD_H_
 
 #include "best/base/tags.h"
+#include "best/meta/taxonomy.h"
 
 //! A middling approximation of Rust's `?` operator.
 //!

@@ -36,7 +36,7 @@ cc_library(
     ":rune",
     "//best/container:option",
     "//best/container:span",
-    "//best/meta:guard",
+    "//best/base:guard",
   ]
 )
 
@@ -52,7 +52,7 @@ cc_library(
     ":rune",
     "//best/container:option",
     "//best/container:span",
-    "//best/meta:guard",
+    "//best/base:guard",
   ]
 )
 
@@ -80,7 +80,7 @@ cc_library(
     "//best/container:option",
     "//best/container:span",
     "//best/math:conv",
-    "//best/meta:guard",
+    "//best/base:guard",
     "//best/meta:reflect",
   ]
 )

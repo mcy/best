@@ -9,7 +9,7 @@ cc_library(
   deps = [
     ":pun",
     "//best/base:port",
-    "//best/meta:tags",
+    "//best/base:tags",
     "//best/log/internal:crash",
   ],
 )
@@ -75,7 +75,7 @@ cc_library(
     ":object",
     "//best/base:port",
     "//best/memory:layout",
-    "//best/meta:tags",
+    "//best/base:tags",
     "//best/meta:init",
   ],
 )
@@ -123,7 +123,7 @@ cc_library(
   deps = [
     ":object",
     "//best/base:port",
-    "//best/meta:tags",
+    "//best/base:tags",
   ],
 )
 
@@ -175,7 +175,7 @@ cc_library(
     "//best/memory:bytes",
     "//best/memory:layout",
     "//best/meta:init",
-    "//best/meta:tags",
+    "//best/base:tags",
   ],
 )
 

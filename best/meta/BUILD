@@ -44,9 +44,8 @@ cc_library(
     "internal/init.h",
   ],
   deps = [
-    ":bit_enum",
-    ":tags",
     ":taxonomy",
+    "//best/base:tags",
   ]
 )
 

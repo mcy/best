@@ -36,6 +36,7 @@ cc_library(
   hdrs = ["guard.h"],
   deps = [
     ":tags",
+    "//best/meta:taxonomy",
   ]
 )
 
