@@ -308,17 +308,16 @@ class tdesc final {
   static constexpr auto infer_struct()
     requires best::is_struct<T>
   {
-    auto fields = best::indices<total_fields<T>>.apply(
-        [&]<size_t... i>(best::index_t<i>...) {
-          return best::row{fdesc(
-              best::vals<eyepatch(
-                  best::addr(reflect_internal::bind<i>(materialize<T>())))>,
-              best::types<T>,
-              [](auto&& v) -> decltype(auto) {
-                return reflect_internal::bind<i>(BEST_FWD(v));
-              },
-              best::row())...};
-        });
+    auto fields = best::indices<total_fields<T>>.apply([&]<size_t... i> {
+      return best::row{fdesc(
+          best::vals<eyepatch(
+              best::addr(reflect_internal::bind<i>(materialize<T>())))>,
+          best::types<T>,
+          [](auto&& v) -> decltype(auto) {
+            return reflect_internal::bind<i>(BEST_FWD(v));
+          },
+          best::row())...};
+    });
     return reflect_internal::tdesc(best::types<T>, fields, best::row());
   }
 
@@ -329,26 +328,24 @@ class tdesc final {
   {
     BEST_PUSH_GCC_DIAGNOSTIC()
     BEST_IGNORE_GCC_DIAGNOSTIC("-Wenum-constexpr-conversion")
-    constexpr auto ok =
-        best::indices<count>.apply([]<size_t... i>(best::index_t<i>...) {
-          constexpr size_t ok_count =
-              (0 + ... + best::value_name<T(start + i)>.has_value());
+    constexpr auto ok = best::indices<count>.apply([]<size_t... i> {
+      constexpr size_t ok_count =
+          (0 + ... + best::value_name<T(start + i)>.has_value());
 
-          std::array<T, ok_count> ok = {};
-          size_t idx = 0;
+      std::array<T, ok_count> ok = {};
+      size_t idx = 0;
 
-          ((best::value_name<T(start + i)>.has_value()
-                ? void(ok[idx++] = T(start + i))
-                : void()),
-           ...);
-          return ok;
-        });
+      ((best::value_name<T(start + i)>.has_value()
+            ? void(ok[idx++] = T(start + i))
+            : void()),
+       ...);
+      return ok;
+    });
     BEST_POP_GCC_DIAGNOSTIC()
 
-    auto values =
-        best::indices<ok.size()>.apply([&]<size_t... i>(best::index_t<i>...) {
-          return best::row{vdesc{best::vals<ok[i]>, best::row()}...};
-        });
+    auto values = best::indices<ok.size()>.apply([&]<size_t... i> {
+      return best::row{vdesc{best::vals<ok[i]>, best::row()}...};
+    });
     return reflect_internal::tdesc(best::types<T>, values, best::row());
   }
 

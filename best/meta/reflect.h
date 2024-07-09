@@ -444,30 +444,26 @@ constexpr auto best::mirror<T>::infer() const
 template <auto& desc_>
 constexpr decltype(auto) reflected_type<desc_>::apply(auto&& cb) const {
   if constexpr (best::is_struct<reflected>) {
-    return best::indices<desc_.items_.types.size()>.apply(
-        [&]<size_t... i>(best::index_t<i>...) {
-          return best::call(BEST_FWD(cb), best::reflected_field<item<i>>{}...);
-        });
+    return best::indices<desc_.items_.types.size()>.apply([&]<size_t... i> {
+      return best::call(BEST_FWD(cb), best::reflected_field<item<i>>{}...);
+    });
   } else {
-    return best::indices<desc_.items_.types.size()>.apply(
-        [&]<size_t... i>(best::index_t<i>...) {
-          return best::call(BEST_FWD(cb), best::reflected_value<item<i>>{}...);
-        });
+    return best::indices<desc_.items_.types.size()>.apply([&]<size_t... i> {
+      return best::call(BEST_FWD(cb), best::reflected_value<item<i>>{}...);
+    });
   }
 }
 
 template <auto& desc_>
 constexpr void reflected_type<desc_>::each(auto&& cb) const {
   if constexpr (best::is_struct<reflected>) {
-    return best::indices<desc_.items_.types.size()>.each(
-        [&]<size_t i>(best::index_t<i>) {
-          best::call(BEST_FWD(cb), best::reflected_field<item<i>>{});
-        });
+    return best::indices<desc_.items_.types.size()>.each([&]<size_t i> {
+      best::call(BEST_FWD(cb), best::reflected_field<item<i>>{});
+    });
   } else {
-    return best::indices<desc_.items_.types.size()>.each(
-        [&]<size_t i>(best::index_t<i>) {
-          best::call(BEST_FWD(cb), best::reflected_value<item<i>>{});
-        });
+    return best::indices<desc_.items_.types.size()>.each([&]<size_t i> {
+      best::call(BEST_FWD(cb), best::reflected_value<item<i>>{});
+    });
   }
 }
 
