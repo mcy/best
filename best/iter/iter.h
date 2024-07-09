@@ -25,9 +25,9 @@
 //! C++ iterators are bad. Ranges are not much better, ergonomically speaking.
 //! Rust iterators, however, are pretty great. Hence, we've done our best to
 
+#include "best/base/guard.h"
 #include "best/container/option.h"
 #include "best/func/call.h"
-#include "best/meta/guard.h"
 #include "best/meta/init.h"
 #include "best/meta/taxonomy.h"
 

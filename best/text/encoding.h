@@ -22,11 +22,11 @@
 
 #include <cstddef>
 
+#include "best/base/tags.h"
 #include "best/container/option.h"
 #include "best/container/result.h"
 #include "best/container/span.h"
 #include "best/meta/init.h"
-#include "best/meta/tags.h"
 
 //! Unicode encodings.
 //!

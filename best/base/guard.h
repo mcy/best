@@ -17,10 +17,10 @@
 
 \* ////////////////////////////////////////////////////////////////////////// */
 
-#ifndef BEST_META_GUARD_H_
-#define BEST_META_GUARD_H_
+#ifndef BEST_BASE_GUARD_H_
+#define BEST_BASE_GUARD_H_
 
-#include "best/meta/tags.h"
+#include "best/base/tags.h"
 
 //! A middling approximation of Rust's `?` operator.
 //!
@@ -82,4 +82,4 @@ template <typename R>
 impl(R&&) -> impl<R&&>;
 }  // namespace guard_internal
 }  // namespace best
-#endif  // BEST_META_GUARD_H_
+#endif  // BEST_BASE_GUARD_H_

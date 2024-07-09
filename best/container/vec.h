@@ -23,6 +23,7 @@
 #include <cstddef>
 #include <initializer_list>
 
+#include "best/base/tags.h"
 #include "best/container/object.h"
 #include "best/container/option.h"
 #include "best/container/span.h"
@@ -33,7 +34,6 @@
 #include "best/memory/allocator.h"
 #include "best/memory/layout.h"
 #include "best/meta/init.h"
-#include "best/meta/tags.h"
 
 //! Dynamically sized sequences.
 //!

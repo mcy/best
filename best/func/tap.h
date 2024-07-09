@@ -20,8 +20,8 @@
 #ifndef BEST_FUNC_TAP_H_
 #define BEST_FUNC_TAP_H_
 
+#include "best/base/tags.h"
 #include "best/func/call.h"
-#include "best/meta/tags.h"
 #include "best/meta/taxonomy.h"
 
 //! Taps, `best`'s "functional pipeline" syntax.

@@ -20,9 +20,9 @@
 #ifndef BEST_CONTAINER_RESULT_H_
 #define BEST_CONTAINER_RESULT_H_
 
+#include "best/base/tags.h"
 #include "best/container/choice.h"
 #include "best/container/row.h"
-#include "best/meta/tags.h"
 
 //! A result type, like `std::expected`.
 //!

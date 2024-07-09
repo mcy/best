@@ -17,8 +17,8 @@
 
 \* ////////////////////////////////////////////////////////////////////////// */
 
-#ifndef BEST_META_TAGS_H_
-#define BEST_META_TAGS_H_
+#ifndef BEST_BASE_TAGS_H_
+#define BEST_BASE_TAGS_H_
 
 #include <stddef.h>
 
@@ -76,4 +76,4 @@ struct ctad_guard;
 }  // namespace tags_internal_do_not_use
 }  // namespace best
 
-#endif  // BEST_META_TAGS_H_
+#endif  // BEST_BASE_TAGS_H_

@@ -24,7 +24,7 @@
 
 #include <cstdint>
 
-#include "best/meta/tags.h"
+#include "best/base/tags.h"
 #include "best/meta/taxonomy.h"
 
 //! Forward declarations of all types in best that can be forward-declared.

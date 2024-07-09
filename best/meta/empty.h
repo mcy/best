@@ -24,9 +24,9 @@
 
 #include <type_traits>
 
+#include "best/base/tags.h"
 #include "best/meta/init.h"
 #include "best/meta/internal/init.h"
-#include "best/meta/tags.h"
 #include "best/meta/taxonomy.h"
 #include "best/meta/traits.h"
 

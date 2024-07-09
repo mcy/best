@@ -23,12 +23,12 @@
 #include <initializer_list>
 
 #include "best/base/fwd.h"
+#include "best/base/tags.h"
 #include "best/container/choice.h"
 #include "best/log/internal/crash.h"
 #include "best/log/location.h"
 #include "best/meta/init.h"
 #include "best/meta/internal/init.h"
-#include "best/meta/tags.h"
 
 //! An optional type, like `std::optional`.
 //!
