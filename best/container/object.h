@@ -31,7 +31,7 @@
 #include "best/meta/empty.h"
 #include "best/meta/init.h"
 #include "best/meta/traits.h"
-
+ 
 //! Objectification: turn any C++ type into a something you can use as a class
 //! member.
 //!

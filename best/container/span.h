@@ -24,6 +24,7 @@
 #include <initializer_list>
 #include <type_traits>
 
+#include "best/base/ord.h"
 #include "best/base/port.h"
 #include "best/container/object.h"
 #include "best/container/option.h"
@@ -642,7 +643,7 @@ class span final {
   /// at `src` to `dst`.
   ///
   /// NOTE! This function assumes that the destination range is uninitialized,
-  /// *and* that the source range is initialized.
+  /// *and* that the source range is initialized, except where they overlap.
   constexpr void shift_within(unsafe u, size_t dst, size_t src,
                               size_t count) const
     requires(!is_const) && is_static
@@ -652,6 +653,21 @@ class span final {
   constexpr void shift_within(unsafe, size_t dst, size_t src,
                               size_t count) const
     requires(!is_const) && is_dynamic;
+
+  /// # `span::has_subarray`
+  ///
+  /// Returns whether this span contains `that` as a subarray by pointer
+  /// identity. In other words, this function checks if the pointed-to range
+  /// of `that` is within the pointed-to range of `this`.
+  constexpr bool has_subarray(const best::contiguous auto& that) const {
+    auto start0 = data();
+    auto end0 = start0 + size();
+
+    auto start1 = best::data(that);
+    auto end1 = start1 + best::size(that);
+
+    return best::compare(start0, start1) <= 0 && best::compare(end1, end0) <= 0;
+  }
 
   // All spans are comparable.
   template <best::is_object U, best::option<size_t> m>
@@ -884,8 +900,7 @@ constexpr span<T, n> span<T, n>::from_nul(T* data) {
   }
 
   auto ptr = data;
-  while (*ptr++ != T{0})
-    ;
+  while (*ptr++ != T{0});
   return best::span(data, ptr - data - 1);
 }
 
@@ -1387,11 +1402,12 @@ constexpr void span<T, n>::shift_within(unsafe u, size_t dst, size_t src,
 
     // Need to make the copies in backward order to avoid trampling.
     size_t overlap = src + count - dst;
+    size_t overlap_end = dst - src;
     for (size_t j = count; j > 0; --j) {
       size_t i = j - 1;
       if (i < overlap) {
         (data() + dst + i).relocate_from(data() + src + i, true);
-      } else if (i <= count - overlap) {
+      } else if (i < overlap_end) {
         (data() + dst + i).relocate_from(data() + src + i, false);
       } else {
         (data() + dst + i).move_from(data() + src + i, false);
@@ -1407,10 +1423,11 @@ constexpr void span<T, n>::shift_within(unsafe u, size_t dst, size_t src,
     }
 
     size_t overlap = dst + count - src;
+    size_t overlap_end = src - dst;
     for (size_t i = 0; i < count; ++i) {
       if (i < overlap) {
         (data() + dst + i).move_from(data() + src + i, false);
-      } else if (i <= count - overlap) {
+      } else if (i < overlap_end) {
         (data() + dst + i).relocate_from(data() + src + i, false);
       } else {
         (data() + dst + i).relocate_from(data() + src + i, true);

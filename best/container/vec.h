@@ -493,21 +493,67 @@ class vec final {
   /// # `vec::splice()`.
   ///
   /// Splices a range by copying into this vector, starting at idx.
+  ///
+  /// "Splicing from within" is supported: `range` may be this vector itself or
+  /// a subspan thereof.
   template <best::contiguous Range = best::span<const T>>
   void splice(size_t idx, const Range& range)
     requires best::constructible<T, decltype(*best::data(range))>
   {
-    // In the case that this == &range, calling insert_uninit will also grow the
-    // size of `range`, because the two pointers alias. Thus, we must read the
-    // size now before we do that.
-    auto size = best::size(range);
+    best::span that = range;
+    if (as_span().has_subarray(that)) {
+      // If we are self-splicing, we need to make two copies: the outer chunk
+      // and the inner chunk. After resizing, this vector looks like this:
+      //
+      // | xxxxxx | ------ | ------ | yyyyyy |
+      //
+      // and we want to update it to look like this:
+      //
+      // | xxxxxx | xxx | yyy | yyyyyy |
+      //
+      // There are two cases: either `idx` lies inside of the self-spliced
+      // range, in which case we need to perform two copies, or it does not,
+      // in which case we only perform one copy.
 
-    auto ptr = insert_uninit(unsafe("we call copy_from immediately after this"),
-                             idx, best::size(range));
+      auto start = that.data().raw() - data().raw();
+      auto end = start + that.size();
 
-    for (size_t i : best::bounds{.count = size}) {
-      (ptr + i).construct_in_place(best::data(range)[i]);
+      insert_uninit(unsafe("we perform copies immediately after this"), idx,
+                    that.size());
+
+      unsafe u(
+          "no bounds checks required; has_subarray and insert_uninit verify "
+          "all relevant bounds for us");
+      if (idx > end) {
+        // The spliced-from region is before the insertion point, so we have
+        // one loop.
+        at(u, {.start = idx, .count = that.size()})
+            .emplace_from(at(u, {.start = start, .end = end}));
+      } else if (idx < start) {
+        // The spliced-from region is after the insertion point. This is the
+        // same as above, but we need to offset the slice operation by
+        // `that.size()`.
+
+        at(u, {.start = idx, .count = that.size()})
+            .emplace_from(at(
+                u, {.start = start + that.size(), .end = end + that.size()}));
+      } else {
+        // The annoying case. We need to do the copy in two parts.
+        size_t before = idx - start;
+        size_t after = that.size() - before;
+
+        at(u, {.start = idx, .count = before})
+            .emplace_from(at(u, {.start = start, .count = before}));
+        at(u, {.start = idx + before, .count = after})
+            .emplace_from(at(u, {.start = idx, .count = after}));
+      }
+
+      return;
     }
+
+    auto ptr = insert_uninit(unsafe("we perform copies immediately after this"),
+                             idx, that.size());
+    best::span(ptr, that.size()).emplace_from(that);
   }
 
   /// # `vec::clear()`.
@@ -856,7 +902,7 @@ best::object_ptr<T> vec<T, max_inline, A>::insert_uninit(unsafe u, size_t start,
   /// Relocate elements to create an empty space.
   auto end = start + count;
   if (start < size()) {
-    shift_within(u, end, start, count);
+    shift_within(u, end, start, size() - start);
   }
   set_size(u, size() + count);
   return data() + start;
@@ -869,6 +915,7 @@ void vec<T, max_inline, A>::resize_uninit(size_t new_size) {
     if (new_size < old_size) {
       at(unsafe{"we just did a bounds check (above)"}, {.start = new_size})
           .destroy_in_place();
+      set_size(unsafe("elements beyond new_size destroyed above"), new_size);
     }
     return;
   }
