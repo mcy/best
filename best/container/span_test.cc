@@ -390,7 +390,7 @@ best::test Shift = [](auto& t) {
 
   ints.shift_within(u, 1, 3, 4);
   t.expect_eq(best::black_box(ints), best::span{1, 4, 5, 2, 3, d, d, 8});
-  
+
   ints.shift_within(u, 3, 1, 4);
   t.expect_eq(best::black_box(ints), best::span{1, d, d, 4, 5, 2, 3, 8});
 
