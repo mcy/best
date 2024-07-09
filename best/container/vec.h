@@ -445,10 +445,7 @@ class vec final {
   ///
   /// Shortens the vector to be at most `count` elements long.
   /// If `count > size()`, this function does nothing.
-  void truncate(size_t count) {
-    if (count > size()) return;
-    resize_uninit(count);
-  }
+  void truncate(size_t count);
 
   /// # `vec::set_size()`.
   ///
@@ -458,9 +455,8 @@ class vec final {
   /// # `vec::push()`.
   ///
   /// Constructs a new value at the end of this vector, in-place.
-  template <typename... Args>
-  ref push(Args&&... args)
-    requires best::constructible<T, Args&&...>
+  ref push(auto&&... args)
+    requires best::constructible<T, decltype(args)&&...>
   {
     return insert(size(), BEST_FWD(args)...);
   }
@@ -470,9 +466,8 @@ class vec final {
   /// Constructs a new value at a specific index of this vector, in-place.
   /// This will need to shift forward all other elements in this vector, which
   /// is O(n) work.
-  template <typename... Args>
-  ref insert(size_t idx, Args&&... args)
-    requires best::constructible<T, Args&&...>
+  ref insert(size_t idx, auto&&... args)
+    requires best::constructible<T, decltype(args)&&...>
   {
     auto ptr = insert_uninit(
         unsafe("we call construct_in_place immediately after this"), idx, 1);
@@ -485,7 +480,7 @@ class vec final {
   /// Appends a range by copying to the end of this vector.
   template <best::contiguous Range = best::span<const T>>
   void append(const Range& range)
-    requires best::constructible<T, decltype(*best::data(range))>
+    requires best::constructible<T, best::data_type<Range>>
   {
     splice(size(), range);
   }
@@ -498,56 +493,11 @@ class vec final {
   /// a subspan thereof.
   template <best::contiguous Range = best::span<const T>>
   void splice(size_t idx, const Range& range)
-    requires best::constructible<T, decltype(*best::data(range))>
+    requires best::constructible<T, best::data_type<Range>>
   {
     best::span that = range;
     if (as_span().has_subarray(that)) {
-      // If we are self-splicing, we need to make two copies: the outer chunk
-      // and the inner chunk. After resizing, this vector looks like this:
-      //
-      // | xxxxxx | ------ | ------ | yyyyyy |
-      //
-      // and we want to update it to look like this:
-      //
-      // | xxxxxx | xxx | yyy | yyyyyy |
-      //
-      // There are two cases: either `idx` lies inside of the self-spliced
-      // range, in which case we need to perform two copies, or it does not,
-      // in which case we only perform one copy.
-
-      auto start = that.data().raw() - data().raw();
-      auto end = start + that.size();
-
-      insert_uninit(unsafe("we perform copies immediately after this"), idx,
-                    that.size());
-
-      unsafe u(
-          "no bounds checks required; has_subarray and insert_uninit verify "
-          "all relevant bounds for us");
-      if (idx > end) {
-        // The spliced-from region is before the insertion point, so we have
-        // one loop.
-        at(u, {.start = idx, .count = that.size()})
-            .emplace_from(at(u, {.start = start, .end = end}));
-      } else if (idx < start) {
-        // The spliced-from region is after the insertion point. This is the
-        // same as above, but we need to offset the slice operation by
-        // `that.size()`.
-
-        at(u, {.start = idx, .count = that.size()})
-            .emplace_from(at(
-                u, {.start = start + that.size(), .end = end + that.size()}));
-      } else {
-        // The annoying case. We need to do the copy in two parts.
-        size_t before = idx - start;
-        size_t after = that.size() - before;
-
-        at(u, {.start = idx, .count = before})
-            .emplace_from(at(u, {.start = start, .count = before}));
-        at(u, {.start = idx + before, .count = after})
-            .emplace_from(at(u, {.start = idx, .count = after}));
-      }
-
+      splice_within(idx, that.data().raw() - data().raw(), that.size());
       return;
     }
 
@@ -559,47 +509,21 @@ class vec final {
   /// # `vec::clear()`.
   ///
   /// Clears this vector. This resizes it to zero without changing the capacity.
-  void clear() {
-    if (!best::destructible<T, trivially>) {
-      for (size_t i = 0; i < size(); ++i) {
-        (data() + i).destroy_in_place();
-      }
-    }
-    set_size(unsafe("we just destroyed all elements"), 0);
-  }
+  void clear();
 
   /// # `best::pop()`
   ///
   /// Removes the last element from this vector, if it is nonempty.
-  best::option<T> pop() {
-    if (is_empty()) return best::none;
-    return remove(size() - 1);
-  }
-
+  best::option<T> pop();
   /// # `best::remove()`
   ///
   /// Removes a single element at `idx`. Crashes if `idx` is out of bounds.
-  T remove(size_t idx) {
-    T at = std::move(operator[](idx));
-    erase({.start = idx, .count = 1});
-    return at;
-  }
+  T remove(size_t idx);
 
   /// # `best::erase()`
   ///
   /// Removes all elements within `bounds` from the vector.
-  void erase(best::bounds bounds) {
-    auto range = operator[](bounds);
-    range.destroy_in_place();
-
-    size_t start = bounds.start;
-    size_t end = bounds.start + range.size();
-    size_t len = size() - end;
-    shift_within(unsafe("shifting elements over the ones we just destroyed"),
-                 start, end, len);
-    set_size(unsafe("updating length to exclude the range we just deleted"),
-             size() - range.size());
-  }
+  void erase(best::bounds bounds);
 
   /// # `vec::assign()`.
   ///
@@ -670,6 +594,8 @@ class vec final {
   // Implements the move constructor and move assignment, which share a lot of
   // code but are not identical.
   void move_construct(vec&&, bool assign);
+
+  void splice_within(size_t idx, size_t start, size_t count);
 
   best::option<best::span<T>> on_heap() const {
     if (best::to_signed(size_) < 0) {
@@ -886,6 +812,95 @@ void vec<T, max_inline, A>::assign(const contiguous auto& that) {
     (data() + i).copy_from(best::data(that) + i, /*is_init=*/i < old_size);
   }
   set_size(unsafe("updating size to that of the memcpy'd range"), new_size);
+}
+
+template <best::relocatable T, size_t max_inline, best::allocator A>
+void vec<T, max_inline, A>::splice_within(size_t idx, size_t start,
+                                          size_t count) {
+  // If we are self-splicing, we need to make two copies: the outer chunk
+  // and the inner chunk. After resizing, this vector looks like this:
+  //
+  // | xxxxxx | ------ | ------ | yyyyyy |
+  //
+  // and we want to update it to look like this:
+  //
+  // | xxxxxx | xxx | yyy | yyyyyy |
+  //
+  // There are two cases: either `idx` lies inside of the self-spliced
+  // range, in which case we need to perform two copies, or it does not,
+  // in which case we only perform one copy.
+
+  auto end = start + count;
+
+  insert_uninit(unsafe("we perform copies immediately after this"), idx, count);
+
+  unsafe u(
+      "no bounds checks required; has_subarray and insert_uninit verify "
+      "all relevant bounds for us");
+  if (idx > end) {
+    // The spliced-from region is before the insertion point, so we have
+    // one loop.
+    at(u, {.start = idx, .count = count})
+        .emplace_from(at(u, {.start = start, .end = end}));
+  } else if (idx < start) {
+    // The spliced-from region is after the insertion point. This is the
+    // same as above, but we need to offset the slice operation by
+    // `that.size()`.
+
+    at(u, {.start = idx, .count = count})
+        .emplace_from(at(u, {.start = start + count, .end = end + count}));
+  } else {
+    // The annoying case. We need to do the copy in two parts.
+    size_t before = idx - start;
+    size_t after = count - before;
+
+    at(u, {.start = idx, .count = before})
+        .emplace_from(at(u, {.start = start, .count = before}));
+    at(u, {.start = idx + before, .count = after})
+        .emplace_from(at(u, {.start = idx, .count = after}));
+  }
+}
+
+template <best::relocatable T, size_t max_inline, best::allocator A>
+void vec<T, max_inline, A>::truncate(size_t count) {
+  if (count > size()) return;
+  resize_uninit(count);
+}
+template <best::relocatable T, size_t max_inline, best::allocator A>
+void vec<T, max_inline, A>::clear() {
+  if (!best::destructible<T, trivially>) {
+    for (size_t i = 0; i < size(); ++i) {
+      (data() + i).destroy_in_place();
+    }
+  }
+  set_size(unsafe("we just destroyed all elements"), 0);
+}
+
+template <best::relocatable T, size_t max_inline, best::allocator A>
+best::option<T> vec<T, max_inline, A>::pop() {
+  if (is_empty()) return best::none;
+  return remove(size() - 1);
+}
+
+template <best::relocatable T, size_t max_inline, best::allocator A>
+T vec<T, max_inline, A>::remove(size_t idx) {
+  T at = std::move(operator[](idx));
+  erase({.start = idx, .count = 1});
+  return at;
+}
+
+template <best::relocatable T, size_t max_inline, best::allocator A>
+void vec<T, max_inline, A>::erase(best::bounds bounds) {
+  auto range = operator[](bounds);
+  range.destroy_in_place();
+
+  size_t start = bounds.start;
+  size_t end = bounds.start + range.size();
+  size_t len = size() - end;
+  shift_within(unsafe("shifting elements over the ones we just destroyed"),
+               start, end, len);
+  set_size(unsafe("updating length to exclude the range we just deleted"),
+           size() - range.size());
 }
 
 template <best::relocatable T, size_t max_inline, best::allocator A>
