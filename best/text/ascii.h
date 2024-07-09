@@ -52,7 +52,7 @@ struct ascii final {
     auto next = output->take_first(1).ok_or(encoding_error::OutOfBounds);
     BEST_GUARD(next);
 
-    (*next)[0] = rune;
+    (*next.ok())[0] = rune;
     return best::ok();
   }
 
@@ -61,7 +61,7 @@ struct ascii final {
     auto next = input->take_first(1).ok_or(encoding_error::OutOfBounds);
     BEST_GUARD(next);
 
-    return rune::from_int((*next)[0])
+    return rune::from_int((*next.ok())[0])
         .filter(&rune::is_ascii)
         .ok_or(encoding_error::Invalid);
   }
@@ -71,7 +71,7 @@ struct ascii final {
     auto next = input->take_last(1).ok_or(encoding_error::OutOfBounds);
     BEST_GUARD(next);
 
-    return rune::from_int((*next)[0])
+    return rune::from_int((*next.ok())[0])
         .filter(&rune::is_ascii)
         .ok_or(encoding_error::Invalid);
   }
@@ -101,7 +101,7 @@ struct latin1 final {
     auto next = output->take_first(1).ok_or(encoding_error::OutOfBounds);
     BEST_GUARD(next);
 
-    (*next)[0] = rune;
+    (*next.ok())[0] = rune;
     return best::ok();
   }
 
@@ -110,7 +110,7 @@ struct latin1 final {
     auto next = input->take_first(1).ok_or(encoding_error::OutOfBounds);
     BEST_GUARD(next);
 
-    return rune::from_int((*next)[0]).ok_or(encoding_error::Invalid);
+    return rune::from_int((*next.ok())[0]).ok_or(encoding_error::Invalid);
   }
 
   static constexpr best::result<rune, encoding_error> undecode(
@@ -118,7 +118,7 @@ struct latin1 final {
     auto next = input->take_last(1).ok_or(encoding_error::OutOfBounds);
     BEST_GUARD(next);
 
-    return rune::from_int((*next)[0]).ok_or(encoding_error::Invalid);
+    return rune::from_int((*next.ok())[0]).ok_or(encoding_error::Invalid);
   }
 
   constexpr bool operator==(const latin1&) const = default;

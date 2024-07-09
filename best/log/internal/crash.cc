@@ -19,9 +19,9 @@
 
 #include "best/log/internal/crash.h"
 
+#include <pthread.h>
 #include <stdarg.h>
 
-#include <cinttypes>
 #include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
@@ -30,20 +30,39 @@
 #include "best/log/location.h"
 
 namespace best::crash_internal {
+namespace {
+inline constexpr char Reset[] = "\N{ESCAPE}[0m";
+inline constexpr char Red[] = "\N{ESCAPE}[31m";
+}  // namespace
+
+[[noreturn]] void die(
+    best::location loc,
+    best::fnref<void(char*, size_t, best::fnref<void(const char*, size_t)>)>
+        write_message) {
+  // TODO: Make this function non-reentrant.
+
+  static char buf[512];
+  ::pthread_t self = ::pthread_self();
+  ::pthread_getname_np(self, buf, sizeof(buf));  // TODO: Handle this error.
+
+  ::fprintf(stderr, "%slibbest: thread '%s' crashed at %s:%u\n%s", Red, buf,
+            loc.impl().file_name(), unsigned(loc.line()), Reset);
+  write_message(buf, sizeof(buf), [](const char* data, size_t len) {
+    ::fprintf(stderr, "%slibbest: ", Red);
+    ::fwrite(data, 1, len, stderr);
+    ::fprintf(stderr, "\n%s", Reset);
+  });
+  ::fflush(stderr);
+  ::exit(128);
+}
+
 [[noreturn]] BEST_WEAK void crash(best::track_location<const char*> fmt, ...) {
   va_list va;
   va_start(va, fmt);
-  // clang-format off
-  fprintf(stderr,
-          "error: best::crash_internal::crash() called at %s:%" PRIu32 "\n"
-          "       this typically means that <LOGGING LIBRARY TBD> was not linked in\n"
-          "error: ",
-          fmt.impl().file_name(), fmt.line());
-  // clang-format on
-  vfprintf(stderr, *fmt, va);
-  fprintf(stderr, "\n");
-  fflush(stderr);
+  die(fmt.location(), [&](char* scratch, size_t scratch_len, auto write) {
+    size_t len = ::vsnprintf(scratch, scratch_len, *fmt, va);
+    write(scratch, len);
+  });
   va_end(va);
-  ::exit(128);
 }
 }  // namespace best::crash_internal

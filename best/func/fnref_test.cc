@@ -17,23 +17,33 @@
 
 \* ////////////////////////////////////////////////////////////////////////// */
 
-#ifndef BEST_LOG_INTERNAL_CRASH_H_
-#define BEST_LOG_INTERNAL_CRASH_H_
-
-#include <stddef.h>
-
 #include "best/func/fnref.h"
-#include "best/log/location.h"
 
-namespace best::crash_internal {
-/// Implementation of `best::wtf()`.
-[[noreturn]] void die(
-    best::location loc,
-    best::fnref<void(char*, size_t, best::fnref<void(const char*, size_t)>)>
-        write_message);
+#include "best/test/test.h"
 
-/// Internal shim for crashing without depending on the logging headers.
-[[noreturn]] void crash(best::track_location<const char*> fmt, ...);
-}  // namespace best::crash_internal
+namespace best::fnref_internal {
+int add(int x) { return x + 42; }
 
-#endif  // BEST_LOG_INTERNAL_CRASH_H_
+best::test FromFnptr = [](auto& t) {
+  best::fnref<int(int) const> f = add;
+  t.expect_eq(f(8), 50);
+
+  f = nullptr;
+  t.expect_eq(f, nullptr);
+};
+
+best::test FromLambda = [](auto& t) {
+  int total = 0;
+  best::fnref<int(int) const> f = [&](int x) { return total += x; };
+
+  t.expect_eq(f(5), 5);
+  t.expect_eq(total, 5);
+
+  auto mut = [y = 0](int x) mutable { return y += x; };
+  best::fnref<int(int)> g = mut;
+  t.expect_eq(g(5), 5);
+  t.expect_eq(g(5), 10);
+
+  static_assert(!requires { best::fnref<int(int) const>(mut); });
+};
+}  // namespace best::fnref_internal
