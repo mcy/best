@@ -39,6 +39,20 @@ struct select<false, A, B> {
 
 template <typename T>
 concept nonvoid = !std::is_void_v<T>;
+
+struct wax {};
+template <typename T, auto sealed = [](wax) { return T{}; }>
+  requires requires {
+    sealed(wax{});
+    +sealed;  // Ensure that the user isn't passing a generic lambda.
+  }
+inline constexpr auto seal = sealed;
+template <typename S>
+  requires requires(S sealed) {
+    sealed(wax{});
+    +sealed;  // Ensure that the user isn't passing a generic lambda.
+  }
+using unseal = decltype(S{}(wax{}));
 }  // namespace best::traits_internal
 
 #endif  // BEST_META_INTERNAL_TRAITS_H_

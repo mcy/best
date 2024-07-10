@@ -95,6 +95,17 @@ using select = traits_internal::select<cond, A, B>::type;
 /// illegal construction if it would not be selected.
 template <bool cond, best::type_trait A, best::type_trait B>
 using select_trait = traits_internal::select<cond, A, B>::type::type;
+
+/// # `best::abridge<T>`, `best::unabridge<T>`
+///
+/// Abridges a type name.
+///
+/// This produces a new type with a very small opaque name that can be
+/// `best::unabridge`ed to produce the original type.
+template <typename T>
+using abridge = decltype(best::traits_internal::seal<best::id<T>>);
+template <typename Sealed>
+using unabridge = best::traits_internal::unseal<Sealed>::type;
 }  // namespace best
 
 #endif  // BEST_META_TRAITS_H_

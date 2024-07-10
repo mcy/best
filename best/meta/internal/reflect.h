@@ -36,6 +36,9 @@ namespace best::reflect_internal {
 using ::best::names_internal::eyepatch;
 using ::best::names_internal::materialize;
 
+// Helper for converting a mirror into a descriptor.
+struct reify;
+
 // BestRowKeys for fdesc/vdesc.
 template <auto>
 struct fkey {};
@@ -81,7 +84,7 @@ concept valid_reflection = validator<best::as_auto<Info>, For>::value;
   friend class best::reflected_field;               \
   template <auto&>                                  \
   friend class best::reflected_value;               \
-  template <typename>                               \
+  template <typename, typename>                     \
   friend class best::mirror;                        \
                                                     \
   template <typename, best::is_row, best::is_row>   \
@@ -91,7 +94,8 @@ concept valid_reflection = validator<best::as_auto<Info>, For>::value;
   template <auto, best::is_row>                     \
   friend class reflect_internal::vdesc;             \
   template <typename, typename>                     \
-  friend struct reflect_internal::validator;
+  friend struct reflect_internal::validator;        \
+  friend struct reflect_internal::reify;
 
 // Discards anything it is constructed with. This is used for the inlined
 // version of "select element" used in infer_struct().
@@ -222,6 +226,13 @@ class vdesc final {
   Tags tags_;
 };
 
+struct hide {};
+
+template <auto x, typename... Args>
+struct lifted {
+  best::row<Args...> args;
+};
+
 template <typename T, best::is_row Items, best::is_row Tags>
 class tdesc final {
  private:
@@ -232,6 +243,16 @@ class tdesc final {
 
   constexpr tdesc(best::tlist<T>, Items items, Tags tags)
       : items_(items), tags_(tags) {}
+
+  template <auto x, typename... Rest>
+  constexpr auto operator+(lifted<x, Rest...> args) const {
+    return args.args.apply(
+        [&](auto... tags) { return this->template add<x>(tags...); });
+  }
+  template <auto x, typename... Rest>
+  constexpr auto operator+(lifted<x, hide>) const {
+    return this->template hide<x>();
+  }
 
   // Adds tags to this type.
   constexpr auto add(auto... tags) const {
@@ -353,9 +374,46 @@ class tdesc final {
   Tags tags_;
 };
 
-template <typename T, typename mirror = best::mirror<T>>
-  requires requires { BestReflect(mirror::BEST_MIRROR_FTADLE_, (T*){}); }
-inline constexpr auto desc = BestReflect(mirror::BEST_MIRROR_FTADLE_, (T*){});
+struct reify {
+  template <typename T>
+  static constexpr mirror<best::abridge<tdesc<T, row<>, row<>>>,
+                          best::abridge<best::row<>>>
+      empty{{{}, {}, {}}, {}};
+
+  template <typename T>
+  static constexpr auto ftadle = BestReflect(empty<T>, (T*){});
+
+  template <auto x, typename... Args>
+  static constexpr auto lift(best::row<Args...> args) {
+    return lifted<x, Args...>(args);
+  }
+
+  template <typename T, const auto& m = ftadle<T>>
+  static constexpr auto apply = [] {
+    // We need to perform an extra "refolding" step; this is because we want to
+    // have an API like `m.infer().with(&x::y)` but in order to actually insert
+    // tags at `&x::y`, we need to lift it into a template argument. Thus we
+    // need to store all of the calls to with() and hide() while BestReflect()
+    // is being evaluated, place that into `ftadle<T>` (which lifts it into a
+    // template argument) and *then* apply all of those transactions, keeping
+    // the first argument (the "key") in templates, and lowering everything
+    // back down to values.
+    //
+    // This is understandably very confusing: you should think of a constexpr
+    // variable as a stepladder for moving constexpr values out of the () world
+    // and into the <> world.
+    return m.with_.indices.apply([]<size_t... i> {
+      return (
+          m.info_ + ... +
+          reify::template lift<m.with_[best::index<i>].first()>(
+              m.with_[best::index<i>][best::vals<best::bounds{.start = 1}>]));
+    });
+  }();
+};
+
+template <typename T>
+  requires requires { BestReflect(reify::empty<T>, (T*){}); }
+inline constexpr auto desc = reify::apply<T>;
 };  // namespace best::reflect_internal
 
 #undef BEST_DESCRIPTOR_FRIENDS_
