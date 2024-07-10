@@ -3,6 +3,6 @@
 
 //! A very simply binary for demonstrating best's CLI library in action.
 
-namespace best::cli_toy {
+namespace best::cli_toy { 
 best::app CliToy = [](MyFlags& flags) { best::println("{:#?}", flags); };
 }  // namespace best::cli_toy

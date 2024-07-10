@@ -31,12 +31,12 @@ struct Subcommand {
 
   friend constexpr auto BestReflect(auto& m, Subcommand*) {
     using ::best::cli;
-    return m.infer()->*m.field(best::vals<&Subcommand::sub_flag>,
-                               cli::flag{
-                                   .letter = 's',
-                                   .arg = "INT",
-                                   .help = "a subcommand argument",
-                               });
+    return m.infer().with(&Subcommand::sub_flag,
+                          cli::flag{
+                              .letter = 's',
+                              .arg = "INT",
+                              .help = "a subcommand argument",
+                          });
   }
 
   bool operator==(const Subcommand&) const = default;
@@ -50,25 +50,29 @@ struct Subgroup {
   friend constexpr auto BestReflect(auto& m, Subgroup*) {
     using ::best::cli;
     return m.infer()
-            ->*m.field(best::vals<&Subgroup::eks>, cli::flag{
-              .letter = 'x',
-              .arg = "INT",
-              .help = "a group integer",
-            })
-            ->*m.field(best::vals<&Subgroup::why>, cli::flag{
-              .letter = 'y',
-              .arg = "INT",
-              .help = "another group integer",
-            })
-            ->*m.field(best::vals<&Subgroup::zed>, cli::flag{
-              .letter = 'z',
-              .arg = "INT",
-              .help = "a third group integer",
-            })
-            ->*m.field(best::vals<&Subgroup::a_flag_with_a_freakishly_long_name>, cli::flag{
-              .arg = "INT",
-              .help = "like, freakishly long man",
-            });
+        .with(&Subgroup::eks,
+              cli::flag{
+                  .letter = 'x',
+                  .arg = "INT",
+                  .help = "a group integer",
+              })
+        .with(&Subgroup::why,
+              cli::flag{
+                  .letter = 'y',
+                  .arg = "INT",
+                  .help = "another group integer",
+              })
+        .with(&Subgroup::zed,
+              cli::flag{
+                  .letter = 'z',
+                  .arg = "INT",
+                  .help = "a third group integer",
+              })
+        .with(&Subgroup::a_flag_with_a_freakishly_long_name,
+              cli::flag{
+                  .arg = "INT",
+                  .help = "like, freakishly long man",
+              });
   }
 
   bool operator==(const Subgroup&) const = default;
@@ -97,62 +101,80 @@ struct MyFlags {
   friend constexpr auto BestReflect(auto& m, MyFlags*) {
     using ::best::cli;
     return m.infer()
-            ->*m.field(best::vals<&MyFlags::foo>, cli::flag{
-              .letter = 'f',
-              .arg = "INT",
-              .count = cli::Required,
-              .help = "a required integer",
-            })
-            ->*m.field(best::vals<&MyFlags::bar>, cli::flag{
-              .arg = "INT",
-              .help = "repeated integer",
-            })
-            ->*m.field(best::vals<&MyFlags::baz>, cli::flag{
-              .help = "an optional integer",
-            })
+        .with(&MyFlags::foo,
+              cli::flag{
+                  .letter = 'f',
+                  .arg = "INT",
+                  .count = cli::Required,
+                  .help = "a required integer",
+              })
+        .with(&MyFlags::bar,
+              cli::flag{
+                  .arg = "INT",
+                  .help = "repeated integer",
+              })
+        .with(&MyFlags::baz,
+              cli::flag{
+                  .help = "an optional integer",
+              })
 
-            ->*m.field(best::vals<&MyFlags::name>, cli::flag{
-              .vis = cli::Hidden,
-              .help = "your name",
-            }, cli::alias{"my-name"})
-            ->*m.field(best::vals<&MyFlags::addr>, cli::flag{
-              .vis = cli::Hidden,
-              .help = "your address",
-            }, cli::alias{"my-address"})
-            
-            ->*m.field(best::vals<&MyFlags::flag1>, cli::flag{
-              .letter = 'a',
-              .help = "this is a flag\nnewline",
+        .with(&MyFlags::name,
+              cli::flag{
+                  .vis = cli::Hidden,
+                  .help = "your name",
+              },
+              cli::alias{"my-name"})
+        .with(&MyFlags::addr,
+              cli::flag{
+                  .vis = cli::Hidden,
+                  .help = "your address",
+              },
+              cli::alias{"my-address"})
+
+        .with(&MyFlags::flag1,
+              cli::flag{
+                  .letter = 'a',
+                  .help = "this is a flag\nnewline",
+              })
+        .with(&MyFlags::flag2,
+              cli::flag{
+                  .letter = 'b',
+                  .help = "this is a flag\nnewline",
+              })
+        .with(&MyFlags::flag3,
+              cli::flag{
+                  .letter = 'c',
+                  .help = "this is a flag\nnewline",
+              },
+              cli::alias{"flag3-alias"},
+              cli::alias{"flag3-alias2", cli::Hidden})
+        .with(&MyFlags::flag4,
+              cli::flag{
+                  .letter = 'd',
+                  .help = "this is a flag\nnewline",
+              })
+
+        .with(
+            &MyFlags::sub,
+            cli::subcommand{
+                .help = "a subcommand",
+                .about = "longer help for the subcommand\nwith multiple lines",
             })
-            ->*m.field(best::vals<&MyFlags::flag2>, cli::flag{
-              .letter = 'b',
-              .help = "this is a flag\nnewline",
-            })
-            ->*m.field(best::vals<&MyFlags::flag3>, cli::flag{
-              .letter = 'c',
-              .help = "this is a flag\nnewline",
-            }, cli::alias{"flag3-alias"},
-               cli::alias{"flag3-alias2", cli::Hidden})
-            ->*m.field(best::vals<&MyFlags::flag4>, cli::flag{
-              .letter = 'd',
-              .help = "this is a flag\nnewline",
-            })
-            
-            ->*m.field(best::vals<&MyFlags::sub>, cli::subcommand{
-              .help = "a subcommand",
-              .about = "longer help for the subcommand\nwith multiple lines",
-            })
-            ->*m.field(best::vals<&MyFlags::sub2>, cli::subcommand{
-              .help = "identical in all ways to `sub`\nexcept for this help",
-              .about = "longer help for the subcommand\nwith multiple lines",
-            }, cli::alias{"sub3"})
-            
-            ->*m.field(best::vals<&MyFlags::group>, cli::group{
-              .name = "subgroup",
-              .letter = 'X',
-              .help = "extra options behind the -X flag",
-            })
-            ->*m.field(best::vals<&MyFlags::flattened>, cli::group{});
+        .with(
+            &MyFlags::sub2,
+            cli::subcommand{
+                .help = "identical in all ways to `sub`\nexcept for this help",
+                .about = "longer help for the subcommand\nwith multiple lines",
+            },
+            cli::alias{"sub3"})
+
+        .with(&MyFlags::group,
+              cli::group{
+                  .name = "subgroup",
+                  .letter = 'X',
+                  .help = "extra options behind the -X flag",
+              })
+        .with(&MyFlags::flattened, cli::group{});
   }
 
   bool operator==(const MyFlags&) const = default;

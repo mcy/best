@@ -210,14 +210,16 @@ struct test::flags final {
 
   constexpr friend auto BestReflect(auto& m, flags*) {
     return m.infer()
-      ->*m.field(best::vals<&flags::skip>, best::cli::flag{
-        .arg = "FILTER",
-        .help = "Skip tests whose names contain FILTER",
-      })
-      ->*m.field(best::vals<&flags::filters>, best::cli::positional{
-        .name = "FILTERS",
-        .help = "Include only tests whose names contain FILTER",
-      });
+        .with(&flags::skip,
+              best::cli::flag{
+                  .arg = "FILTER",
+                  .help = "Skip tests whose names contain FILTER",
+              })
+        .with(&flags::filters,
+              best::cli::positional{
+                  .name = "FILTERS",
+                  .help = "Include only tests whose names contain FILTER",
+              });
   }
 };
 }  // namespace best
