@@ -106,7 +106,7 @@ struct empty;
 class type_names;
 
 // best/meta/reflect.h
-template <typename>
+template <typename, typename>
 class mirror;
 template <auto&>
 class reflected_field;

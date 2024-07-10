@@ -45,8 +45,9 @@ struct MyType final {
 
   constexpr friend auto BestReflect(auto& m, MyType*) {
     return m.infer()
-        .with(best::vals<&MyType::y>, MyCallback([] { return 42; }))
-        .hide(best::vals<&MyType::transient>);
+        .with(best::str("foo"))
+        .with(&MyType::y, MyCallback([] { return 42; }))
+        .hide(&MyType::transient);
   }
 
   constexpr bool operator==(const MyType&) const = default;
@@ -55,7 +56,7 @@ static_assert(best::is_reflected_struct<MyType>);
 
 enum class MyEnum { A, B, C };
 constexpr auto BestReflect(auto& m, MyEnum*) {
-  return m.infer().with(best::vals<MyEnum::B>, MyCallback([] { return 57; }));
+  return m.infer().with(MyEnum::B, MyCallback([] { return 57; }));
 }
 
 static_assert(best::is_reflected_enum<MyEnum>);
@@ -74,6 +75,9 @@ best::test Fields = [](auto& t) {
 };
 
 best::test FindTag = [](auto& t) {
+  t.expect_eq(best::reflect<MyType>.tags(best::types<best::str>),
+              best::row("foo"));
+
   int found = -1;
   best::reflect<MyType>.each([&](auto field) {
     auto tags = field.tags(best::types<Tag>);

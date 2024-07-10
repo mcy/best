@@ -86,10 +86,11 @@ constexpr auto fields(best::is_reflected_struct auto&& value) {
 /// these reflections is an implementation detail, since they have complex type
 /// parameters. The mirror provides a friendlier API for manipulating these
 /// reflections.
-template <typename Impl_>
+template <typename Info_, typename With_>
 class mirror final {
  private:
-  using info_t = best::unseal<Impl_>;
+  using info_t = best::unseal<Info_>;
+  using with_t = best::unseal<With_>;
 
  public:
   /// # `mirror::reflected`
@@ -99,8 +100,8 @@ class mirror final {
 
   /// # `mirror::infer()`
   ///
-  /// Infers the default reflection for the type `T`. This value can be updated
-  /// using the taps returned by other methods.
+  /// Returns a mirror containing the default reflection for the type `T`.
+  /// This will discard all tags added to the current mirror.
   ///
   /// When `T` is an enum, it is possible to explicitly specify the range of
   /// values to consider for finding enum values.
@@ -108,57 +109,53 @@ class mirror final {
     requires best::is_struct<reflected> &&
              ((reflect_internal::total_fields<reflected> <=
                BEST_REFLECT_MAX_FIELDS_));
-
   template <best::bounds range = best::bounds{.end = 64}>
   constexpr auto infer() const
     requires best::is_enum<reflected> &&
              (range.try_compute_count({}).has_value());
 
-  /// # `mirror.with()`
+  /// # `mirror.with(tags...)
   ///
-  /// Reflects that `T` has the given member. This can method
-  /// may be called multiple times, and can be used to add tags to a member.
-  template <best::is_member_ptr auto mp>
-  constexpr auto with(best::vlist<mp>, auto... tags) const
+  /// Returns an updated mirror that adds the given tags to this type. They can
+  /// be retrieved later with `best::reflected_type::tags()`.
+  constexpr auto with(auto... tags) const;
+
+  /// # `mirror.with(best::vals<member>, tags...)`
+  ///
+  /// Reflects that `T` has the given member, returning an updated mirror.
+  ///
+  /// This can method may be called multiple times, and can be used to add tags
+  /// to a member. Tags can later be retrieved via e.g.
+  /// `best::reflected_field::tags()`.
+  constexpr auto with(best::is_member_ptr auto field, auto... tags) const
     requires best::is_struct<reflected>;
-  template <best::is_enum auto e>
-  constexpr auto with(best::vlist<e>, auto... tags) const
+  constexpr auto with(best::same<reflected> auto value, auto... tags) const
     requires best::is_enum<reflected>;
 
   /// # `mirror.hide()`
   ///
-  /// Returns a tap that causes the given field or value to be hidden from
-  /// reflection.
-  template <best::is_member_ptr auto mp>
-  constexpr auto hide(best::vlist<mp>) const
+  /// Updates this mirror to make it forget about a particular member, so that
+  /// it is not visible to reflection.
+  constexpr auto hide(best::is_member_ptr auto field) const
     requires best::is_struct<reflected>;
-  template <best::is_enum auto e>
-  constexpr auto hide(best::vlist<e>) const
+  constexpr auto hide(best::same<reflected> auto value) const
     requires best::is_enum<reflected>;
 
   mirror(const mirror&) = delete;
   mirror& operator=(const mirror&) = delete;
 
  private:
-  template <typename>
+  friend best::reflect_internal::reify;
+  template <typename, typename>
   friend class mirror;
 
-  constexpr explicit mirror(best::reflect_internal::tag, info_t impl_)
-      : impl_(impl_) {}
-  info_t impl_;
-
- public:
-  constexpr static auto BEST_MIRROR_EMPTY_() {
-    return mirror({}, {{}, {}, {}});
-  }
-
-  constexpr info_t BEST_MIRROR_UNWRAP_(best::reflect_internal::tag) const {
-    return impl_;
-  }
-#define BEST_MIRROR_UNWRAP_ _private
+  constexpr explicit mirror(info_t info, with_t with)
+      : info_(info), with_(with) {}
+  info_t info_;
+  with_t with_;
 };
-template <typename T>
-mirror(auto, T) -> mirror<best::seal<T>>;
+template <typename... Ts>
+mirror(Ts...) -> mirror<best::seal<Ts>...>;
 
 /// # `best::reflected_field`
 ///
@@ -382,71 +379,65 @@ constexpr auto BestReflect(auto& mirror, auto*)
   return mirror.infer();
 }
 
-template <typename T>
-constexpr auto mirror<T>::infer() const
+template <typename I, typename W>
+constexpr auto mirror<I, W>::infer() const
   requires best::is_struct<reflected> &&
            ((reflect_internal::total_fields<reflected> <=
              BEST_REFLECT_MAX_FIELDS_))
 {
   return best::mirror{
-      reflect_internal::tag{},
       reflect_internal::tdesc<reflected>::infer_struct(),
+      best::row(),
   };
 }
 
-template <typename T>
+template <typename I, typename W>
 template <best::bounds range>
-constexpr auto best::mirror<T>::infer() const
+constexpr auto mirror<I, W>::infer() const
   requires best::is_enum<reflected> && (range.try_compute_count({}).has_value())
 {
   return best::mirror{
-      reflect_internal::tag{},
       reflect_internal::tdesc<reflected>::template infer_enum<
           range.start, *range.try_compute_count({})>(),
+      best::row(),
   };
 }
 
-template <typename T>
-template <best::is_member_ptr auto mp>
-constexpr auto mirror<T>::with(best::vlist<mp>, auto... tags) const
+template <typename I, typename W>
+constexpr auto mirror<I, W>::with(auto... tags) const {
+  return best::mirror{info_.add(tags...), with_};
+}
+
+template <typename I, typename W>
+constexpr auto mirror<I, W>::with(best::is_member_ptr auto mp,
+                                  auto... tags) const
   requires best::is_struct<reflected>
 {
-  return best::mirror{
-      reflect_internal::tag{},
-      impl_.template add<mp>(tags...),
-  };
+  return best::mirror{info_, with_.push(best::row(mp, tags...))};
 }
 
-template <typename T>
-template <best::is_enum auto e>
-constexpr auto mirror<T>::with(best::vlist<e>, auto... tags) const
+template <typename I, typename W>
+constexpr auto mirror<I, W>::with(best::same<reflected> auto e,
+                                  auto... tags) const
   requires best::is_enum<reflected>
 {
-  return best::mirror{
-      reflect_internal::tag{},
-      impl_.template add<e>(tags...),
-  };
+  return best::mirror{info_, with_.push(best::row(e, tags...))};
 }
 
-template <typename T>
-template <best::is_member_ptr auto mp>
-constexpr auto mirror<T>::hide(best::vlist<mp>) const
+template <typename I, typename W>
+constexpr auto mirror<I, W>::hide(best::is_member_ptr auto mp) const
   requires best::is_struct<reflected>
 {
-  return best::mirror{
-      reflect_internal::tag{},
-      impl_.template hide<mp>(),
-  };
+  return best::mirror{info_,
+                      with_.push(best::row(mp, reflect_internal::hide{}))};
 }
-template <typename T>
-template <best::is_enum auto e>
-constexpr auto mirror<T>::hide(best::vlist<e>) const
+
+template <typename I, typename W>
+constexpr auto mirror<I, W>::hide(best::same<reflected> auto e) const
   requires best::is_enum<reflected>
 {
-  return best::mirror{
-      reflect_internal::tag{},
-      impl_.template hide<e>(),
-  };
+  return best::mirror{info_,
+                      with_.push(best::row(e, reflect_internal::hide{}))};
 }
 
 template <auto& desc_>
