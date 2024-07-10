@@ -74,7 +74,7 @@ struct cli::impl {
   struct entry final {
     best::strbuf key;  // This does not include leading --.
     size_t idx;
-    bool is_group = false, is_letter = false, is_alias = false;
+    bool is_group = false, is_letter = false, is_alias = false, is_copy = false;
     visibility vis;
   };
 
@@ -264,13 +264,15 @@ void cli::init() {
         if (name_idx == 0 && has_letter) continue;
       }
 
+      auto copy_vis = merge(vis, is_flatten ? Public : Hidden);
       for (auto entry : g->child->impl_->sorted_flags) {
         if (!is_flatten && entry.is_letter) continue;
         if (!name.is_empty()) {
           entry.key = best::format("{}.{}", name, entry.key);
         }
         entry.idx += entry.is_group ? group_offset : flag_offset;
-        entry.vis = merge(entry.vis, vis);
+        entry.vis = merge(entry.vis, copy_vis);
+        entry.is_copy = !is_flatten;
         impl_->sorted_flags.push(std::move(entry));
       }
 
@@ -279,7 +281,8 @@ void cli::init() {
           entry.key = best::format("{}.{}", name, entry.key);
         }
         entry.idx += sub_offset;
-        entry.vis = merge(entry.vis, vis);
+        entry.vis = merge(entry.vis, copy_vis);
+        entry.is_copy = !is_flatten;
         impl_->sorted_subs.push(std::move(entry));
       }
     }
@@ -421,8 +424,9 @@ best::result<void, cli::error> cli::parse(
             // This is a nesting of the form -Copt-level. Unlike the case below,
             // we do not need to update flag/arg if there remain runes to be
             // consumed.
-            BEST_GUARD(push_group(e->idx, runes->rest().is_empty()));
-            flag = runes->rest();
+            bool update = runes->rest().is_empty();
+            BEST_GUARD(push_group(e->idx, update));
+            if (!update) flag = runes->rest();
             continue;
           }
 
@@ -542,7 +546,6 @@ best::result<void, cli::error> cli::parse(
 }
 
 namespace {
-
 size_t width_of(best::str s) {
   // Technically not correct. Width for e.g. CJK, ZWJ is different.
   // TODO: crib https://crates.io/crates/unicode-width
@@ -556,33 +559,53 @@ best::strbuf cli::usage(best::pretext<wtf8> exe, bool hidden) const {
     for (size_t i = 0; i < n; ++i) out.push(" ");
   };
 
+  auto indent_dots = [&](size_t n) {
+    for (size_t i = 0; i < n; ++i) {
+      if (i == 0 || i == n - 1 || i % 2 != n % 2) {
+        out.push(" ");
+      } else {
+        out.push(".");
+      }
+    }
+  };
+
   best::format(out, "Usage: {}", exe);
 
-  // This may be a subcommand! We need to trace all the way up.
-  best::vec<best::str> subcommands;
+  // This may be a subcommand/group! We need to trace all the way up.
+  best::vec<best::strbuf> parents;
   auto* impl = impl_.get();
   while (impl->parent != nullptr) {
     if (impl->parent_sub) {
-      subcommands.push(impl->parent_sub->name);
+      parents.push(impl->parent_sub->name);
     } else if (impl->parent_group->letter != '\0') {
-      subcommands.push(best::format("-{}", impl->parent_group->letter));
+      parents.push(best::format("-{}", impl->parent_group->letter));
     } else if (!impl->parent_group->name.is_empty()) {
-      subcommands.push(best::format("--{}", impl->parent_group->name));
+      parents.push(best::format("--{}", impl->parent_group->name));
     }
 
     impl = impl->parent;
   }
-  if (!subcommands.is_empty()) {
-    subcommands.reverse();
-    for (auto sub : subcommands) {
+
+  if (!parents.is_empty()) {
+    parents.reverse();
+    for (auto sub : parents) {
       best::format(out, " {}", sub);
     }
   }
   const auto& app = impl->app;  // This is always the root.
 
-  // Append all of the letters.
+  // We also need to dig our way out of any groups we're in.
+  auto* cmd = impl_.get();
+  while (cmd->parent_group) cmd = cmd->parent;
+
+  // Append all of the letters, but only if we're inside of a subcommand, not a
+  // group.
+  if (impl_->parent_group != nullptr) {
+    out.push(" [SUBOPTION]");
+  }
+
   bool needs_dash = true;
-  for (const auto& e : impl_->sorted_flags) {
+  for (const auto& e : cmd->sorted_flags) {
     if (!e.is_letter || !visible(e.vis, hidden)) continue;
     if (std::exchange(needs_dash, false)) {
       out.push(" -");
@@ -590,12 +613,27 @@ best::strbuf cli::usage(best::pretext<wtf8> exe, bool hidden) const {
     out.push(e.key);
   }
 
-  if (!impl_->sorted_flags.is_empty()) {
+  if (!cmd->sorted_flags.is_empty()) {
     out.push(" [OPTIONS]");
   }
 
+  // Append all of the subcommands.
+  bool first = true;
+  for (const auto& s : cmd->sorted_subs) {
+    if (s.is_alias) continue;
+    if (std::exchange(first, false)) {
+      out.push(" [");
+    } else {
+      out.push("|");
+    }
+    out.push(s.key);
+  }
+  if (!first) {
+    out.push("]");
+  }
+
   // Append all of the arguments.
-  for (auto [idx, p] : impl_->args.iter().enumerate()) {
+  for (auto [idx, p] : cmd->args.iter().enumerate()) {
     if (best::str name = p.tag->name; !name.is_empty()) {
       switch (p.get_count()) {
         case Optional:
@@ -647,7 +685,7 @@ best::strbuf cli::usage(best::pretext<wtf8> exe, bool hidden) const {
   constexpr size_t Width = 28;
 
   // Next, print all of the subcommands.
-  bool first = true;
+  first = true;
   for (const auto& e : impl_->sorted_subs) {
     if (!visible(e.vis, hidden) || e.is_alias) continue;
 
@@ -659,7 +697,7 @@ best::strbuf cli::usage(best::pretext<wtf8> exe, bool hidden) const {
     out.push(e.key);
     size_t extra = Width - width_of(e.key) - 6;
     if (extra <= Width) {
-      indent(extra + 2);
+      indent_dots(extra + 2);
     } else {
       out.push("\n");
       indent(Width + 2);
@@ -676,22 +714,58 @@ best::strbuf cli::usage(best::pretext<wtf8> exe, bool hidden) const {
 
   out.push("# Flags\n");
 
-  // Next, print all of the flags.
-  for (const auto& e : impl_->sorted_flags) {
-    if (e.is_alias) continue;
+  // Next, print all of the flags. The order we want to go in is:
+  // 1. Ordinary flags, alphabetized by letter and name.
+  // 2. Groups, starting with the top-level group flag and followed by its
+  //    subflags.
 
+  best::vec<const cli::impl::entry*> flags;
+
+  // First, add the ordinary flags. We can detect these by looking for
+  // flags that do not contain a `.` in their key.
+  for (const auto& e : impl_->sorted_flags) {
+    if (e.is_alias || e.is_group || e.is_copy) continue;
+
+    const auto& f = impl_->flags[e.idx];
+    bool has_letter = f.tag->letter != '\0';
+
+    // This makes us prefer to alphabetize by letter when possible.
+    if (has_letter && !e.is_letter) continue;
+    flags.push(&e);
+  }
+  // Now add the groups and their children, which we sort by name rather than by
+  // letter.
+  for (const auto& e : impl_->sorted_flags) {
+    if (e.is_alias || !(e.is_group || e.is_copy)) continue;
+
+    bool has_letter = false;
+    if (e.is_group) {
+      const auto& g = impl_->groups[e.idx];
+      has_letter = g.tag->letter != '\0';
+    } else {
+      const auto& f = impl_->flags[e.idx];
+      has_letter = f.tag->letter != '\0';
+    }
+
+    // This makes us prefer to alphabetize by name.
+    if (has_letter && e.is_letter) continue;
+    flags.push(&e);
+  }
+
+  bool first_group = true;
+  for (const auto* e : flags) {
     const cli::about* about;
     best::str help, arg;
     bool has_letter;
 
-    if (e.is_group) {
-      const auto& g = impl_->groups[e.idx];
+    if (e->is_group) {
+      const auto& g = impl_->groups[e->idx];
       about = &g.about;
       help = g.tag->help;
       arg = "FLAG";
       has_letter = g.tag->letter != '\0';
     } else {
-      const auto& f = impl_->flags[e.idx];
+      const auto& f = impl_->flags[e->idx];
       about = &f.about;
       help = f.tag->help;
       has_letter = f.tag->letter != '\0';
@@ -702,22 +776,25 @@ best::strbuf cli::usage(best::pretext<wtf8> exe, bool hidden) const {
       }
     }
 
-    if (has_letter && !e.is_letter) continue;
-
-    bool is_visible = false;
-    for (auto& [name, vis] : about->names) {
-      is_visible |= visible(vis, hidden);
+    if ((e->is_group || e->is_copy) && std::exchange(first_group, false)) {
+      out.push("\n");
     }
-    if (!is_visible) continue;
+
+    if (!visible(e->vis, hidden)) continue;
 
     size_t start = out.size();
     out.push("  ");
     if (auto [letter, vis] = about->names[0];
-        has_letter && visible(vis, hidden)) {
+        has_letter && !e->is_copy && visible(vis, hidden)) {
       best::format(out, "-{}, ", letter);
     } else {
       indent(4);
     }
+
+    best::str prefix = e->key[{
+        .end = e->key.size() - e->key.split('.').last()->size(),
+    }];
+    // Chop off everything past the last `.` to make the prefix.
 
     auto names = about->names[{.start = has_letter ? 1 : 0}].iter();
     auto helps = help.split("\n");
@@ -725,7 +802,8 @@ best::strbuf cli::usage(best::pretext<wtf8> exe, bool hidden) const {
     for (auto [name, vis] : names) {
       if (!visible(vis, hidden)) continue;
 
-      if (!std::exchange(first, false)) {
+      bool is_first = std::exchange(first, false);
+      if (!is_first) {
         start = out.size();
         indent(6);
       }
@@ -735,7 +813,7 @@ best::strbuf cli::usage(best::pretext<wtf8> exe, bool hidden) const {
         needs_comma |= visible(vis, hidden);
       }
 
-      best::format(out, "--{}", name);
+      best::format(out, "--{}{}", prefix, name);
       if (!arg.is_empty()) {
         out.push(" ");
         out.push(arg);
@@ -747,7 +825,11 @@ best::strbuf cli::usage(best::pretext<wtf8> exe, bool hidden) const {
 
       size_t extra = Width - (out.size() - start);
       if (extra <= Width) {
-        indent(extra + 2);
+        if (is_first) {
+          indent_dots(extra + 2);
+        } else {
+          indent(extra + 2);
+        }
         out.push(help.value_or());
       } else if (help) {
         out.push("\n");
@@ -767,14 +849,14 @@ best::strbuf cli::usage(best::pretext<wtf8> exe, bool hidden) const {
   start = out.size();
   best::format(out, "  -h, --help");
   size_t extra = Width - (out.size() - start);
-  indent(extra + 2);
+  indent_dots(extra + 2);
   out.push("show usage and exit\n");
 
   if (hidden) {
     start = out.size();
     best::format(out, "      --help-hidden");
     extra = Width - (out.size() - start);
-    indent(extra + 2);
+    indent_dots(extra + 2);
     out.push("show extended usage and exit\n");
   }
 

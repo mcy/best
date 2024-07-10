@@ -45,6 +45,8 @@ struct Subcommand {
 struct Subgroup {
   int eks = 0, why = 0, zed = 0;
 
+  int a_flag_with_a_freakishly_long_name;
+
   friend constexpr auto BestReflect(auto& m, Subgroup*) {
     using ::best::cli;
     return m.infer()
@@ -62,6 +64,10 @@ struct Subgroup {
               .letter = 'z',
               .arg = "INT",
               .help = "a third group integer",
+            })
+            ->*m.field(best::vals<&Subgroup::a_flag_with_a_freakishly_long_name>, cli::flag{
+              .arg = "INT",
+              .help = "like, freakishly long man",
             });
   }
 
@@ -137,7 +143,7 @@ struct MyFlags {
               .about = "longer help for the subcommand\nwith multiple lines",
             })
             ->*m.field(best::vals<&MyFlags::sub2>, cli::subcommand{
-              .help = "identical in all ways to `sub`\nexceptt for this help",
+              .help = "identical in all ways to `sub`\nexcept for this help",
               .about = "longer help for the subcommand\nwith multiple lines",
             }, cli::alias{"sub3"})
             
