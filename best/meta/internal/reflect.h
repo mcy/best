@@ -36,6 +36,8 @@ namespace best::reflect_internal {
 using ::best::names_internal::eyepatch;
 using ::best::names_internal::materialize;
 
+struct tag {};
+
 // BestRowKeys for fdesc/vdesc.
 template <auto>
 struct fkey {};
@@ -353,9 +355,14 @@ class tdesc final {
   Tags tags_;
 };
 
-template <typename T, typename mirror = best::mirror<T>>
-  requires requires { BestReflect(mirror::BEST_MIRROR_FTADLE_, (T*){}); }
-inline constexpr auto desc = BestReflect(mirror::BEST_MIRROR_FTADLE_, (T*){});
+template <typename mirror>
+inline constexpr mirror make_mirror = mirror::BEST_MIRROR_EMPTY_();
+
+template <typename T,
+          typename mirror = best::mirror<best::seal<tdesc<T, row<>, row<>>>>>
+  requires requires { BestReflect(make_mirror<mirror>, (T*){}); }
+inline constexpr auto desc =
+    BestReflect(make_mirror<mirror>, (T*){}).BEST_MIRROR_UNWRAP_(tag{});
 };  // namespace best::reflect_internal
 
 #undef BEST_DESCRIPTOR_FRIENDS_

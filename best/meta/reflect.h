@@ -22,9 +22,9 @@
 
 #include "best/container/row.h"
 #include "best/container/span_sort.h"
-#include "best/func/tap.h"
 #include "best/meta/internal/reflect.h"
 #include "best/meta/taxonomy.h"
+#include "best/meta/traits.h"
 #include "best/text/str.h"
 
 //! Struct and enum reflection.
@@ -35,11 +35,8 @@
 //!
 //! ```
 //! friend constexpr auto BestReflect(auto& mirror, MyStruct*) {
-//!   return mirror.reflect(
-//!     "MyStruct",
-//!     mirror.field("foo", &MyStruct::foo),
-//!     mirror.field("bar", &MyStruct::bar),
-//!   );
+//!   return mirror.infer()
+//!     .with(best::vals<&MyStruct::some_field>, tags...);
 //! }
 //! ```
 
@@ -89,13 +86,16 @@ constexpr auto fields(best::is_reflected_struct auto&& value) {
 /// these reflections is an implementation detail, since they have complex type
 /// parameters. The mirror provides a friendlier API for manipulating these
 /// reflections.
-template <typename T>
+template <typename Impl_>
 class mirror final {
+ private:
+  using info_t = best::unseal<Impl_>;
+
  public:
-  /// # `mirror::empty()`
+  /// # `mirror::reflected`
   ///
-  /// Returns an empty reflection for `T`, with no fields attached.
-  constexpr auto empty() const;
+  /// The type this mirror reflects.
+  using reflected = info_t::type;
 
   /// # `mirror::infer()`
   ///
@@ -105,32 +105,25 @@ class mirror final {
   /// When `T` is an enum, it is possible to explicitly specify the range of
   /// values to consider for finding enum values.
   constexpr auto infer() const
-    requires best::is_struct<T> &&
-             ((reflect_internal::total_fields<T> <= BEST_REFLECT_MAX_FIELDS_));
+    requires best::is_struct<reflected> &&
+             ((reflect_internal::total_fields<reflected> <=
+               BEST_REFLECT_MAX_FIELDS_));
 
   template <best::bounds range = best::bounds{.end = 64}>
   constexpr auto infer() const
-    requires best::is_enum<T> && (range.try_compute_count({}).has_value());
+    requires best::is_enum<reflected> &&
+             (range.try_compute_count({}).has_value());
 
-  /// # `mirror.field()`
+  /// # `mirror.with()`
   ///
-  /// Reflects that `T` has the given data member.
-  ///
-  /// This returns a tap that can be applied to a reflection returned by
-  /// e.g. `infer()`. This is primarily intended for adding tags to the field.
+  /// Reflects that `T` has the given member. This can method
+  /// may be called multiple times, and can be used to add tags to a member.
   template <best::is_member_ptr auto mp>
-  constexpr auto field(best::vlist<mp>, auto... tags) const
-    requires best::is_struct<T>;
-
-  /// # `mirror.value()`
-  ///
-  /// Reflects that `T` has the given enum value.
-  ///
-  /// This returns a tap that can be applied to a reflection returned by
-  /// e.g. `infer()`. This is primarily intended for adding tags to the value.
+  constexpr auto with(best::vlist<mp>, auto... tags) const
+    requires best::is_struct<reflected>;
   template <best::is_enum auto e>
-  constexpr auto value(best::vlist<e>, auto... tags) const
-    requires best::is_enum<T>;
+  constexpr auto with(best::vlist<e>, auto... tags) const
+    requires best::is_enum<reflected>;
 
   /// # `mirror.hide()`
   ///
@@ -138,21 +131,34 @@ class mirror final {
   /// reflection.
   template <best::is_member_ptr auto mp>
   constexpr auto hide(best::vlist<mp>) const
-    requires best::is_struct<T>;
-
+    requires best::is_struct<reflected>;
   template <best::is_enum auto e>
   constexpr auto hide(best::vlist<e>) const
-    requires best::is_enum<T>;
+    requires best::is_enum<reflected>;
 
   mirror(const mirror&) = delete;
   mirror& operator=(const mirror&) = delete;
 
  private:
-  constexpr mirror() = default;
+  template <typename>
+  friend class mirror;
+
+  constexpr explicit mirror(best::reflect_internal::tag, info_t impl_)
+      : impl_(impl_) {}
+  info_t impl_;
 
  public:
-  static const mirror BEST_MIRROR_FTADLE_;
+  constexpr static auto BEST_MIRROR_EMPTY_() {
+    return mirror({}, {{}, {}, {}});
+  }
+
+  constexpr info_t BEST_MIRROR_UNWRAP_(best::reflect_internal::tag) const {
+    return impl_;
+  }
+#define BEST_MIRROR_UNWRAP_ _private
 };
+template <typename T>
+mirror(auto, T) -> mirror<best::seal<T>>;
 
 /// # `best::reflected_field`
 ///
@@ -369,11 +375,7 @@ class reflected_type final {
 \* ////////////////////////////////////////////////////////////////////////// */
 
 namespace best {
-template <typename T>
-inline constexpr mirror<T> mirror<T>::BEST_MIRROR_FTADLE_{};
-#define BEST_MIRROR_FTADLE_ _private
-
-// The default BEST_REFLECT impl.
+// The default BestReflect() impl.
 constexpr auto BestReflect(auto& mirror, auto*)
   requires requires { mirror.infer(); }
 {
@@ -381,64 +383,70 @@ constexpr auto BestReflect(auto& mirror, auto*)
 }
 
 template <typename T>
-template <best::is_member_ptr auto mp>
-constexpr auto mirror<T>::field(best::vlist<mp>, auto... tags) const
-  requires best::is_struct<T>
-{
-  return best::tap([=](reflect_internal::valid_reflection<T> auto&& refl) {
-    return refl.template add<mp>(tags...);
-  });
-}
-
-template <typename T>
-template <best::is_enum auto e>
-constexpr auto mirror<T>::value(best::vlist<e>, auto... tags) const
-  requires best::is_enum<T>
-{
-  return best::tap([=](reflect_internal::valid_reflection<T> auto&& refl) {
-    return refl.template add<e>(tags...);
-  });
-}
-
-template <typename T>
-template <best::is_member_ptr auto mp>
-constexpr auto mirror<T>::hide(best::vlist<mp>) const
-  requires best::is_struct<T>
-{
-  return best::tap([=](reflect_internal::valid_reflection<T> auto&& refl) {
-    return refl.template hide<mp>();
-  });
-}
-template <typename T>
-template <best::is_enum auto e>
-constexpr auto mirror<T>::hide(best::vlist<e>) const
-  requires best::is_enum<T>
-{
-  return best::tap([=](reflect_internal::valid_reflection<T> auto&& refl) {
-    return refl.template hide<e>();
-  });
-}
-
-template <typename T>
-constexpr auto mirror<T>::empty() const {
-  return reflect_internal::tdesc<T, best::row<>, best::row<>>{};
-}
-
-template <typename T>
 constexpr auto mirror<T>::infer() const
-  requires best::is_struct<T> &&
-           ((reflect_internal::total_fields<T> <= BEST_REFLECT_MAX_FIELDS_))
+  requires best::is_struct<reflected> &&
+           ((reflect_internal::total_fields<reflected> <=
+             BEST_REFLECT_MAX_FIELDS_))
 {
-  return reflect_internal::tdesc<T>::infer_struct();
+  return best::mirror{
+      reflect_internal::tag{},
+      reflect_internal::tdesc<reflected>::infer_struct(),
+  };
 }
 
 template <typename T>
 template <best::bounds range>
 constexpr auto best::mirror<T>::infer() const
-  requires best::is_enum<T> && (range.try_compute_count({}).has_value())
+  requires best::is_enum<reflected> && (range.try_compute_count({}).has_value())
 {
-  return reflect_internal::tdesc<T>::template infer_enum<
-      range.start, *range.try_compute_count({})>();
+  return best::mirror{
+      reflect_internal::tag{},
+      reflect_internal::tdesc<reflected>::template infer_enum<
+          range.start, *range.try_compute_count({})>(),
+  };
+}
+
+template <typename T>
+template <best::is_member_ptr auto mp>
+constexpr auto mirror<T>::with(best::vlist<mp>, auto... tags) const
+  requires best::is_struct<reflected>
+{
+  return best::mirror{
+      reflect_internal::tag{},
+      impl_.template add<mp>(tags...),
+  };
+}
+
+template <typename T>
+template <best::is_enum auto e>
+constexpr auto mirror<T>::with(best::vlist<e>, auto... tags) const
+  requires best::is_enum<reflected>
+{
+  return best::mirror{
+      reflect_internal::tag{},
+      impl_.template add<e>(tags...),
+  };
+}
+
+template <typename T>
+template <best::is_member_ptr auto mp>
+constexpr auto mirror<T>::hide(best::vlist<mp>) const
+  requires best::is_struct<reflected>
+{
+  return best::mirror{
+      reflect_internal::tag{},
+      impl_.template hide<mp>(),
+  };
+}
+template <typename T>
+template <best::is_enum auto e>
+constexpr auto mirror<T>::hide(best::vlist<e>) const
+  requires best::is_enum<reflected>
+{
+  return best::mirror{
+      reflect_internal::tag{},
+      impl_.template hide<e>(),
+  };
 }
 
 template <auto& desc_>

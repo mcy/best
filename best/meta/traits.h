@@ -95,6 +95,17 @@ using select = traits_internal::select<cond, A, B>::type;
 /// illegal construction if it would not be selected.
 template <bool cond, best::type_trait A, best::type_trait B>
 using select_trait = traits_internal::select<cond, A, B>::type::type;
+
+/// # `best::seal<T>`, `best::unseal<T>`
+///
+/// Seals a type.
+///
+/// This produces a new type with a very small opaque name that can be
+/// `best::unseal`ed to produce the original type.
+template <typename T>
+using seal = decltype(best::traits_internal::seal<best::id<T>>);
+template <typename Sealed>
+using unseal = best::traits_internal::unseal<Sealed>::type;
 }  // namespace best
 
 #endif  // BEST_META_TRAITS_H_
