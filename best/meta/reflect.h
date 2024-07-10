@@ -89,8 +89,8 @@ constexpr auto fields(best::is_reflected_struct auto&& value) {
 template <typename Info_, typename With_>
 class mirror final {
  private:
-  using info_t = best::unseal<Info_>;
-  using with_t = best::unseal<With_>;
+  using info_t = best::unabridge<Info_>;
+  using with_t = best::unabridge<With_>;
 
  public:
   /// # `mirror::reflected`
@@ -155,7 +155,7 @@ class mirror final {
   with_t with_;
 };
 template <typename... Ts>
-mirror(Ts...) -> mirror<best::seal<Ts>...>;
+mirror(Ts...) -> mirror<best::abridge<Ts>...>;
 
 /// # `best::reflected_field`
 ///

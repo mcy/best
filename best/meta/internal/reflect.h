@@ -376,8 +376,8 @@ class tdesc final {
 
 struct reify {
   template <typename T>
-  static constexpr mirror<best::seal<tdesc<T, row<>, row<>>>,
-                          best::seal<best::row<>>>
+  static constexpr mirror<best::abridge<tdesc<T, row<>, row<>>>,
+                          best::abridge<best::row<>>>
       empty{{{}, {}, {}}, {}};
 
   template <typename T>
