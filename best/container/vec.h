@@ -122,7 +122,7 @@ class vec final {
   template <contiguous Range>
   vec(alloc alloc, Range&& range)
     requires best::constructible<T, best::data_type<Range>>
-  {
+      : vec(std::move(alloc)) {
     assign(range);
     // TODO: move optimization?
   }
@@ -138,7 +138,7 @@ class vec final {
   template <is_iter Iter>
   vec(alloc alloc, Iter&& iter)
     requires best::constructible<T, best::iter_type<Iter>>
-  {
+      : vec(std::move(alloc)) {
     reserve(iter.size_hint().lower);
     for (auto&& elem : iter) {
       push(BEST_FWD(elem));

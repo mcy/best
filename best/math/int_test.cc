@@ -73,4 +73,6 @@ static_assert(best::checked_cast<unsigned>(-1).is_empty());
 static_assert(best::checked_cast<unsigned>(1) == 1);
 static_assert(best::checked_cast<int>(best::max_of<long>).is_empty());
 static_assert(best::checked_cast<int>(200ll) == 200);
+
+static_assert(best::same<best::common_int<int, size_t>, size_t>);
 }  // namespace best::int_test

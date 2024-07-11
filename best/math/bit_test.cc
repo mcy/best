@@ -78,6 +78,8 @@ static_assert(best::next_pow2(3u) == 4);
 static_assert(best::next_pow2(4u) == 8);
 static_assert(best::wrapping_next_pow2(best::max_of<unsigned>) == 0);
 
+static_assert(best::next_pow2(size_t{4294967254}) == 4294967296);
+
 static_assert(best::bits_for(0u) == 0);
 static_assert(best::bits_for(1u) == 1);
 static_assert(best::bits_for(2u) == 2);

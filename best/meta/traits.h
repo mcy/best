@@ -104,8 +104,14 @@ using select_trait = traits_internal::select<cond, A, B>::type::type;
 /// `best::unabridge`ed to produce the original type.
 template <typename T>
 using abridge = decltype(best::traits_internal::seal<best::id<T>>);
-template <typename Sealed>
-using unabridge = best::traits_internal::unseal<Sealed>::type;
+template <typename T>
+using unabridge = best::traits_internal::unseal<T>::type;
+
+/// # `best::abridged<T>`
+///
+/// A type generated with `best::abridge<T>`.
+template <typename T>
+concept abridged = best::traits_internal::sealed<T>;
 }  // namespace best
 
 #endif  // BEST_META_TRAITS_H_

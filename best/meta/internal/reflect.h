@@ -25,6 +25,7 @@
 #include "best/meta/internal/names.h"
 #include "best/meta/names.h"
 #include "best/meta/taxonomy.h"
+#include "best/meta/traits.h"
 #include "best/text/str.h"
 
 //! Reflection descriptors.
@@ -48,20 +49,24 @@ struct vkey {};
 // Fwd decls of the descriptor classes. The classes are completely private so
 // users cannot tamper with them, but they befriend all of the reflection types.
 // They have a lot of friends, so we define a macro to help keep them tidy.
-template <typename, best::is_row = best::row<>, best::is_row = best::row<>>
+template <typename,  //
+          best::abridged = best::abridge<best::row<>>,
+          best::abridged = best::abridge<best::row<>>>
 class tdesc;  // Type descriptor.
-template <auto, typename, typename, best::is_row = best::row<>>
+template <auto, typename, typename, best::abridged = best::abridge<best::row<>>>
 class fdesc;  // Field descriptor.
-template <auto, best::is_row = best::row<>>
+template <auto, best::abridged = best::abridge<best::row<>>>
 class vdesc;  // Enum value descriptor.
 
 // CTAD deduction guides for the descriptors.
 template <typename S, best::is_row Items, best::is_row Tags>
-tdesc(best::tlist<S>, Items, Tags) -> tdesc<S, Items, Tags>;
+tdesc(best::tlist<S>, Items, Tags)
+    -> tdesc<S, best::abridge<Items>, best::abridge<Tags>>;
 template <auto p, typename S, typename Get, best::is_row Tags>
-fdesc(best::vlist<p>, best::tlist<S>, Get, Tags) -> fdesc<p, S, Get, Tags>;
+fdesc(best::vlist<p>, best::tlist<S>, Get, Tags)
+    -> fdesc<p, S, Get, best::abridge<Tags>>;
 template <auto e, best::is_row Tags>
-vdesc(best::vlist<e>, Tags) -> vdesc<e, Tags>;
+vdesc(best::vlist<e>, Tags) -> vdesc<e, best::abridge<Tags>>;
 
 // Used in the reflection classes to validate that they are specialized
 // correctly. They contain static asserts that check for the right kind value.
@@ -77,24 +82,24 @@ template <typename Info, typename For>
 concept valid_reflection = validator<best::as_auto<Info>, For>::value;
 
 // Friend declarations shared by all descriptors.
-#define BEST_DESCRIPTOR_FRIENDS_                    \
-  template <auto&>                                  \
-  friend class best::reflected_type;                \
-  template <auto&>                                  \
-  friend class best::reflected_field;               \
-  template <auto&>                                  \
-  friend class best::reflected_value;               \
-  template <typename, typename>                     \
-  friend class best::mirror;                        \
-                                                    \
-  template <typename, best::is_row, best::is_row>   \
-  friend class reflect_internal::tdesc;             \
-  template <auto, typename, typename, best::is_row> \
-  friend class reflect_internal::fdesc;             \
-  template <auto, best::is_row>                     \
-  friend class reflect_internal::vdesc;             \
-  template <typename, typename>                     \
-  friend struct reflect_internal::validator;        \
+#define BEST_DESCRIPTOR_FRIENDS_                      \
+  template <auto&>                                    \
+  friend class best::reflected_type;                  \
+  template <auto&>                                    \
+  friend class best::reflected_field;                 \
+  template <auto&>                                    \
+  friend class best::reflected_value;                 \
+  template <typename, typename>                       \
+  friend class best::mirror;                          \
+                                                      \
+  template <typename, best::abridged, best::abridged> \
+  friend class reflect_internal::tdesc;               \
+  template <auto, typename, typename, best::abridged> \
+  friend class reflect_internal::fdesc;               \
+  template <auto, best::abridged>                     \
+  friend class reflect_internal::vdesc;               \
+  template <typename, typename>                       \
+  friend struct reflect_internal::validator;          \
   friend struct reflect_internal::reify;
 
 // Discards anything it is constructed with. This is used for the inlined
@@ -175,7 +180,7 @@ constexpr decltype(auto) bind(auto&& val) {
   });
 }
 
-template <auto p, typename S, typename Get, best::is_row Tags>
+template <auto p, typename S, typename Get, best::abridged Tags_>
 class fdesc final {
  public:
   using BestRowKey = fkey<p>;
@@ -183,6 +188,7 @@ class fdesc final {
  private:
   BEST_DESCRIPTOR_FRIENDS_
 
+  using Tags = best::unabridge<Tags_>;
   using struct_ = S;
   using type = best::unptr<decltype(p.unwrap)>;
   inline static constexpr auto Kind = Field;
@@ -204,7 +210,7 @@ class fdesc final {
   Tags tags_;
 };
 
-template <auto e, best::is_row Tags>
+template <auto e, best::abridged Tags_>
 class vdesc final {
  public:
   using BestRowKey = vkey<e>;
@@ -212,6 +218,7 @@ class vdesc final {
  private:
   BEST_DESCRIPTOR_FRIENDS_
 
+  using Tags = best::unabridge<Tags_>;
   using enum_ = decltype(e);
   inline static constexpr auto Kind = Value;
 
@@ -233,13 +240,16 @@ struct lifted {
   best::row<Args...> args;
 };
 
-template <typename T, best::is_row Items, best::is_row Tags>
+template <typename T, best::abridged Items_, best::abridged Tags_>
 class tdesc final {
  private:
   BEST_DESCRIPTOR_FRIENDS_
 
   using type = T;
   inline static constexpr auto Kind = Type;
+
+  using Items = best::unabridge<Items_>;
+  using Tags = best::unabridge<Tags_>;
 
   constexpr tdesc(best::tlist<T>, Items items, Tags tags)
       : items_(items), tags_(tags) {}
@@ -376,8 +386,7 @@ class tdesc final {
 
 struct reify {
   template <typename T>
-  static constexpr mirror<best::abridge<tdesc<T, row<>, row<>>>,
-                          best::abridge<best::row<>>>
+  static constexpr mirror<best::abridge<tdesc<T>>, best::abridge<best::row<>>>
       empty{{{}, {}, {}}, {}};
 
   template <typename T>

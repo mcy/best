@@ -19,6 +19,8 @@
 
 #include "best/math/overflow.h"
 
+#include "best/math/int.h"
+
 namespace best::overflow_test {
 static_assert(overflow(max_of<int>) + 1 == overflow(min_of<int>, true));
 static_assert(overflow(min_of<int>) + 1 == overflow(min_of<int> + 1));
@@ -37,6 +39,9 @@ static_assert(overflow(min_of<int>) % -1 == overflow(min_of<int>, true));
 
 static_assert((overflow(42) << 33) == overflow(84, true));
 static_assert((overflow(42) >> 33) == overflow(21, true));
+
+static_assert((size_t(best::max_of<unsigned>) + overflow(1)).wrap() ==
+              4294967296);
 
 static_assert(best::saturating_add(max_of<int> - 5, 6) == best::max_of<int>);
 static_assert(best::saturating_add(min_of<int> + 5, -6) == best::min_of<int>);

@@ -496,6 +496,39 @@ class object final {
   constexpr cptr operator->() const { return as_ptr().operator->(); }
   constexpr ptr operator->() { return as_ptr().operator->(); }
 
+  /// # `object::or_empty()`
+  ///
+  /// Returns the result of `operator*`, or a `best::empty&` if `T` is of void
+  /// type.
+  constexpr decltype(auto) or_empty() const& {
+    if constexpr (best::is_void<T>) {
+      return BEST_OBJECT_VALUE_;
+    } else {
+      return **this;
+    }
+  }
+  constexpr decltype(auto) or_empty() & {
+    if constexpr (best::is_void<T>) {
+      return BEST_OBJECT_VALUE_;
+    } else {
+      return **this;
+    }
+  }
+  constexpr decltype(auto) or_empty() const&& {
+    if constexpr (best::is_void<T>) {
+      return BEST_MOVE(BEST_OBJECT_VALUE_);
+    } else {
+      return *BEST_MOVE(*this);
+    }
+  }
+  constexpr decltype(auto) or_empty() && {
+    if constexpr (best::is_void<T>) {
+      return BEST_MOVE(BEST_OBJECT_VALUE_);
+    } else {
+      return *BEST_MOVE(*this);
+    }
+  }
+
   // Comparisons are the obvious thing.
   constexpr bool operator==(const object& that) const
     requires best::equatable<T, T>

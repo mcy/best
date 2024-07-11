@@ -27,94 +27,28 @@
 #include "best/meta/tlist.h"
 
 namespace best::row_internal {
-// This builds a set of lookup indices that find the first index that matches
-// lookup up a column type or column name.
-template <size_t n, typename T>
-struct entry {
-  size_t table[n];
-  size_t total = 0;
-
-  constexpr void append(size_t m) { table[total++] = m; }
-};
-
-template <typename T>
-concept has_col_name = requires {
+template <typename K, typename T>
+concept has_key = std::is_same_v<K, T> || requires {
   typename T::BestRowKey;
-  requires(!best::same<T, typename T::BestRowKey>);
+  requires std::is_same_v<K, typename T::BestRowKey>;
 };
 
-template <size_t n, typename... Ts>
-struct lookup_table final : entry<n, Ts>... {
-  size_t next_idx = 0;
+/// Prepares a lookup table for finding `K` among `Ts`. This returns an array
+/// whose first element is the number of matching elements `n`, and whose next
+/// `n` elements are their indices among the `Ts`.
+template <typename K, typename... Ts>
+inline constexpr auto lookup = [] {
+  size_t next = 0;
+  std::array<size_t, sizeof...(Ts) + 1> table = {};
+  ((has_key<K, Ts> ? table[1 + table[0]++] = next++ : next++), ...);
+  return table;
+}();
 
-  template <typename T>
-  constexpr auto operator+(entry<n, T>*)
-    requires(!has_col_name<T>)
-  {
-    if constexpr (std::is_base_of_v<entry<n, T>, lookup_table>) {
-      static_cast<entry<n, T>&>(*this).append(next_idx++);
-      return *this;
-    } else {
-      return lookup_table<n, Ts..., T>{
-          entry<n, Ts>(*this)...,
-          entry<n, T>{{next_idx}, 1},
-          next_idx + 1,
-      };
-    }
-  }
-
-  template <typename T>
-  constexpr auto operator+(entry<n, T>*)
-    requires has_col_name<T>
-  {
-    using K = T::BestRowKey;
-    if constexpr (std::is_base_of_v<entry<n, T>, lookup_table>) {
-      static_cast<entry<n, T>&>(*this).append(next_idx);
-      static_cast<entry<n, K>&>(*this).append(next_idx++);
-      return *this;
-    } else if constexpr (std::is_base_of_v<entry<n, K>, lookup_table>) {
-      static_cast<entry<n, K>&>(*this).append(next_idx++);
-      return lookup_table<n, Ts..., T>{
-          entry<n, Ts>(*this)...,
-          entry<n, T>{{next_idx}, 1},
-          next_idx + 1,
-      };
-    } else {
-      return lookup_table<n, Ts..., T, K>{
-          entry<n, Ts>(*this)...,
-          entry<n, T>{{next_idx}, 1},
-          entry<n, K>{{next_idx}, 1},
-          next_idx + 1,
-      };
-    }
-  }
-
-  template <typename T>
-  constexpr size_t count() const {
-    if constexpr (std::is_base_of_v<entry<n, T>, lookup_table>) {
-      return static_cast<const entry<n, T>&>(*this).total;
-    }
-    return {};
-  }
-};
-
-template <typename... Ts>
-inline constexpr auto lookup =
-    (lookup_table<sizeof...(Ts)>{} + ... + (entry<sizeof...(Ts), Ts>*){});
-
-template <typename K, typename... Ts, const auto& lut = lookup<Ts...>,
-          size_t count = lut.template count<K>()>
+template <typename K, typename... Ts, const auto& lut = lookup<K, Ts...>,
+          size_t count = lut[0]>
 inline constexpr auto do_lookup() {
-  if constexpr (count == 0) {
-    return best::vals<>;
-  } else {
-    const size_t(&table)[sizeof...(Ts)] =
-        static_cast<const entry<sizeof...(Ts), K>&>(lut).table;
-
-    return [&]<size_t... i>(std::index_sequence<i...>) {
-      return best::vals<table[i]...>;
-    }(std::make_index_sequence<count>{});
-  }
+  return best::indices<lut[0]>.apply(
+      []<size_t... i> { return best::vals<lut[i + 1]...>; });
 }
 
 template <size_t i, typename T>
@@ -126,13 +60,19 @@ template <typename, typename...>
 struct impl;
 
 template <typename I>
-struct impl<I> {};
+struct impl<I> {
+  constexpr decltype(auto) apply_impl(auto&& cb) const { return cb(); }
+};
 
 template <typename I, typename A>
 struct impl<I, A> {
   constexpr const auto& get_impl(best::index_t<0>) const { return x0; }
   constexpr auto& get_impl(best::index_t<0>) { return x0; }
-  best::object<A> x0;
+
+  constexpr decltype(auto) apply_impl(auto&& cb) const { return cb(x0); }
+  constexpr decltype(auto) apply_impl(auto&& cb) { return cb(x0); }
+
+  [[no_unique_address]] best::object<A> x0;
 };
 
 template <typename I, typename A, typename B>
@@ -141,8 +81,12 @@ struct impl<I, A, B> {
   constexpr auto& get_impl(best::index_t<0>) { return x0; }
   constexpr const auto& get_impl(best::index_t<1>) const { return x1; }
   constexpr auto& get_impl(best::index_t<1>) { return x1; }
-  best::object<A> x0;
-  best::object<B> x1;
+
+  constexpr decltype(auto) apply_impl(auto&& cb) const { return cb(x0, x1); }
+  constexpr decltype(auto) apply_impl(auto&& cb) { return cb(x0, x1); }
+
+  [[no_unique_address]] best::object<A> x0;
+  [[no_unique_address]] best::object<B> x1;
 };
 
 template <size_t... i, typename... Elems>
@@ -158,7 +102,23 @@ struct impl<const best::vlist<i...>, Elems...> : elem<i, Elems>... {
     using T = best::tlist<Elems...>::template type<j>;
     return static_cast<elem<j, T>&>(*this).value;
   }
+
+  constexpr decltype(auto) apply_impl(auto cb) const {
+    return cb(static_cast<const elem<i, Elems>&>(*this).value...);
+  }
+  constexpr decltype(auto) apply_impl(auto&& cb) {
+    return cb(static_cast<elem<i, Elems>&>(*this).value...);
+  }
 };
+
+constexpr decltype(auto) object_call(auto&& cb, auto&& obj) {
+  if constexpr (best::is_void<typename best::as_auto<decltype(obj)>::type> &&
+                best::callable<decltype(cb), void()>) {
+    best::call(static_cast<best::dependent<decltype(cb), decltype(obj)>&&>(cb));
+  } else {
+    best::call(BEST_FWD(cb), BEST_FWD(obj).or_empty());
+  }
+}
 
 // See tlist_internal::slice_impl().
 using ::best::tlist_internal::splat;

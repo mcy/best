@@ -42,4 +42,18 @@ best::test Count = [](auto& t) {
               7);
   t.expect_eq(calls, 7);
 };
+
+best::test Enumerate = [](auto& t) {
+  best::vec pairs(best::bounds{.start = 5, .count = 7}.iter().enumerate());
+  t.expect_eq(pairs,
+              {{0, 5}, {1, 6}, {2, 7}, {3, 8}, {4, 9}, {5, 10}, {6, 11}});
+};
+
+best::test Take = [](auto& t) {
+  best::vec x0(best::bounds{.start = 5, .count = 7}.iter().take(3));
+  t.expect_eq(x0, {5, 6, 7});
+
+  best::vec x1(best::bounds{.start = 5, .count = 7}.iter().take(20));
+  t.expect_eq(x1, {5, 6, 7, 8, 9, 10, 11});
+};
 };  // namespace best::iter_test

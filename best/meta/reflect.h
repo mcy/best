@@ -86,11 +86,11 @@ constexpr auto fields(best::is_reflected_struct auto&& value) {
 /// these reflections is an implementation detail, since they have complex type
 /// parameters. The mirror provides a friendlier API for manipulating these
 /// reflections.
-template <typename Info_, typename With_>
+template <typename I, typename W>
 class mirror final {
  private:
-  using info_t = best::unabridge<Info_>;
-  using with_t = best::unabridge<With_>;
+  using info_t = best::unabridge<I>;
+  using with_t = best::unabridge<W>;
 
  public:
   /// # `mirror::reflected`

@@ -78,10 +78,10 @@ constexpr best::result<Int, best::atoi_error> atoi(const string_type auto &str,
 
 #define BEST_ATOI_LOOP_(result_, op_)                             \
   do {                                                            \
-    result_ *= radix;                                             \
+    result_ *= Int(radix);                                        \
     auto digit = next->to_digit(radix).ok_or(best::atoi_error{}); \
     BEST_GUARD(digit);                                            \
-    result_ op_ *digit;                                           \
+    result_ op_ Int(*digit);                                      \
   } while ((next = runes.next()))
 
     if (cannot_overflow) {
@@ -97,10 +97,10 @@ constexpr best::result<Int, best::atoi_error> atoi(const string_type auto &str,
 #undef BEST_ATOI_LOOP_
 #define BEST_ATOI_LOOP_(result_, op_)                             \
   do {                                                            \
-    result_ *= radix;                                             \
+    result_ *= Int(radix);                                        \
     auto digit = next->to_digit(radix).ok_or(best::atoi_error{}); \
     BEST_GUARD(digit);                                            \
-    result_ op_ *digit;                                           \
+    result_ op_ Int(*digit);                                      \
     BEST_GUARD(result_.checked().ok_or(best::atoi_error{}));      \
   } while ((next = runes.next()))
 

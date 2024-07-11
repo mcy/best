@@ -315,11 +315,11 @@ struct overflow {
 #define BEST_OF_BOILERPLATE_(op_, opeq_)                                  \
   BEST_INLINE_ALWAYS constexpr friend auto operator op_(overflow a,       \
                                                         integer auto b) { \
-    return a op_ overflow(b);                                             \
+    return a op_ best::overflow(b);                                       \
   }                                                                       \
   BEST_INLINE_ALWAYS constexpr friend auto operator op_(integer auto a,   \
                                                         overflow b) {     \
-    return overflow(a) op_ b;                                             \
+    return best::overflow(a) op_ b;                                       \
   }                                                                       \
                                                                           \
   template <integer J>                                                    \
