@@ -196,6 +196,11 @@ class iter final {
   /// value.
   constexpr auto enumerate() &&;
 
+  /// # `iter::take()`
+  ///
+  /// Produces a new iterator that only yields the first `n` elements.
+  constexpr auto take(size_t n) &&;
+
   /// # `iter::begin()`, `iter::end()`
   ///
   /// Bridges for C++'s range-for syntax. You should never call these directly.
@@ -396,6 +401,37 @@ constexpr auto iter<I>::enumerate() && {
   return best::iter(iter_internal::enumerate(std::move(*this)));
 }
 
+namespace iter_internal {
+template <typename Impl>
+class take final {
+ public:
+  constexpr best::option<typename iter<Impl>::item> next() {
+    if (count_ == 0) return best::none;
+    --count_;
+    return iter_.next();
+  }
+
+  constexpr best::size_hint size_hint() const {
+    auto [min, max] = iter_.size_hint();
+    return {min, count_};
+  }
+
+ private:
+  constexpr explicit take(best::iter<Impl> iter, size_t n)
+      : iter_(BEST_MOVE(iter)), count_(n) {}
+
+  friend best::iter<Impl>;
+  [[no_unique_address]] iter<Impl> iter_;
+  size_t count_ = 0;
+};
+template <typename I>
+take(iter<I>&&, size_t n) -> take<I>;
+}  // namespace iter_internal
+
+template <typename I>
+constexpr auto iter<I>::take(size_t n) && {
+  return best::iter(iter_internal::take(std::move(*this), n));
+}
 }  // namespace best
 
 #endif  // BEST_ITER_ITER_H_

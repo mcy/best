@@ -38,7 +38,9 @@ void* malloc::alloc(best::layout layout) {
   }
 
   if (best::unlikely(p == nullptr)) {
-    best::crash_internal::crash("malloc() returned a null pointer");
+    best::crash_internal::crash(
+        "malloc() returned a null pointer on layout %zu:%zu", layout.size(),
+        layout.align());
   }
   if (best::is_debug()) {
     std::memset(p, 0xcd, layout.size());
@@ -50,7 +52,9 @@ void* malloc::zalloc(best::layout layout) {
   if (layout.size() <= MaxAlign) {
     void* p = ::calloc(layout.size(), 1);
     if (best::unlikely(p == nullptr)) {
-      best::crash_internal::crash("calloc() returned a null pointer");
+      best::crash_internal::crash(
+          "calloc() returned a null pointer on layout %zu:%zu", layout.size(),
+          layout.align());
     }
     return p;
   }
@@ -64,7 +68,9 @@ void* malloc::realloc(void* ptr, best::layout old, best::layout layout) {
   if (layout.size() <= MaxAlign) {
     void* p = ::realloc(ptr, layout.size());
     if (best::unlikely(p == nullptr)) {
-      best::crash_internal::crash("realloc() returned a null pointer");
+      best::crash_internal::crash(
+          "realloc() returned a null pointer on layout %zu:%zu -> %zu:%zu",
+          old.size(), old.align(), layout.size(), layout.align());
     }
     return p;
   }

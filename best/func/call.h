@@ -42,22 +42,7 @@ namespace best {
 ///
 /// Additionally, any type parameters passed to this function will be forwarded
 /// to `call`.
-template <typename... Ts>
-BEST_INLINE_SYNTHETIC constexpr decltype(auto) call(auto &&...args)
-  requires requires {
-    call_internal::call(call_internal::tag<Ts...>{}, BEST_FWD(args)...);
-  }
-{
-  return call_internal::call(call_internal::tag<Ts...>{}, BEST_FWD(args)...);
-}
-template <auto... vs>
-BEST_INLINE_SYNTHETIC constexpr decltype(auto) call(auto &&f, auto &&...args)
-  requires(sizeof...(vs) > 0) && requires {
-    BEST_FWD(f).template operator()<vs...>(BEST_FWD(args)...);
-  }
-{
-  return BEST_FWD(f).template operator()<vs...>(BEST_FWD(args)...);
-}
+using ::best::call_internal::call;
 
 /// # `best::call_devoid()`
 ///
