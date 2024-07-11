@@ -685,6 +685,9 @@ class pretext final {
   constexpr bool starts_with(const best::string_type auto& prefix) const {
     return strip_prefix(prefix).has_value();
   }
+  constexpr bool starts_with(best::callable<bool(rune)> auto&& pred) const {
+    return strip_prefix(BEST_FWD(pred)).has_value();
+  }
 
   /// # `pretext::strip_prefix()`
   ///
@@ -848,13 +851,14 @@ class pretext<E>::rune_index_iter_impl final {
   friend best::iter<rune_index_iter_impl>;
   friend best::iter<rune_index_iter_impl&>;
 
-  constexpr explicit rune_index_iter_impl(rune_try_iter iter) : iter_(iter) {}
+  constexpr explicit rune_index_iter_impl(rune_try_iter iter)
+      : iter_(iter), size_(iter->rest().size()) {}
   constexpr best::option<best::row<size_t, best::rune>> next();
   constexpr best::size_hint size_hint() const { return iter_.size_hint(); }
   constexpr size_t count() && { return BEST_MOVE(iter_).count(); }
 
   rune_try_iter iter_;
-  size_t idx_ = 0;
+  size_t size_;
 };
 
 template <typename E>
@@ -1157,13 +1161,10 @@ text<E>::rune_index_iter_impl::next() {
 template <typename E>
 constexpr best::option<best::row<size_t, best::rune>>
 pretext<E>::rune_index_iter_impl::next() {
-  size_t cur_len = iter_->rest().size();
   auto next = iter_.next();
   BEST_GUARD(next);
 
-  size_t idx = idx_;
-  idx_ += cur_len - iter_->rest().size();
-  return {{idx, next->ok().value_or(rune::Replacement)}};
+  return {{size_ - rest().size(), next->ok().value_or(rune::Replacement)}};
 }
 template <typename E>
 constexpr best::option<best::result<best::rune, best::encoding_error>>
@@ -1246,7 +1247,8 @@ template <typename E>
 constexpr best::option<pretext<E>> pretext<E>::strip_prefix(
     best::callable<bool(rune)> auto&& pred) const {
   auto haystack = try_runes();
-  if (best::call(BEST_FWD(pred), haystack.next())) {
+  if (haystack.next().has_value(
+          [&](auto r) { return r.ok().has_value(BEST_FWD(pred)); })) {
     return haystack->rest();
   }
   return best::none;

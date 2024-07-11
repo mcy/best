@@ -34,6 +34,10 @@
 //! best. Users SHOULD NOT forward-declared best types.
 
 namespace best {
+// best/cli/cli.h
+struct argv_query;
+class cli;
+
 // best/container/choice.h
 template <typename...>
 class choice;

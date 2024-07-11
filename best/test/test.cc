@@ -23,6 +23,7 @@
 
 #include <cstdlib>
 
+#include "best/cli/app.h"
 #include "best/container/vec.h"
 
 namespace best {
@@ -49,7 +50,6 @@ best::str symbol_name(const void* ptr, best::location loc) {
   }
 }
 
-static_assert(best::rune::validate("\N{ESCAPE}[0m"));
 inline constexpr best::str Reset = "\N{ESCAPE}[0m";
 inline constexpr best::str Bold = "\N{ESCAPE}[1m";
 inline constexpr best::str Red = "\N{ESCAPE}[31m";
@@ -60,18 +60,29 @@ void test::init() {
   name_ = symbol_name(this, where());
 }
 
-bool test::run_all(int argc, char** argv) {
+bool test::run_all(const flags& flags) {
   best::eprint("{}testing:", Bold);
 
-  for (int i = 0; i < argc; ++i) {
-    best::eprint(" {}", *str::from_nul(argv[i]));
+  for (auto arg : best::app::argv()) {
+    best::eprint(" {}", arg);
   }
+
   best::eprintln();
   best::eprintln("executing {} test(s)\n", all_tests.size());
 
   best::vec<best::test*> successes;
   best::vec<best::test*> failures;
   for (auto* test : all_tests) {
+    for (const auto& skip : flags.skip) {
+      if (test->name().contains(skip)) goto skip;
+    }
+    if (!flags.filters.is_empty()) {
+      auto found = flags.filters.as_span().contains(
+          [&](const auto& f) { return test->name().contains(f); });
+
+      if (!found) goto skip;
+    }
+
     best::eprintln("{}[ TEST: {} ]{}", Bold, test->name(), Reset);
     if (!test->run()) {
       best::eprintln("{}{}[ FAIL: {} ]{}", Bold, Red, test->name(), Reset);
@@ -80,6 +91,7 @@ bool test::run_all(int argc, char** argv) {
       best::eprintln("{}[ Ok: {} ]{}", Bold, test->name(), Reset);
       successes.push(test);
     }
+  skip:;
   }
 
   best::eprintln();
@@ -90,7 +102,7 @@ bool test::run_all(int argc, char** argv) {
   }
 
   if (!failures.is_empty()) {
-    best::eprintln("{}{}failed {} test(s){}", Bold, Red, successes.size(),
+    best::eprintln("{}{}failed {} test(s){}", Bold, Red, failures.size(),
                    Reset);
     for (auto* test : failures)
       best::eprintln("{} * {}{}", Red, test->name(), Reset);
@@ -99,7 +111,3 @@ bool test::run_all(int argc, char** argv) {
   return failures.is_empty();
 }
 }  // namespace best
-
-[[gnu::weak]] int main(int argc, char** argv) {
-  return !::best::test::run_all(argc, argv);
-}

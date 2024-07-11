@@ -417,11 +417,11 @@ class tlist final {
   static constexpr decltype(auto) apply(
       tlist_internal::vs_callable<Elems...> auto&& cb) {
     return best::call(BEST_FWD(cb), Elems{}...);
-  };
+  }
   static constexpr decltype(auto) apply(
       tlist_internal::vts_callable<Elems...> auto&& cb) {
     return best::call<Elems::value...>(BEST_FWD(cb));
-  };
+  }
   template <template <typename...> typename Trait>
   static constexpr Trait<Elems...> apply() {
     return {};
@@ -429,7 +429,7 @@ class tlist final {
   template <template <auto...> typename Trait, typename delay = void>
   static constexpr Trait<best::dependent<Elems, delay>::value...> apply() {
     return {};
-  };
+  }
 
   /// # `tlist::reduce()`
   ///

@@ -74,6 +74,7 @@ download any dependencies.
 pieces of functionality.
 
 - `best/base` - Basic types and functions; portability helpers.
+- `best/cli` - Utilities for building CLI applications.
 - `best/container` - Container types. We interpret any generic "wrapper" type as
   a container.
 - `best/func` - Helpers for manipulating functions as first-class objects.

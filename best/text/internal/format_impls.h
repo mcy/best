@@ -309,8 +309,7 @@ void BestFmt(auto& fmt, const best::is_reflected_struct auto& value)
 {
   auto refl = best::reflect<decltype(value)>;
   auto rec = fmt.record(refl.name());
-  refl.apply(
-      [&](auto... field) { (rec.field(field.name(), value->*field), ...); });
+  refl.each([&](auto field) { rec.field(field.name(), value->*field); });
 }
 
 void BestFmt(auto& fmt, const best::is_reflected_enum auto& value) {

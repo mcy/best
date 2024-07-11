@@ -20,6 +20,7 @@
 #ifndef BEST_TEST_TEST_H_
 #define BEST_TEST_TEST_H_
 
+#include "best/cli/cli.h"
 #include "best/log/location.h"
 #include "best/text/format.h"
 #include "best/text/str.h"
@@ -159,15 +160,22 @@ class test final {
     return expect_cmp(a >= b, a, b, "expect_ge", "`>=`", message, args...);
   }
 
+  /// # `test::flags`
+  ///
+  /// Flags necessary for calling `run_all()`. These are the flags passed to a
+  /// test binary.
+  struct flags;
+
   /// # `test::run_all()`.
   ///
   /// Runs all registered unit tests.
   ///
   /// Linking in the test library will automatically cause this to be called
-  /// by main(). If you define your own main(), you must call this manually.
+  /// by the built-in `best::app`. If you define your own main(), you must call
+  /// this manually. This function expects to be called from a `best::app`.
   ///
   /// Returns whether all tests passed.
-  static bool run_all(int argc, char** argv);
+  static bool run_all(const flags&);
 
  private:
   void init();
@@ -194,6 +202,26 @@ class test final {
 
   best::str name_;
   bool failed_ = false;
+};
+
+struct test::flags final {
+  best::vec<best::strbuf> skip;
+  best::vec<best::strbuf> filters;
+
+  constexpr friend auto BestReflect(auto& m, flags*) {
+    return m.infer()
+        .with(best::cli::app{.about = "a best unit test binary"})
+        .with(&flags::skip,
+              best::cli::flag{
+                  .arg = "FILTER",
+                  .help = "Skip tests whose names contain FILTER",
+              })
+        .with(&flags::filters,
+              best::cli::positional{
+                  .name = "FILTERS",
+                  .help = "Include only tests whose names contain FILTER",
+              });
+  }
 };
 }  // namespace best
 

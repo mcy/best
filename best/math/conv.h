@@ -42,7 +42,23 @@ struct atoi_error final {
 /// Parses an integer from the given string type in the specified radix.
 template <best::integer Int>
 constexpr best::result<Int, best::atoi_error> atoi(const string_type auto &str,
-                                                   uint32_t radix = 10) {
+                                                   uint32_t radix = 10);
+
+/// # `best::atoi_with_prefix()`
+///
+/// Similar to `best::atoi()`, but determines which radix to parse in based
+/// on a prefix, such as `0x`, `0b`, `0o`, or `0`.
+template <best::integer Int>
+constexpr best::result<Int, best::atoi_error> atoi_with_prefix(
+    const string_type auto &str);
+
+/// # `best::atoi_with_sign()`
+///
+/// Similar to `best::atoi()`, but takes the sign of the value as a separate
+/// argument.
+template <best::integer Int>
+constexpr best::result<Int, best::atoi_error> atoi_with_sign(
+    const string_type auto &str, bool is_negative, uint32_t radix) {
   if constexpr (best::is_pretext<decltype(str)>) {
     // Adapted slightly from the implementation found in Rust's
     // from_str_radix().
@@ -53,14 +69,6 @@ constexpr best::result<Int, best::atoi_error> atoi(const string_type auto &str,
 
     auto runes = str.runes();
     auto next = runes.next();
-
-    bool neg = false;
-    if (next == '-') {
-      neg = true;
-      next = runes.next();
-    } else if (next == '+') {
-      next = runes.next();
-    }
 
     if (!next) return best::atoi_error{};
 
@@ -86,7 +94,7 @@ constexpr best::result<Int, best::atoi_error> atoi(const string_type auto &str,
 
     if (cannot_overflow) {
       Int result = 0;
-      if (neg) {
+      if (is_negative) {
         BEST_ATOI_LOOP_(result, -=);
       } else {
         BEST_ATOI_LOOP_(result, +=);
@@ -105,7 +113,7 @@ constexpr best::result<Int, best::atoi_error> atoi(const string_type auto &str,
   } while ((next = runes.next()))
 
     best::overflow<Int> result = 0;
-    if (neg) {
+    if (is_negative) {
       BEST_ATOI_LOOP_(result, -=);
     } else {
       BEST_ATOI_LOOP_(result, +=);
@@ -117,6 +125,50 @@ constexpr best::result<Int, best::atoi_error> atoi(const string_type auto &str,
     return best::atoi<Int>(best::pretext(str), radix);
   }
 }
+
+template <best::integer Int>
+constexpr best::result<Int, best::atoi_error> atoi(const string_type auto &str_,
+                                                   uint32_t radix) {
+  if constexpr (best::is_pretext<decltype(str_)>) {
+    if (radix > 36) {
+      crash_internal::crash("from_digit() radix too large: %u > 36", radix);
+    }
+
+    auto str = str_;
+    bool neg = str.consume_prefix('-');
+    if (!neg) str.consume_prefix('+');
+
+    return best::atoi_with_sign<Int>(str, neg, radix);
+  } else {
+    return best::atoi<Int>(best::pretext(str_), radix);
+  }
+}
+
+template <best::integer Int>
+constexpr best::result<Int, best::atoi_error> atoi_with_prefix(
+    const string_type auto &str_) {
+  if constexpr (best::is_pretext<decltype(str_)>) {
+    auto str = str_;
+    bool neg = str.consume_prefix('-');
+    if (!neg) str.consume_prefix('+');
+
+    if (str == "0") return 0;
+
+    int radix = 10;
+    if (str.consume_prefix("0x")) {
+      radix = 16;
+    } else if (str.consume_prefix("0b")) {
+      radix = 2;
+    } else if (str.consume_prefix("0o") || str.consume_prefix("0")) {
+      radix = 8;
+    }
+
+    return best::atoi_with_sign<Int>(str, neg, radix);
+  } else {
+    return best::atoi_with_prefix<Int>(best::pretext(str_));
+  }
+}
+
 }  // namespace best
 
 #endif  // BEST_MATH_CONV_H_
