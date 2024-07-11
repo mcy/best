@@ -17,8 +17,8 @@
 
 \* ////////////////////////////////////////////////////////////////////////// */
 
-#ifndef BEST_CLI_FLAG_PARSER_H_
-#define BEST_CLI_FLAG_PARSER_H_
+#ifndef BEST_CLI_PARSER_H_
+#define BEST_CLI_PARSER_H_
 
 #include "best/cli/cli.h"
 #include "best/container/result.h"
@@ -76,7 +76,7 @@ cli cli::build() {
 
   const cli::app* app = nullptr;
   if constexpr (!tags.is_empty()) {
-    app = tags.first();
+    app = &tags.first();
   }
 
   best::cli cli(app);
@@ -207,28 +207,34 @@ void cli::type_erase_field(auto f) {
 }
 // FromArgv implementations for common types.
 result<void, best::strbuf> BestFromArgv(auto raw, bool& arg) {
-  static constexpr std::array<best::str, 7> True = {"true", "t", "yes", "y",
-                                                    "on",   "1", "0x1"};
-  static constexpr std::array<best::str, 7> False = {"false", "f", "no", "n",
-                                                     "off",   "1", "0x1"};
+  static constexpr std::array<best::str, 5> True = {"true", "t", "yes", "y",
+                                                    "on"};
+  static constexpr std::array<best::str, 5> False = {"false", "f", "no", "n",
+                                                     "off"};
 
   // TODO: convert `raw` to lowercase first.
 
+  if (raw.starts_with(&rune::is_ascii_digit)) {
+    if (auto i = best::atoi_with_prefix<uint8_t>(raw); i == 0 || i == 1) {
+      arg = i == 1;
+      return best::ok();
+    }
+  }
   if (raw.is_empty() || best::span(True).contains(raw)) {
     arg = true;
+    return best::ok();
   } else if (best::span(False).contains(raw)) {
     arg = false;
-  } else {
-    return best::format("invalid bool: {:?}", raw);
+    return best::ok();
   }
-  return best::ok();
+  return best::format("invalid bool: {:?}", raw);
 }
 constexpr void BestFromArgvQuery(auto& query, bool*) {
   query.wants_arg = false;
 }
 
 result<void, best::strbuf> BestFromArgv(auto raw, best::integer auto& arg) {
-  if (auto i = best::atoi<best::as_auto<decltype(arg)>>(raw)) {
+  if (auto i = best::atoi_with_prefix<best::as_auto<decltype(arg)>>(raw)) {
     arg = *i;
     return best::ok();
   }
@@ -275,6 +281,10 @@ auto BestFromArgv(auto raw, best::option<T>& arg)
     -> decltype(BestFromArgv(raw, arg.emplace())) {
   return BestFromArgv(raw, arg.emplace());
 }
+template <best::is_from_argv T>
+constexpr auto BestFromArgvQuery(auto& query, best::option<T>*) {
+  query.wants_arg = best::argv_query::of<T>.wants_arg;
+}
 
 template <best::is_from_argv T, size_t n, best::allocator A>
 auto BestFromArgv(auto raw, best::vec<T, n, A>& arg)
@@ -283,8 +293,9 @@ auto BestFromArgv(auto raw, best::vec<T, n, A>& arg)
 }
 template <best::is_from_argv T, size_t n, best::allocator A>
 constexpr auto BestFromArgvQuery(auto& query, best::vec<T, n, A>*) {
+  query.wants_arg = best::argv_query::of<T>.wants_arg;
   query.default_count = cli::Repeated;
 }
 }  // namespace best
 
-#endif  // BEST_CLI_FLAG_PARSER_H_
+#endif  // BEST_CLI_PARSER_H_

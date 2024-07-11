@@ -76,12 +76,18 @@ struct cli::impl {
     size_t idx;
     bool is_group = false, is_letter = false, is_alias = false, is_copy = false;
     visibility vis;
+    enum Magic : uint8_t {
+      Ordinary,
+      Help,
+      HelpHidden,
+    } magic = Ordinary;
   };
 
   best::vec<entry> sorted_flags, sorted_subs;
 
   impl* parent = nullptr;
   const subcommand* parent_sub;
+  best::strbuf parent_sub_name;
   const group* parent_group;
 
   /// Pointers to all required flags.
@@ -151,6 +157,8 @@ void cli::add(about about, const subcommand& tag, cli& child) {
   // Set up back-pointers for the benefit of usage information.
   child.impl_->parent = &*impl_;
   child.impl_->parent_sub = &tag;
+  child.impl_->parent_sub_name =
+      tag.name.is_empty() ? best::strbuf(about.field) : best::strbuf(tag.name);
 
   impl_->subs.push(std::move(about), &tag, &child);
 }
@@ -243,6 +251,7 @@ void cli::init() {
       if (vis == Delete) continue;
 
       bool is_flatten = !has_letter && name.is_empty();
+      bool is_letter = !is_flatten && name_idx == 0 && has_letter;
       if (!is_flatten) {
         normalize(name, g->about);
         if (name == "help" || name == "help-hidden" || name == "version") {
@@ -255,24 +264,38 @@ void cli::init() {
             .key = name,
             .idx = idx,
             .is_group = true,
-            .is_letter = name_idx == 0 && has_letter,
+            .is_letter = is_letter,
             .is_alias = name_idx > size_t(has_letter),
         });
 
         // Letter names for groups are parsed in a different way that does not
         // require generating keys for them other than the one above.
-        if (name_idx == 0 && has_letter) continue;
+        // if (name_idx == 0 && has_letter) continue;
       }
 
       auto copy_vis = merge(vis, is_flatten ? Public : Hidden);
       for (auto entry : g->child->impl_->sorted_flags) {
-        if (!is_flatten && entry.is_letter) continue;
-        if (!name.is_empty()) {
-          entry.key = best::format("{}.{}", name, entry.key);
+        if (is_flatten && entry.magic != entry.Ordinary) continue;
+
+        if (entry.magic == entry.Ordinary) {
+          entry.idx += entry.is_group ? group_offset : flag_offset;
+        } else {
+          entry.idx = idx;
         }
-        entry.idx += entry.is_group ? group_offset : flag_offset;
+
+        entry.is_letter |= is_letter;
         entry.vis = merge(entry.vis, copy_vis);
         entry.is_copy = !is_flatten;
+
+        if (!name.is_empty()) {
+          auto key = std::move(entry.key);
+          if (is_letter) {
+            entry.key = best::format("{}{}", name, key);
+            impl_->sorted_flags.push(entry);
+          }
+          entry.key = best::format("{}.{}", name, key);
+        }
+
         impl_->sorted_flags.push(std::move(entry));
       }
 
@@ -290,12 +313,33 @@ void cli::init() {
 
   // Pull out all of the required flags.
   for (const auto& f : impl_->flags) {
-    if (!f.tag->count == Required) continue;
+    if (f.get_count() != Required) continue;
     auto name = f.tag->letter != '\0' ? f.about.names[1].first()
                                       : f.about.names[0].first();
 
     impl_->required.emplace(f.tag, name);
   }
+
+  // Add magic flags.
+  impl_->sorted_flags.push(impl::entry{
+      .key = {"help"},
+      .idx = -1,
+      .vis = Public,
+      .magic = impl::entry::Help,
+  });
+  impl_->sorted_flags.push(impl::entry{
+      .key = {"h"},
+      .idx = -1,
+      .is_letter = true,
+      .vis = Public,
+      .magic = impl::entry::Help,
+  });
+  impl_->sorted_flags.push(impl::entry{
+      .key = {"help-hidden"},
+      .idx = -1,
+      .vis = Hidden,
+      .magic = impl::entry::HelpHidden,
+  });
 
   // Now, sort the flags so we can bisect through them later.
   impl_->sorted_flags.sort(&impl::entry::key);
@@ -357,16 +401,18 @@ best::result<void, cli::error> cli::parse(
 
       // Peel off the leading dash(es).
       best::pretext<wtf8> flag = *next;
-      if (is_letter) {
-        flag = flag[{.start = 1}];
-      } else if (is_flag) {
-        flag = flag[{.start = 2}];
-      }
 
       best::option<pretext<wtf8>> arg;
       if (auto split = flag.split_once("=")) {
         flag = split->first();
         arg = split->second();
+      }
+
+      auto token = flag;
+      if (is_letter) {
+        flag = flag[{.start = 1}];
+      } else if (is_flag) {
+        flag = flag[{.start = 2}];
       }
 
       auto push_group = [&](size_t idx, bool update_arg =
@@ -379,7 +425,7 @@ best::result<void, cli::error> cli::parse(
           if (arg) {
             return best::err(
                 best::format("{0}: fatal: unexpected argument after {1}",
-                             ctx.exe, *next),
+                             ctx.exe, token),
                 /*is_fatal=*/true);
           }
 
@@ -387,7 +433,7 @@ best::result<void, cli::error> cli::parse(
           if (!next_arg) {
             return best::err(
                 best::format("{0}: fatal: expected sub-flag after {1}", ctx.exe,
-                             *next),
+                             token),
                 /*is_fatal=*/true);
           }
 
@@ -404,6 +450,20 @@ best::result<void, cli::error> cli::parse(
         return best::ok();
       };
 
+      auto interpret_magic =
+          [&](const impl::entry& e) -> best::result<void, error> {
+        switch (e.magic) {
+          case impl::entry::Ordinary:
+            return best::ok();
+          case impl::entry::Help:
+            return best::err(ctx.cur->usage(ctx.exe, false),
+                             /*is_fatal=*/false);
+          case impl::entry::HelpHidden:
+            return best::err(ctx.cur->usage(ctx.exe, true),
+                             /*is_fatal=*/false);
+        }
+      };
+
       if (is_letter) {
         // This may be a run of short flags, like -xvzf file, or a single short
         // flag group, like -Copt-level. To discover this, we need to peel off
@@ -411,11 +471,6 @@ best::result<void, cli::error> cli::parse(
 
         auto runes = flag.runes();
         for (rune r : runes) {
-          if (r == 'h') {
-            return best::err(ctx.cur->usage(ctx.exe, false),
-                             /*is_fatal=*/false);
-          }
-
           auto tok = best::format("-{}", r);
           auto e = ctx.cur->impl_->find_flag(tok[{.start = 1}]);
 
@@ -429,13 +484,14 @@ best::result<void, cli::error> cli::parse(
             if (!update) flag = runes->rest();
             continue;
           }
+          BEST_GUARD(interpret_magic(*e));
 
           const auto& f = ctx.cur->impl_->flags[e->idx];
           if (f.query->wants_arg) break;
           ctx.token = tok;
 
           auto [it, inserted] = seen.insert(f.tag);
-          if (!inserted && f.tag->count != Repeated) {
+          if (!inserted && f.get_count() != Repeated) {
             return best::err(
                 best::format("{0}: fatal: flag {1} appeared more than once",
                              ctx.exe, tok),
@@ -461,30 +517,34 @@ best::result<void, cli::error> cli::parse(
       ctx.token = *next;
       while (is_flag) {  // This needs to be in a loop to handle nested group
                          // calls.
-        if (flag == "help") {
-          return best::err(ctx.cur->usage(ctx.exe, false),
-                           /*is_fatal=*/false);
-        } else if (flag == "help-hidden") {
-          return best::err(ctx.cur->usage(ctx.exe, true),
-                           /*is_fatal=*/false);
-        }
-
         if (auto e = ctx.cur->impl_->find_flag(flag)) {
           if (e->is_group) {
             BEST_GUARD(push_group(e->idx));
             continue;
           }
 
+          if (e->magic != e->Ordinary) {
+            if (e->idx != -1) {
+              ctx.cur = ctx.cur->impl_->groups[e->idx].child;
+            }
+            BEST_GUARD(interpret_magic(*e));
+          }
+
           const auto& f = ctx.cur->impl_->flags[e->idx];
 
+          best::str dash = "-";
+          if (!is_letter) dash = "--";
+          auto tok = best::format("{}{}", dash, flag);
+          ctx.token = tok;
+
           auto [it, inserted] = seen.insert(f.tag);
-          if (!inserted && f.tag->count != Repeated) {
+          if (!inserted && f.get_count() != Repeated) {
             best::str dash = "-";
             if (!is_letter) dash = "--";
 
             return best::err(
-                best::format("{0}: fatal: flag {1}{2} appeared more than once",
-                             ctx.exe, dash, flag),
+                best::format("{0}: fatal: flag {1} appeared more than once",
+                             ctx.exe, tok),
                 /*is_fatal=*/true);
           }
 
@@ -493,7 +553,7 @@ best::result<void, cli::error> cli::parse(
             if (!arg) {
               return best::err(
                   best::format("{0}: fatal: expected argument after {1}",
-                               ctx.exe, *next),
+                               ctx.exe, token),
                   /*is_fatal=*/true);
             }
           }
@@ -507,7 +567,7 @@ best::result<void, cli::error> cli::parse(
             best::format("{0}: fatal: unknown flag {1:?}\n"
                          "{0}: you can use `--` if you meant to pass "
                          "this as a positional argument",
-                         ctx.exe, *next),
+                         ctx.exe, token),
             /*is_fatal=*/true);
       }
     }
@@ -569,14 +629,12 @@ best::strbuf cli::usage(best::pretext<wtf8> exe, bool hidden) const {
     }
   };
 
-  best::format(out, "Usage: {}", exe);
-
   // This may be a subcommand/group! We need to trace all the way up.
   best::vec<best::strbuf> parents;
   auto* impl = impl_.get();
   while (impl->parent != nullptr) {
     if (impl->parent_sub) {
-      parents.push(impl->parent_sub->name);
+      parents.push(impl->parent_sub_name);
     } else if (impl->parent_group->letter != '\0') {
       parents.push(best::format("-{}", impl->parent_group->letter));
     } else if (!impl->parent_group->name.is_empty()) {
@@ -585,14 +643,15 @@ best::strbuf cli::usage(best::pretext<wtf8> exe, bool hidden) const {
 
     impl = impl->parent;
   }
+  const auto& app = impl->app;  // This is always the root.
 
+  best::format(out, "Usage: {}", exe);
   if (!parents.is_empty()) {
     parents.reverse();
     for (auto sub : parents) {
       best::format(out, " {}", sub);
     }
   }
-  const auto& app = impl->app;  // This is always the root.
 
   // We also need to dig our way out of any groups we're in.
   auto* cmd = impl_.get();
@@ -606,7 +665,7 @@ best::strbuf cli::usage(best::pretext<wtf8> exe, bool hidden) const {
 
   bool needs_dash = true;
   for (const auto& e : cmd->sorted_flags) {
-    if (!e.is_letter || !visible(e.vis, hidden)) continue;
+    if (!e.is_letter || e.is_copy || !visible(e.vis, hidden)) continue;
     if (std::exchange(needs_dash, false)) {
       out.push(" -");
     }
@@ -714,58 +773,19 @@ best::strbuf cli::usage(best::pretext<wtf8> exe, bool hidden) const {
 
   out.push("# Flags\n");
 
-  // Next, print all of the flags. The order we want to go in is:
-  // 1. Ordinary flags, alphabetized by letter and name.
-  // 2. Groups, starting with the top-level group flag and followed by its
-  //    subflags.
-
-  best::vec<const cli::impl::entry*> flags;
-
-  // First, add the ordinary flags. We can detect these by looking for
-  // flags that do not contain a `.` in their key.
-  for (const auto& e : impl_->sorted_flags) {
-    if (e.is_alias || e.is_group || e.is_copy) continue;
-
-    const auto& f = impl_->flags[e.idx];
-    bool has_letter = f.tag->letter != '\0';
-
-    // This makes us prefer to alphabetize by letter when possible.
-    if (has_letter && !e.is_letter) continue;
-    flags.push(&e);
-  }
-  // Now add the groups and their children, which we sort by name rather than by
-  // letter.
-  for (const auto& e : impl_->sorted_flags) {
-    if (e.is_alias || !(e.is_group || e.is_copy)) continue;
-
-    bool has_letter = false;
-    if (e.is_group) {
-      const auto& g = impl_->groups[e.idx];
-      has_letter = g.tag->letter != '\0';
-    } else {
-      const auto& f = impl_->flags[e.idx];
-      has_letter = f.tag->letter != '\0';
-    }
-
-    // This makes us prefer to alphabetize by name.
-    if (has_letter && e.is_letter) continue;
-    flags.push(&e);
-  }
-
-  bool first_group = true;
-  for (const auto* e : flags) {
+  auto print_flag = [&](const cli::impl::entry& e) {
     const cli::about* about;
     best::str help, arg;
     bool has_letter;
 
-    if (e->is_group) {
-      const auto& g = impl_->groups[e->idx];
+    if (e.is_group) {
+      const auto& g = impl_->groups[e.idx];
       about = &g.about;
       help = g.tag->help;
       arg = "FLAG";
       has_letter = g.tag->letter != '\0';
     } else {
-      const auto& f = impl_->flags[e->idx];
+      const auto& f = impl_->flags[e.idx];
       about = &f.about;
       help = f.tag->help;
       has_letter = f.tag->letter != '\0';
@@ -776,23 +796,20 @@ best::strbuf cli::usage(best::pretext<wtf8> exe, bool hidden) const {
       }
     }
 
-    if ((e->is_group || e->is_copy) && std::exchange(first_group, false)) {
-      out.push("\n");
-    }
-
-    if (!visible(e->vis, hidden)) continue;
+    if (!visible(e.vis, hidden)) return;
+    if (help.is_empty()) help = "<undocumented>";
 
     size_t start = out.size();
     out.push("  ");
     if (auto [letter, vis] = about->names[0];
-        has_letter && !e->is_copy && visible(vis, hidden)) {
+        has_letter && !e.is_copy && visible(vis, hidden)) {
       best::format(out, "-{}, ", letter);
     } else {
       indent(4);
     }
 
-    best::str prefix = e->key[{
-        .end = e->key.size() - e->key.split('.').last()->size(),
+    best::str prefix = e.key[{
+        .end = e.key.size() - e.key.split('.').last()->size(),
     }];
     // Chop off everything past the last `.` to make the prefix.
 
@@ -843,6 +860,51 @@ best::strbuf cli::usage(best::pretext<wtf8> exe, bool hidden) const {
       out.push(help);
       out.push("\n");
     }
+  };
+
+  // Next, print all of the flags. The order we want to go in is:
+  // 1. Ordinary flags, alphabetized by letter and name.
+  // 2. Groups, starting with the top-level group flag and followed by its
+  //    subflags.
+  // 3. Undocumented flags.
+
+  // First, add the ordinary flags.
+  first = true;
+  for (const auto& e : impl_->sorted_flags) {
+    if (e.is_alias || e.magic != e.Ordinary || e.is_group || e.is_copy) {
+      continue;
+    }
+
+    const auto& f = impl_->flags[e.idx];
+    bool has_letter = f.tag->letter != '\0';
+
+    // Undocumented flags are implicitly hidden.
+    if (f.tag->help == "" && !hidden) continue;
+
+    // This makes us prefer to alphabetize by letter when possible.
+    if (has_letter && !e.is_letter) continue;
+    print_flag(e);
+  }
+
+  // Now add the groups and their children, which we sort by name rather than by
+  // letter.
+  first = true;
+  for (const auto& e : impl_->sorted_flags) {
+    if (e.is_alias || e.magic != e.Ordinary || !(e.is_group || e.is_copy)) {
+      continue;
+    }
+
+    bool has_letter = false;
+    if (e.is_group) {
+      const auto& g = impl_->groups[e.idx];
+      has_letter = g.tag->letter != '\0';
+    }
+
+    // This makes us prefer to alphabetize by name.
+    if ((has_letter || !e.is_group) && e.is_letter) continue;
+
+    if (std::exchange(first, false)) out.push("\n");
+    print_flag(e);
   }
 
   out.push("\n");
@@ -858,6 +920,29 @@ best::strbuf cli::usage(best::pretext<wtf8> exe, bool hidden) const {
     extra = Width - (out.size() - start);
     indent_dots(extra + 2);
     out.push("show extended usage and exit\n");
+  }
+
+  if (!app.url.is_empty() || !app.version.is_empty()) {
+    out.push("\n");
+    if (!app.version.is_empty()) {
+      best::format(out, "Version: {} v{}\n",
+                   app.name.is_empty() ? exe : app.name, app.version);
+    }
+    if (!app.url.is_empty()) best::format(out, "Website: <{}>\n", app.url);
+  }
+
+  if (!app.authors.is_empty()) {
+    out.push("\n");
+    out.push("(c) ");
+    if (app.copyright_year) {
+      best::format(out, "{} ", *app.copyright_year);
+    }
+    out.push(app.authors);
+    if (!app.license.is_empty()) {
+      best::format(out, ", licensed {}\n", app.license);
+    } else {
+      out.push(", all rights reserved\n");
+    }
   }
 
   return out;

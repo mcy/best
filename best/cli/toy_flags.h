@@ -17,8 +17,8 @@
 
 \* ////////////////////////////////////////////////////////////////////////// */
 
-#ifndef BEST_CLI_TEST_FLAGS_H_
-#define BEST_CLI_TEST_FLAGS_H_
+#ifndef BEST_CLI_TOY_FLAGS_H_
+#define BEST_CLI_TOY_FLAGS_H_
 
 #include "best/cli/cli.h"
 
@@ -45,7 +45,7 @@ struct Subcommand {
 struct Subgroup {
   int eks = 0, why = 0, zed = 0;
 
-  int a_flag_with_a_freakishly_long_name;
+  int a_flag_with_a_freakishly_long_name = 0;
 
   friend constexpr auto BestReflect(auto& m, Subgroup*) {
     using ::best::cli;
@@ -78,16 +78,13 @@ struct Subgroup {
   bool operator==(const Subgroup&) const = default;
 };
 
-struct MyFlags {
+struct Toy {
   int foo = 0;
   best::vec<int> bar;
   best::option<int> baz;
   best::str name, addr;
 
-  bool flag1 = false;
-  bool flag2 = false;
-  bool flag3 = false;
-  bool flag4 = false;
+  best::option<bool> flag1, flag2, flag3, flag4;
 
   Subcommand sub;
   Subcommand sub2;
@@ -95,89 +92,103 @@ struct MyFlags {
   Subgroup group;
   Subgroup flattened;
 
+  int undocumented = 0;
+
   best::str arg;
   best::vec<best::str> args;
 
-  friend constexpr auto BestReflect(auto& m, MyFlags*) {
+  friend constexpr auto BestReflect(auto& m, Toy*) {
     using ::best::cli;
     return m.infer()
-        .with(&MyFlags::foo,
+        .with(cli::app{
+            .name = "toy",
+            .authors = "mcyoung",
+            .about = "this is a test binary for playing with all of\n"
+                     "best::cli's features",
+            .version = "1.0.0",
+            .url = "https://mcyoung.xyz",
+            .copyright_year = 2024,
+            .license = "Apache-2.0",
+        })
+        .with(&Toy::foo,
               cli::flag{
                   .letter = 'f',
                   .arg = "INT",
-                  .count = cli::Required,
-                  .help = "a required integer",
+                  .count = cli::Repeated,
+                  .help = "an integer",
               })
-        .with(&MyFlags::bar,
+        .with(&Toy::bar,
               cli::flag{
                   .arg = "INT",
                   .help = "repeated integer",
               })
-        .with(&MyFlags::baz,
+        .with(&Toy::baz,
               cli::flag{
-                  .help = "an optional integer",
+                  .help = "another integer",
               })
 
-        .with(&MyFlags::name,
+        .with(&Toy::name,
               cli::flag{
                   .vis = cli::Hidden,
                   .help = "your name",
               },
               cli::alias{"my-name"})
-        .with(&MyFlags::addr,
+        .with(&Toy::addr,
               cli::flag{
                   .vis = cli::Hidden,
                   .help = "your address",
               },
               cli::alias{"my-address"})
 
-        .with(&MyFlags::flag1,
+        .with(&Toy::flag1,
               cli::flag{
                   .letter = 'a',
                   .help = "this is a flag\nnewline",
               })
-        .with(&MyFlags::flag2,
+        .with(&Toy::flag2,
               cli::flag{
                   .letter = 'b',
+                  .count = cli::Repeated,
                   .help = "this is a flag\nnewline",
               })
-        .with(&MyFlags::flag3,
+        .with(&Toy::flag3,
               cli::flag{
                   .letter = 'c',
                   .help = "this is a flag\nnewline",
               },
               cli::alias{"flag3-alias"},
               cli::alias{"flag3-alias2", cli::Hidden})
-        .with(&MyFlags::flag4,
+        .with(&Toy::flag4,
               cli::flag{
                   .letter = 'd',
                   .help = "this is a flag\nnewline",
               })
+        .with(&Toy::undocumented, cli::flag{})
 
         .with(
-            &MyFlags::sub,
+            &Toy::sub,
             cli::subcommand{
                 .help = "a subcommand",
                 .about = "longer help for the subcommand\nwith multiple lines",
             })
         .with(
-            &MyFlags::sub2,
+            &Toy::sub2,
             cli::subcommand{
                 .help = "identical in all ways to `sub`\nexcept for this help",
                 .about = "longer help for the subcommand\nwith multiple lines",
             },
             cli::alias{"sub3"})
 
-        .with(&MyFlags::group,
+        .with(&Toy::group,
               cli::group{
                   .name = "subgroup",
                   .letter = 'X',
                   .help = "extra options behind the -X flag",
               })
-        .with(&MyFlags::flattened, cli::group{});
+        .with(&Toy::flattened, cli::group{});
   }
 
-  bool operator==(const MyFlags&) const = default;
+  bool operator==(const Toy&) const = default;
 };
 }  // namespace best::cli_toy
-#endif  // BEST_CLI_TEST_FLAGS_H_
+#endif  // BEST_CLI_TOY_FLAGS_H_

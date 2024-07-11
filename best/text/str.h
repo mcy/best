@@ -685,6 +685,9 @@ class pretext final {
   constexpr bool starts_with(const best::string_type auto& prefix) const {
     return strip_prefix(prefix).has_value();
   }
+  constexpr bool starts_with(best::callable<bool(rune)> auto&& pred) const {
+    return strip_prefix(BEST_FWD(pred)).has_value();
+  }
 
   /// # `pretext::strip_prefix()`
   ///
@@ -1244,7 +1247,8 @@ template <typename E>
 constexpr best::option<pretext<E>> pretext<E>::strip_prefix(
     best::callable<bool(rune)> auto&& pred) const {
   auto haystack = try_runes();
-  if (best::call(BEST_FWD(pred), haystack.next())) {
+  if (haystack.next().has_value(
+          [&](auto r) { return r.ok().has_value(BEST_FWD(pred)); })) {
     return haystack->rest();
   }
   return best::none;

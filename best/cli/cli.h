@@ -17,8 +17,8 @@
 
 \* ////////////////////////////////////////////////////////////////////////// */
 
-#ifndef BEST_CLI_FLAGS_H_
-#define BEST_CLI_FLAGS_H_
+#ifndef BEST_CLI_CLI_H_
+#define BEST_CLI_CLI_H_
 
 #include <cstdint>
 
@@ -78,7 +78,7 @@ class cli final {
     best::str name;
 
     /// The author(s) of the program.
-    best::str author;
+    best::str authors;
 
     /// Help text to show when the user runs `--help subcommand`. If not
     /// specified, uses `help`.
@@ -89,6 +89,14 @@ class cli final {
 
     /// A website URL for the program.
     best::str url;
+
+    /// A copyright year to show in help. This is only shown if `authors` is
+    /// nonempty.
+    best::option<uint32_t> copyright_year;
+
+    /// A license name to show in help. Ideally this should be an SPDX
+    /// identifier. This is only shown if `authors` is  nonempty.
+    best::str license;
   };
 
   /// # `cli::alias`
@@ -417,8 +425,9 @@ struct argv_query final {
       BestFromArgvQuery(query, best::as_ptr<T>());
     }
     return query;
-  }();
+  }
+  ();
 };
 }  // namespace best
 
-#endif  // BEST_CLI_FLAGS_H_
+#endif  // BEST_CLI_CLI_H_

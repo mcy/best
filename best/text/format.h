@@ -374,8 +374,10 @@ class formatter::block final {
 /// Executes a formatting operation and returns the result as a string, or
 /// append it to an existing string.
 template <best::formattable... Args>
-best::strbuf format(best::format_template<Args...> templ = "",
-                    const Args&... args);
+[[nodiscard(
+    "best::format() returns a brand new string if not given a best::strbuf& to "
+    "write to")]] best::strbuf
+format(best::format_template<Args...> templ = "", const Args&... args);
 template <best::formattable... Args>
 void format(best::strbuf& out, best::format_template<Args...> templ,
             const Args&... args);

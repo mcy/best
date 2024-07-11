@@ -205,11 +205,12 @@ class test final {
 };
 
 struct test::flags final {
-  best::strbuf skip;
-  best::strbuf filters;
+  best::vec<best::strbuf> skip;
+  best::vec<best::strbuf> filters;
 
   constexpr friend auto BestReflect(auto& m, flags*) {
     return m.infer()
+        .with(best::cli::app{.about = "a best unit test binary"})
         .with(&flags::skip,
               best::cli::flag{
                   .arg = "FILTER",

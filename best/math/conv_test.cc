@@ -72,4 +72,18 @@ best::test Hex = [](auto& t) {
   t.expect_eq(best::atoi<int>("-80000001", 16), best::err());
   t.expect_eq(best::atoi<int>("cow"), best::err());
 };
+
+best::test FromPrefix = [](auto& t) {
+  t.expect_eq(best::atoi_with_prefix<int>("0"), 0);
+  t.expect_eq(best::atoi_with_prefix<int>("10"), 10);
+  t.expect_eq(best::atoi_with_prefix<int>("0b10"), 2);
+  t.expect_eq(best::atoi_with_prefix<int>("0x10"), 16);
+  t.expect_eq(best::atoi_with_prefix<int>("0o10"), 8);
+  t.expect_eq(best::atoi_with_prefix<int>("010"), 8);
+  t.expect_eq(best::atoi_with_prefix<int>("-10"), -10);
+  t.expect_eq(best::atoi_with_prefix<int>("-0b10"), -2);
+  t.expect_eq(best::atoi_with_prefix<int>("-0x10"), -16);
+  t.expect_eq(best::atoi_with_prefix<int>("-0o10"), -8);
+  t.expect_eq(best::atoi_with_prefix<int>("-010"), -8);
+};
 }  // namespace best::conv_test
