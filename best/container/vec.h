@@ -108,8 +108,7 @@ class vec final {
   ///
   /// Constructs an empty vector using the given allocator.
   vec() : vec(alloc{}) {}
-  explicit vec(alloc alloc)
-      : size_(0), alloc_(best::in_place, std::move(alloc)) {}
+  explicit vec(alloc alloc) : alloc_(best::in_place, std::move(alloc)) {}
 
   /// # `vec::vec(range)`
   ///
@@ -598,7 +597,7 @@ class vec final {
   void splice_within(size_t idx, size_t start, size_t count);
 
   best::option<best::span<T>> on_heap() const {
-    if (best::to_signed(size_) < 0) {
+    if (best::to_signed(load_size()) < 0) {
       return raw_;
     }
     return best::none;
@@ -641,8 +640,17 @@ class vec final {
 
   // How big the area where inlined values live is, including the size.
   size_t inlined_region_size() const {
-    return reinterpret_cast<const char*>(&size_) -
+    return reinterpret_cast<const char*>(
+               &size_do_not_use_directly_or_else_ub_) -
            reinterpret_cast<const char*>(this) + best::size_of<size_t>;
+  }
+  size_t load_size() const {
+    size_t size;
+    std::memcpy(&size, &size_do_not_use_directly_or_else_ub_, sizeof(size));
+    return size;
+  }
+  void store_size(size_t size) {
+    std::memcpy(&size_do_not_use_directly_or_else_ub_, &size, sizeof(size));
   }
 
   static constexpr size_t InternalAlignment =
@@ -652,7 +660,9 @@ class vec final {
 
   alignas(InternalAlignment) best::span<T> raw_;
   [[no_unique_address]] padding padding_;
-  ssize_t size_;  // Signed so we get "reasonable" debugging prints in gdb.
+  ssize_t  // Signed so we get "reasonable"
+           // debugging prints in gdb.
+      size_do_not_use_directly_or_else_ub_ = 0;
   [[no_unique_address]] best::object<alloc> alloc_;
 };
 
@@ -703,7 +713,7 @@ void vec<T, max_inline, A>::move_construct(vec&& that, bool assign) {
 
     // construct_at because raw_ may contain garbage.
     std::construct_at(&raw_, *heap);
-    size_ = ~that.size();  // Need to explicitly flip to on-heap mode here.
+    store_size(~that.size());  // Need to explicitly flip to on-heap mode here.
   } else if (best::relocatable<T, trivially>) {
     destroy();
 
@@ -729,7 +739,7 @@ void vec<T, max_inline, A>::move_construct(vec&& that, bool assign) {
     alloc_ = std::move(that.alloc_);
   }
 
-  that.size_ = 0;  // This resets `that` to being empty and inlined.
+  that.store_size(0);  // This resets `that` to being empty and inlined.
 }
 
 template <best::relocatable T, size_t max_inline, best::allocator A>
@@ -739,7 +749,7 @@ void vec<T, max_inline, A>::destroy() {
     alloc_->dealloc(heap->data(), layout::array<T>(capacity()));
   }
 
-  size_ = 0;  // This returns `this` to being empty and inlined.
+  store_size(0);  // This returns `this` to being empty and inlined.
 }
 
 template <best::relocatable T, size_t max_inline, best::allocator A>
@@ -760,11 +770,12 @@ best::object_ptr<T> vec<T, max_inline, A>::data() {
 
 template <best::relocatable T, size_t max_inline, best::allocator A>
 size_t vec<T, max_inline, A>::size() const {
+  auto size = load_size();
   if constexpr (max_inline == 0) {
     // size_ is implicitly always zero if off-heap.
-    return on_heap() ? ~size_ : 0;
+    return on_heap() ? ~size : 0;
   } else {
-    return on_heap() ? ~size_ : size_ >> (bits_of<size_t> - SizeBytes * 8);
+    return on_heap() ? ~size : size >> (bits_of<size_t> - SizeBytes * 8);
   }
 }
 template <best::relocatable T, size_t max_inline, best::allocator A>
@@ -775,7 +786,7 @@ void vec<T, max_inline, A>::set_size(unsafe, size_t new_size) {
   }
 
   if (on_heap()) {
-    size_ = ~new_size;
+    store_size(~new_size);
   } else {
     if constexpr (max_inline == 0) {
       // size_ is implicitly always zero if off-heap, so we don't have to do
@@ -784,9 +795,16 @@ void vec<T, max_inline, A>::set_size(unsafe, size_t new_size) {
       auto offset = new_size << (bits_of<size_t> - SizeBytes * 8);
       auto mask = ~size_t{0} << (bits_of<size_t> - SizeBytes * 8);
 
-      // TODO(mcyoung): This is a strict aliasing violation...
-      size_ &= ~mask;
-      size_ |= offset;
+      // XXX: we cannot touch size_ directly; it may have been overwritten
+      // partly via the data() pointer, and thus reading through size_ directly
+      // is a strict aliasing violation.
+      //
+      // There are tests that will fail with optimizations turned on if this we
+      // are not careful here.
+      size_t size = load_size();
+      size &= ~mask;
+      size |= offset;
+      store_size(size);
     }
   }
 }
@@ -990,7 +1008,7 @@ void vec<T, max_inline, A>::spill_to_heap(best::option<size_t> capacity_hint) {
   // calling its operator= is UB.
   std::construct_at(&raw_, new_data, new_size);
 
-  size_ = ~old_size;  // Update the size to the "on heap" form.
+  store_size(~old_size);  // Update the size to the "on heap" form.
 }
 }  // namespace best
 

@@ -232,6 +232,13 @@ concept is_ptr = std::is_pointer_v<T>;
 template <typename T>
 concept is_member_ptr = std::is_member_pointer_v<T>;
 
+/// # `best::is_func_ptr`
+///
+/// Whether this is a function pointer type.
+template <typename T>
+concept is_func_ptr =
+    best::is_ptr<T> && best::is_func<std::remove_pointer_t<T>>;
+
 /// # `best::as_ptr<T>`
 ///
 /// If `T` is an object, void, or tame function type, returns a pointer to it.
