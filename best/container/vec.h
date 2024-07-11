@@ -108,8 +108,7 @@ class vec final {
   ///
   /// Constructs an empty vector using the given allocator.
   vec() : vec(alloc{}) {}
-  explicit vec(alloc alloc)
-      : size_(0), alloc_(best::in_place, std::move(alloc)) {}
+  explicit vec(alloc alloc) : alloc_(best::in_place, std::move(alloc)) {}
 
   /// # `vec::vec(range)`
   ///
@@ -598,7 +597,7 @@ class vec final {
   void splice_within(size_t idx, size_t start, size_t count);
 
   best::option<best::span<T>> on_heap() const {
-    if (best::to_signed(size_) < 0) {
+    if (best::to_signed(load_size()) < 0) {
       return raw_;
     }
     return best::none;
@@ -641,8 +640,17 @@ class vec final {
 
   // How big the area where inlined values live is, including the size.
   size_t inlined_region_size() const {
-    return reinterpret_cast<const char*>(&size_) -
+    return reinterpret_cast<const char*>(
+               &size_do_not_use_directly_or_else_ub_) -
            reinterpret_cast<const char*>(this) + best::size_of<size_t>;
+  }
+  size_t load_size() const {
+    size_t size;
+    std::memcpy(&size, &size_do_not_use_directly_or_else_ub_, sizeof(size));
+    return size;
+  }
+  void store_size(size_t size) {
+    std::memcpy(&size_do_not_use_directly_or_else_ub_, &size, sizeof(size));
   }
 
   static constexpr size_t InternalAlignment =
@@ -650,16 +658,11 @@ class vec final {
           ? best::align_of<T>
           : best::align_of<best::span<T>>;
 
-  size_t load_size() const {
-    size_t size;
-    std::memcpy(&size, &size_, sizeof(size));
-    return size;
-  }
-  void store_size(size_t size) { std::memcpy(&size_, &size, sizeof(size)); }
-
   alignas(InternalAlignment) best::span<T> raw_;
   [[no_unique_address]] padding padding_;
-  ssize_t size_;  // Signed so we get "reasonable" debugging prints in gdb.
+  ssize_t  // Signed so we get "reasonable"
+           // debugging prints in gdb.
+      size_do_not_use_directly_or_else_ub_ = 0;
   [[no_unique_address]] best::object<alloc> alloc_;
 };
 
