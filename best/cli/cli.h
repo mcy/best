@@ -31,14 +31,23 @@
 //!
 //! This header provides functionality for parsing CLI flags from program
 //! inputs. In `best`, CLI flags are defined as a reflectable struct with
-//! usage, flag, parse, and validation information attached to them. This means
-//! that it's easy to construct flag structs independently of the actual argv
-//! of the program, promoting decoupling.
+//! usage, flag, parse, and validation information attached to its fields as
+//! tags.
+//!
+//! This means that it's easy to construct flag structs independently of
+//! actual flag parsing: they're "just" structs! This design pattern is heavily
+//! inspired by some Rust CLI crates, such as clap, structopt, and argh.
+//!
+//! For an example flags struct, see `toy_flags.h` and `toy.cc`. Note that
+//! the actual parsing functions live in `cli/parser.h`. This is so that this
+//! header is comparatively light-weight to the parser header; this header
+//! does not pull in reflection.
 
 namespace best {
 /// # `best::cli`
 ///
-/// A flags struct parser.
+/// A flags struct parser. Currently this has no user-accessible functions, but
+/// it does contain all of the types necessary for defining a flags struct.
 class cli final {
  public:
   /// # `cli::visibility`

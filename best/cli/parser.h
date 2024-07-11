@@ -31,8 +31,7 @@
 #include "best/text/strbuf.h"
 #include "best/text/utf8.h"
 
-//! Command-line flags.
-//!
+//! Command-line flag parsing. See `cli.h` for more information.
 
 namespace best {
 /// # `best::cli_flags()`

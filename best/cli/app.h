@@ -45,12 +45,17 @@ namespace best {
 /// namespace scope in your main file.
 ///
 /// ```
-/// best::app MyApp = +[](best::vec<best::strbuf> args) {
+/// best::app MyApp = [](MyFlags& args) {
 ///   // Your code here!
 /// };
 /// ```
 ///
-/// So, what can go in `args`?
+/// So, what can go in `args`? It's a flags struct! See `cli.h` for more
+/// information on how to define one. Alternatively, you can simply take zero
+/// arguments, and interpret `best::app::argv()` yourself.
+///
+/// The function must return either `void`, `int`, or a result whose error type
+/// is printable.
 class app final {
  public:
   /// # `app::app()`
