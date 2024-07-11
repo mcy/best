@@ -710,7 +710,7 @@ void vec<T, max_inline, A>::move_construct(vec&& that, bool assign) {
 
     // construct_at because raw_ may contain garbage.
     std::construct_at(&raw_, *heap);
-    size_ = ~that.size();  // Need to explicitly flip to on-heap mode here.
+    store_size(~that.size());  // Need to explicitly flip to on-heap mode here.
   } else if (best::relocatable<T, trivially>) {
     destroy();
 
@@ -736,7 +736,7 @@ void vec<T, max_inline, A>::move_construct(vec&& that, bool assign) {
     alloc_ = std::move(that.alloc_);
   }
 
-  that.size_ = 0;  // This resets `that` to being empty and inlined.
+  that.store_size(0);  // This resets `that` to being empty and inlined.
 }
 
 template <best::relocatable T, size_t max_inline, best::allocator A>
@@ -746,7 +746,7 @@ void vec<T, max_inline, A>::destroy() {
     alloc_->dealloc(heap->data(), layout::array<T>(capacity()));
   }
 
-  size_ = 0;  // This returns `this` to being empty and inlined.
+  store_size(0);  // This returns `this` to being empty and inlined.
 }
 
 template <best::relocatable T, size_t max_inline, best::allocator A>
@@ -767,11 +767,12 @@ best::object_ptr<T> vec<T, max_inline, A>::data() {
 
 template <best::relocatable T, size_t max_inline, best::allocator A>
 size_t vec<T, max_inline, A>::size() const {
+  auto size = load_size();
   if constexpr (max_inline == 0) {
     // size_ is implicitly always zero if off-heap.
-    return on_heap() ? ~size_ : 0;
+    return on_heap() ? ~size : 0;
   } else {
-    return on_heap() ? ~size_ : size_ >> (bits_of<size_t> - SizeBytes * 8);
+    return on_heap() ? ~size : size >> (bits_of<size_t> - SizeBytes * 8);
   }
 }
 template <best::relocatable T, size_t max_inline, best::allocator A>
@@ -1004,7 +1005,7 @@ void vec<T, max_inline, A>::spill_to_heap(best::option<size_t> capacity_hint) {
   // calling its operator= is UB.
   std::construct_at(&raw_, new_data, new_size);
 
-  size_ = ~old_size;  // Update the size to the "on heap" form.
+  store_size(~old_size);  // Update the size to the "on heap" form.
 }
 }  // namespace best
 
