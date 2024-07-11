@@ -26,6 +26,11 @@
 #include "best/meta/taxonomy.h"
 
 namespace best::fnref_internal {
+template <typename F>
+concept no_captures = requires(F f) {
+  { +f } -> best::is_func_ptr;
+};
+
 template <typename Func, typename R, typename... Args>
 class impl {
  public:
@@ -37,7 +42,8 @@ class impl {
   constexpr impl(R (*fn)(Args...)) : ptr_(nullptr), fnptr_(fn) {}
 
   constexpr impl(const auto& fn)
-    requires best::callable<decltype(fn), R(Args...)>
+    requires best::callable<decltype(fn), R(Args...)> &&
+                 (!no_captures<decltype(fn)>)
       : ptr_(best::addr(fn)),
         lambda_(+[](const void* captures, Args... args) -> R {
           if constexpr (best::is_void<R>) {
@@ -52,8 +58,7 @@ class impl {
         }) {}
 
   constexpr impl(best::callable<R(Args...)> auto&& fn)
-    requires best::callable<decltype(fn), R(Args...)> &&
-                 (!best::is_const_func<Func>)
+    requires(!best::is_const_func<Func>) && (!no_captures<decltype(fn)>)
       : ptr_(best::addr(fn)),
         lambda_(+[](const void* captures, Args... args) -> R {
           if constexpr (best::is_void<R>) {
@@ -66,6 +71,10 @@ class impl {
                               BEST_FWD(args)...);
           }
         }) {}
+
+  constexpr impl(best::callable<R(Args...)> auto&& fn)
+    requires no_captures<decltype(fn)>
+      : impl(+fn) {}
 
   constexpr R operator()(Args... args) const {
     if (ptr_) {

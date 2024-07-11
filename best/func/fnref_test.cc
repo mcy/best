@@ -30,11 +30,17 @@ best::test FromFnptr = [](auto& t) {
 
   f = nullptr;
   t.expect_eq(f, nullptr);
+
+  f = [](int x) { return x - 42; };
+  t.expect_eq(f(8), -34);
 };
 
 best::test FromLambda = [](auto& t) {
   int total = 0;
-  best::fnref<int(int) const> f = [&](int x) { return total += x; };
+  auto f0 = [&](int x) { return total += x; };
+  best::fnref<int(int) const> f = f0;  // Need to hoist this, since fnref
+                                       // doesn't trigger RLE. Only causes a
+                                       // failure in opt mode.
 
   t.expect_eq(f(5), 5);
   t.expect_eq(total, 5);

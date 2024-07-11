@@ -650,6 +650,13 @@ class vec final {
           ? best::align_of<T>
           : best::align_of<best::span<T>>;
 
+  size_t load_size() const {
+    size_t size;
+    std::memcpy(&size, &size_, sizeof(size));
+    return size;
+  }
+  void store_size(size_t size) { std::memcpy(&size_, &size, sizeof(size)); }
+
   alignas(InternalAlignment) best::span<T> raw_;
   [[no_unique_address]] padding padding_;
   ssize_t size_;  // Signed so we get "reasonable" debugging prints in gdb.
@@ -775,7 +782,7 @@ void vec<T, max_inline, A>::set_size(unsafe, size_t new_size) {
   }
 
   if (on_heap()) {
-    size_ = ~new_size;
+    store_size(~new_size);
   } else {
     if constexpr (max_inline == 0) {
       // size_ is implicitly always zero if off-heap, so we don't have to do
@@ -784,9 +791,16 @@ void vec<T, max_inline, A>::set_size(unsafe, size_t new_size) {
       auto offset = new_size << (bits_of<size_t> - SizeBytes * 8);
       auto mask = ~size_t{0} << (bits_of<size_t> - SizeBytes * 8);
 
-      // TODO(mcyoung): This is a strict aliasing violation...
-      size_ &= ~mask;
-      size_ |= offset;
+      // XXX: we cannot touch size_ directly; it may have been overwritten
+      // partly via the data() pointer, and thus reading through size_ directly
+      // is a strict aliasing violation.
+      //
+      // There are tests that will fail with optimizations turned on if this we
+      // are not careful here.
+      size_t size = load_size();
+      size &= ~mask;
+      size |= offset;
+      store_size(size);
     }
   }
 }

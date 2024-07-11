@@ -207,6 +207,9 @@ best::test FrontAndBack = [](auto& t) {
 
   best::vec<int> ints = {1, 2, 3, 4, 5};
   best::span sp = ints;
+  t.expect_eq(ints.size(), 5);
+  t.expect_eq(ints[4], 5);
+  t.expect_eq(ints, {1, 2, 3, 4, 5});
 
   t.expect_eq(sp.first(), 1);
   t.expect_eq(sp.last(), 5);
@@ -366,11 +369,16 @@ struct NonPod {
   ~NonPod() {}
 
   bool operator==(int y) const { return x == y; }
-  friend auto& operator<<(auto& os, NonPod np) { return os << np.x; }
+  friend void BestFmt(auto& fmt, const NonPod& np) { fmt.format(np.x); }
 };
 static_assert(!best::relocatable<NonPod, best::trivially>);
 
 best::test Shift = [](auto& t) {
+  // This test doesn't work correctly in opt mode, because it relies on doing
+  // UAF reads of destroyed values.
+  // TODO: Make this test sound?
+  if (!best::is_debug()) return;
+
   unsafe u("test");
 
   int a[] = {1, 2, 3, 4, 5, 6, 7, 8};
