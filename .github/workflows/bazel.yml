@@ -10,20 +10,34 @@ env:
 
 jobs:
   check_lints:
+    name: Check Lints
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+      - uses: actions/checkout@v2
 
-    - name: Check format
-      run: ./format.sh
+      - name: Check Format
+        run: "./format.sh"
 
   build_and_test:
+    name: Build and Test (fastbuild)
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+      - uses: actions/checkout@v2
 
-    - name: Build everything
-      run: ./bazel build //...
+      - name: Build Everything
+        run: "./bazel build //... -c fastbuild"
 
-    - name: Run tests
-      run: ./bazel test //...
+      - name: Test Everything
+        run: "./bazel test //... -c fastbuild"
+
+  build_and_test_opt:
+    name: Build and Test (opt)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Build Everything
+        run: "./bazel build //... -c opt"
+
+      - name: Test Everything
+        run: "./bazel test //... -c opt"
