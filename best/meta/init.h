@@ -30,7 +30,7 @@
 //! way.
 //!
 //! This reflects the behavior of the various construction operations in
-//! `best::object_ptr`.
+//! `best::ptr`.
 //!
 //! (Almost) all concepts in this header take variadic arguments, even if it
 //! doesn't make sense (such as for assignment). This is because otherwise it's

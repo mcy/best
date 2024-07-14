@@ -181,8 +181,8 @@ class vec final {
   /// # `vec::data()`.
   ///
   /// Returns a pointer to the start of the array this vector manages.
-  best::object_ptr<const T> data() const;
-  best::object_ptr<T> data();
+  best::ptr<const T> data() const;
+  best::ptr<T> data();
 
   /// # `vec::size()`.
   ///
@@ -316,9 +316,9 @@ class vec final {
   ref insert(size_t idx, auto&&... args)
     requires best::constructible<T, decltype(args)&&...>
   {
-    auto ptr = insert_uninit(
-        unsafe("we call construct_in_place immediately after this"), idx, 1);
-    ptr.construct_in_place(BEST_FWD(args)...);
+    auto ptr = insert_uninit(unsafe("we call construct immediately after this"),
+                             idx, 1);
+    ptr.construct(BEST_FWD(args)...);
     return *ptr;
   }
 
@@ -388,7 +388,7 @@ class vec final {
   /// The caller is responsible for ensuring that the slots are actually
   /// initialized before performing further vector operations, such as
   /// pushing or calling the destructor.
-  best::object_ptr<T> insert_uninit(unsafe, size_t start, size_t count);
+  best::ptr<T> insert_uninit(unsafe, size_t start, size_t count);
 
   /// # `vec::resize_uninit()`
   ///
@@ -559,16 +559,17 @@ void vec<T, max_inline, A>::move_construct(vec&& that, bool assign) {
     auto old_size = size();
     auto new_size = that.size();
     resize_uninit(new_size);
-    for (size_t i = 0; i < new_size; ++i) {
-      (data() + i).relocate_from(that.data() + i, /*is_init=*/i < old_size);
+    if (old_size < new_size) {
+      data().relo_assign(that.data(), old_size);
+      (data() + old_size).relo(that.data() + old_size, new_size - old_size);
+    } else {
+      data().relo_assign(that.data(), new_size);
     }
   } else {
     destroy();
     auto new_size = that.size();
     reserve(new_size);
-    for (size_t i = 0; i < new_size; ++i) {
-      (data() + i).relocate_from(that.data() + i, false);
-    }
+    data().relo(that.data(), new_size);
   }
 
   if (assign) {
@@ -589,19 +590,19 @@ void vec<T, max_inline, A>::destroy() {
 }
 
 template <best::relocatable T, size_t max_inline, best::allocator A>
-best::object_ptr<const T> vec<T, max_inline, A>::data() const {
+best::ptr<const T> vec<T, max_inline, A>::data() const {
   if (auto heap = on_heap()) {
     return heap->data();
   }
-  return reinterpret_cast<const best::object_ptr<T>::pointee*>(this);
+  return reinterpret_cast<const best::ptr<T>::pointee*>(this);
 }
 
 template <best::relocatable T, size_t max_inline, best::allocator A>
-best::object_ptr<T> vec<T, max_inline, A>::data() {
+best::ptr<T> vec<T, max_inline, A>::data() {
   if (auto heap = on_heap()) {
     return heap->data();
   }
-  return reinterpret_cast<best::object_ptr<T>::pointee*>(this);
+  return reinterpret_cast<best::ptr<T>::pointee*>(this);
 }
 
 template <best::relocatable T, size_t max_inline, best::allocator A>
@@ -658,12 +659,16 @@ void vec<T, max_inline, A>::assign(const contiguous auto& that) {
     }
   }
 
+  auto that_data = best::ptr(best::data(that));
   auto old_size = size();
   auto new_size = best::size(that);
   resize_uninit(new_size);
 
-  for (size_t i = 0; i < new_size; ++i) {
-    (data() + i).copy_from(best::data(that) + i, /*is_init=*/i < old_size);
+  if (old_size < new_size) {
+    data().copy_assign(that_data, old_size);
+    (data() + old_size).copy(that_data + old_size, new_size - old_size);
+  } else {
+    data().copy_assign(that_data, new_size);
   }
   set_size(unsafe("updating size to that of the memcpy'd range"), new_size);
 }
@@ -729,7 +734,7 @@ template <best::relocatable T, size_t max_inline, best::allocator A>
 void vec<T, max_inline, A>::clear() {
   if (!best::destructible<T, trivially>) {
     for (size_t i = 0; i < size(); ++i) {
-      (data() + i).destroy_in_place();
+      (data() + i).destroy();
     }
   }
   set_size(unsafe("we just destroyed all elements"), 0);
@@ -751,7 +756,7 @@ T vec<T, max_inline, A>::remove(size_t idx) {
 template <best::relocatable T, size_t max_inline, best::allocator A>
 void vec<T, max_inline, A>::erase(best::bounds bounds) {
   auto range = operator[](bounds);
-  range.destroy_in_place();
+  range.destroy();
 
   size_t start = bounds.start;
   size_t end = bounds.start + range.size();
@@ -764,8 +769,8 @@ void vec<T, max_inline, A>::erase(best::bounds bounds) {
 }
 
 template <best::relocatable T, size_t max_inline, best::allocator A>
-best::object_ptr<T> vec<T, max_inline, A>::insert_uninit(unsafe u, size_t start,
-                                                         size_t count) {
+best::ptr<T> vec<T, max_inline, A>::insert_uninit(unsafe u, size_t start,
+                                                  size_t count) {
   (void)as_span()[{.start = start}];  // Trigger a bounds check.
   if (count == 0) return data() + start;
 
@@ -790,7 +795,7 @@ void vec<T, max_inline, A>::resize_uninit(size_t new_size) {
     if (new_size < old_size) {
       as_span()
           .at(unsafe{"we just did a bounds check (above)"}, {.start = new_size})
-          .destroy_in_place();
+          .destroy();
       set_size(unsafe("elements beyond new_size destroyed above"), new_size);
     }
     return;
@@ -826,23 +831,21 @@ void vec<T, max_inline, A>::spill_to_heap(best::option<size_t> capacity_hint) {
   if (on_heap() && best::relocatable<T, trivially>) {
     void* grown = alloc_->realloc(data(), old_layout, new_layout);
     // construct_at instead of assignment, since raw_ may contain garbage.
-    std::construct_at(&raw_, static_cast<best::object_ptr<T>::pointee*>(grown),
+    std::construct_at(&raw_, static_cast<best::ptr<T>::pointee*>(grown),
                       new_size);
     return;
   }
 
   // In the general case, we need to allocate new memory, relocate the values,
   // destroy the moved-from values, and free the old buffer if it is on-heap.
-  best::object_ptr<T> new_data =
-      static_cast<best::object_ptr<T>::pointee*>(alloc_->alloc(new_layout));
+  best::ptr<T> new_data =
+      static_cast<best::ptr<T>::pointee*>(alloc_->alloc(new_layout));
 
   size_t old_size = size();
   if (best::relocatable<T, trivially>) {
     std::memcpy(new_data, data(), old_size * size_of<T>);
   } else {
-    for (size_t i = 0; i < old_size; ++i) {
-      (new_data + i).move_from(data() + i, false);
-    }
+    new_data.move(data(), old_size);
   }
 
   destroy();  // Deallocate the old block.

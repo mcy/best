@@ -1,6 +1,23 @@
 package(default_visibility = ["//visibility:public"])
 
 cc_library(
+  name = "ptr",
+  hdrs = [
+    "ptr.h",
+    "internal/ptr.h",
+  ],
+  deps = [
+    "//best/base:hint",
+    "//best/base:niche",
+    "//best/base:ord",
+    "//best/meta:init",
+    "//best/meta:taxonomy",
+    "//best/meta:tlist",
+    "//best/meta:traits",
+  ],
+)
+
+cc_library(
   name = "layout",
   hdrs = [
     "layout.h",
@@ -37,23 +54,4 @@ cc_library(
 
 cc_library(
   name = "bytes",
-  hdrs = [
-    "bytes.h",
-    "internal/bytes.h",
-  ],
-  srcs = ["bytes.cc"],
-  deps = [
-    "//best/container:option",
-  ]
-)
-
-cc_test(
-  name = "bytes_test",
-  srcs = ["bytes_test.cc"],
-  linkopts = ["-rdynamic"],
-  deps = [
-    ":bytes",
-    "//best/container:span",
-    "//best/test",
-  ]
 )

@@ -26,13 +26,13 @@
 
 #include "best/base/ord.h"
 #include "best/base/port.h"
+#include "best/container/internal/bytes.h"
 #include "best/container/object.h"
 #include "best/container/option.h"
 #include "best/container/result.h"
 #include "best/iter/iter.h"
 #include "best/log/location.h"
 #include "best/math/overflow.h"
-#include "best/memory/bytes.h"
 #include "best/meta/init.h"
 #include "best/meta/tlist.h"
 
@@ -245,8 +245,8 @@ class span final {
   ///
   /// If this span has a statically-known size, this constructor will crash if
   /// len is not that size.
-  constexpr explicit(is_static) span(best::object_ptr<T> data, size_t size,
-                                     best::location loc = best::here);
+  constexpr explicit(is_static)
+      span(best::ptr<T> data, size_t size, best::location loc = best::here);
 
   /// # `span::span(range)`
   ///
@@ -297,7 +297,7 @@ class span final {
   /// # `span::data()`
   ///
   /// Returns the data pointer for this span.
-  constexpr best::object_ptr<T> data() const { return data_; }
+  constexpr best::ptr<T> data() const { return data_; }
 
   /// # `span::size()`
   ///
@@ -630,11 +630,11 @@ class span final {
   // TODO(mcyoung): Various other iterators, including:
   // struct chunk_iter, struct window_iter, struct ptr_iter.
 
-  /// # `span::destroy_in_place()`
+  /// # `span::destroy()`
   ///
   /// Destroys the elements of this span, in-place. This does not affect
   /// whatever the underlying storage for the span is.
-  constexpr void destroy_in_place() const
+  constexpr void destroy() const
     requires(!is_const);
 
   /// # `vec::shift_within()`
@@ -695,7 +695,7 @@ class span final {
   }
 
  private:
-  best::object_ptr<T> data_ = nullptr;
+  best::ptr<T> data_ = nullptr;
   [[no_unique_address]] best::select<n.has_value(), best::empty, size_t>
       size_{};
 };
@@ -789,7 +789,7 @@ class span<T, n>::split_impl final {
 template <typename T>
 span(T*, size_t) -> span<T>;
 template <typename T>
-span(best::object_ptr<T>, size_t) -> span<T>;
+span(best::ptr<T>, size_t) -> span<T>;
 template <typename T>
 span(std::initializer_list<T>) -> span<const T>;
 template <contiguous R>
@@ -818,8 +818,7 @@ inline constexpr size_t BestStaticSize(auto, std::array<T, n>*) {
 }
 
 template <best::is_object T, best::option<size_t> n>
-constexpr span<T, n>::span(best::object_ptr<T> data, size_t size,
-                           best::location loc)
+constexpr span<T, n>::span(best::ptr<T> data, size_t size, best::location loc)
     : data_(data) {
   if constexpr (is_static) {
     best::bounds bounds_check = {.start = this->size(), .count = 0};
@@ -887,10 +886,10 @@ template <best::is_object T, best::option<size_t> n>
 constexpr span<T, n> span<T, n>::from_nul(T* data) {
   if (data == nullptr) return {data, 0};
 
-  if constexpr (best::constexpr_byte_comparable<T>) {
-    if (BEST_CONSTEXPR_MEMCMP || !std::is_constant_evaluated()) {
+  if constexpr (best::bytes_internal::constexpr_byte_comparable<T>) {
+    if (BEST_CONSTEXPR_MEMCMP_ || !std::is_constant_evaluated()) {
       size_t len =
-#if BEST_CONSTEXPR_MEMCMP
+#if BEST_CONSTEXPR_MEMCMP_
           __builtin_strlen(data);
 #else
           bytes_internal::strlen(data);
@@ -1032,11 +1031,11 @@ constexpr best::option<size_t> span<T, n>::find(const R& needle) const
 
   if constexpr (best::is_span<R>) {
     using U = best::data_type<R>;
-    if constexpr (best::constexpr_byte_comparable<T, U>) {
-      return best::search_bytes(*this, needle);
+    if constexpr (best::bytes_internal::constexpr_byte_comparable<T, U>) {
+      return best::bytes_internal::search(*this, needle);
     } else if (!std::is_constant_evaluated()) {
-      if constexpr (best::byte_comparable<T, U>) {
-        return best::search_bytes(*this, needle);
+      if constexpr (best::bytes_internal::byte_comparable<T, U>) {
+        return best::bytes_internal::search(*this, needle);
       }
     }
 
@@ -1255,42 +1254,23 @@ template <typename U>
 constexpr void span<T, n>::copy_from(best::span<U> src) const
   requires(!is_const)
 {
-  if (!std::is_constant_evaluated() && best::same<T, U> &&
-      best::copyable<T, trivially>) {
-    best::copy_bytes(*this, src);
-    return;
-  }
-
-  unsafe u("already performed a bounds check in the loop latch");
-  size_t to_copy = best::min(size(), src.size());
-  for (size_t i = 0; i < to_copy; ++i) {
-    at(u, i) = src.at(u, i);
-  }
+  data().copy_assign(src.data(), best::min(size(), src.size()));
 }
 template <best::is_object T, best::option<size_t> n>
 template <typename U>
 constexpr void span<T, n>::emplace_from(best::span<U> src) const
   requires(!is_const)
 {
-  if (!std::is_constant_evaluated() && best::same<T, U> &&
-      best::copyable<T, trivially>) {
-    best::copy_bytes(*this, src);
-    return;
-  }
-
-  size_t to_copy = best::min(size(), src.size());
-  for (size_t i = 0; i < to_copy; ++i) {
-    (data() + i).copy_from(src.data() + i, false);
-  }
+  data().copy(src.data(), best::min(size(), src.size()));
 }
 
 template <best::is_object T, best::option<size_t> n>
-constexpr void span<T, n>::destroy_in_place() const
+constexpr void span<T, n>::destroy() const
   requires(!is_const)
 {
   if constexpr (!best::is_debug() && best::destructible<T, trivially>) return;
   for (size_t i = 0; i < size(); ++i) {
-    (data() + i).destroy_in_place();
+    (data() + i).destroy();
   }
 }
 
@@ -1300,12 +1280,14 @@ constexpr bool span<T, n>::operator==(span<U, m> that) const
   requires best::equatable<T, U>
 {
   if (std::is_constant_evaluated()) {
-    if constexpr (best::constexpr_byte_comparable<T, U>) {
-      return best::equate_bytes(best::span<T>(*this), best::span<U>(that));
+    if constexpr (best::bytes_internal::constexpr_byte_comparable<T, U>) {
+      return best::bytes_internal::equate(best::span<T>(*this),
+                                          best::span<U>(that));
     }
   } else {
-    if constexpr (best::byte_comparable<T, U>) {
-      return best::equate_bytes(best::span<T>(*this), best::span<U>(that));
+    if constexpr (best::bytes_internal::byte_comparable<T, U>) {
+      return best::bytes_internal::equate(best::span<T>(*this),
+                                          best::span<U>(that));
     }
   }
 
@@ -1325,12 +1307,12 @@ constexpr auto span<T, n>::operator<=>(span<U, m> that) const
   requires best::comparable<T, U>
 {
   if (std::is_constant_evaluated()) {
-    if constexpr (best::constexpr_byte_comparable<T, U>) {
-      return best::compare_bytes(best::span(*this), best::span(that));
+    if constexpr (best::bytes_internal::constexpr_byte_comparable<T, U>) {
+      return best::bytes_internal::compare(best::span(*this), best::span(that));
     }
   } else {
-    if constexpr (best::byte_comparable<T, U>) {
-      return best::compare_bytes(best::span(*this), best::span(that));
+    if constexpr (best::bytes_internal::byte_comparable<T, U>) {
+      return best::bytes_internal::compare(best::span(*this), best::span(that));
     }
   }
 
@@ -1349,92 +1331,7 @@ constexpr void span<T, n>::shift_within(unsafe u, size_t dst, size_t src,
                                         size_t count) const
   requires(!is_const) && is_dynamic
 {
-  if (dst == src) return;
-
-  // We need to handle the following cases.
-  //
-  // Non-overlapping shift. Happens when src + count <= dst or dst + count <=
-  // src, need to destroy {.start = src, .count = count }.
-  // | xxxx | yyyyyyyyyyyy | xxxxxxxxxxxx | ------------ | xxxx |
-  //        src            src + count    dst            dst + count
-  //
-  // Overlapping forward shift. Happens when src < dst < src + count, need to
-  // destroy {.start = src, .end = dest }
-  // | xxxx | yyyyyyyyyyyy | yyyyyy | ------------ | xxxx |
-  //        src            dst      src + count    dst + count
-  //
-  // The moved part is subdivided as follows according to how it needs to be
-  // moved:
-  // | aaaa | bbbbbbbbbbbb | cccc |
-  // src    src + overlap  dst    src + count
-  //
-  // Where overlap = src + count - dst. The c part is move-constructed
-  // but not destroyed; then the b part is relocated, and the a part is
-  // move-assigned and then destroyed.
-  //
-  // Overlapping backward shift. Happens when dst < src < dest + count, need to
-  // destroy {.start = dst + count, .end = src + count }
-  // | xxxx | ------------ | yyyyyy | yyyyyyyyyyyy | xxxx |
-  //        dst            src      dst + count    src + count
-  //
-  // The moved part is divided in the analogous way, but the move/relocate/
-  // assign regions are in the opposite order.
-
-  if (src + count <= dst || dst + count <= src) {
-    // Non-overlapping case.
-    if constexpr (best::relocatable<T, trivially>) {
-      best::copy_bytes(at(u, {.start = dst, .count = count}),
-                       at(u, {.start = src, .count = count}));
-      at(u, {.start = src, .count = count}).destroy_in_place();
-      return;
-    }
-
-    for (size_t i = 0; i < count; ++i) {
-      (data() + dst + i).relocate_from(data() + src + i, false);
-    }
-  } else if (src < dst && dst < src + count) {
-    // Forward case.
-    if constexpr (best::relocatable<T, trivially>) {
-      best::copy_overlapping_bytes(at(u, {.start = dst, .count = count}),
-                                   at(u, {.start = src, .count = count}));
-      at(u, {.start = src, .end = dst}).destroy_in_place();
-      return;
-    }
-
-    // Need to make the copies in backward order to avoid trampling.
-    size_t overlap = src + count - dst;
-    size_t overlap_end = dst - src;
-    for (size_t j = count; j > 0; --j) {
-      size_t i = j - 1;
-      if (i < overlap) {
-        (data() + dst + i).relocate_from(data() + src + i, true);
-      } else if (i < overlap_end) {
-        (data() + dst + i).relocate_from(data() + src + i, false);
-      } else {
-        (data() + dst + i).move_from(data() + src + i, false);
-      }
-    }
-  } else if (dst < src && src < dst + count) {
-    // Backward case.
-    if constexpr (best::relocatable<T, trivially>) {
-      best::copy_overlapping_bytes(at(u, {.start = dst, .count = count}),
-                                   at(u, {.start = src, .count = count}));
-      at(u, {.start = dst + count, .end = src + count}).destroy_in_place();
-      return;
-    }
-
-    size_t overlap = dst + count - src;
-    size_t overlap_end = src - dst;
-    for (size_t i = 0; i < count; ++i) {
-      if (i < overlap) {
-        (data() + dst + i).move_from(data() + src + i, false);
-      } else if (i < overlap_end) {
-        (data() + dst + i).relocate_from(data() + src + i, false);
-      } else {
-        (data() + dst + i).relocate_from(data() + src + i, true);
-      }
-    }
-  }
+  (data() + dst).relo_overlapping(data() + src, count);
 }
 }  // namespace best
 

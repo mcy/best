@@ -17,8 +17,8 @@
 
 \* ////////////////////////////////////////////////////////////////////////// */
 
-#ifndef BEST_MEMORY_INTERNAL_BYTES_H_
-#define BEST_MEMORY_INTERNAL_BYTES_H_
+#ifndef BEST_CONTAINER_INTERNAL_BYTES_H_
+#define BEST_CONTAINER_INTERNAL_BYTES_H_
 
 #include <cstddef>
 #include <type_traits>
@@ -33,12 +33,9 @@
 
 namespace best::bytes_internal {
 extern "C" {
-void* memcpy(void*, const void*, size_t) noexcept;
-void* memmove(void*, const void*, size_t) noexcept;
 void* memchr(const void*, int, size_t) noexcept;
 void* memrchr(const void*, int, size_t) noexcept;
 void* memmem(const void*, size_t, const void*, size_t) noexcept;
-void* memset(void*, int, size_t) noexcept;
 int memcmp(const void*, const void*, size_t) noexcept;
 size_t strlen(const char*) noexcept;
 }  // extern "C"
@@ -91,6 +88,25 @@ concept is_char = best::same<best::as_auto<T>, char> ||
                   best::same<best::as_auto<T>, signed char> ||
                   best::same<best::as_auto<T>, char8_t>;
 
+/// # `best::byte_comparable`
+///
+/// Whether a pair of types' equality is modeled by `memcmp()`.
+template <typename T, typename U = T>
+concept byte_comparable = requires {
+  best::bytes_internal::can_memcmp(best::bytes_internal::tag<T>{},
+                                   best::bytes_internal::tag<U>{});
+};
+
+/// # `best::constexpr_byte_comparable`
+///
+/// Whether a pair of types can be `memcmp`'d in constexpr.
+template <typename T, typename U = T>
+concept constexpr_byte_comparable = requires {
+  requires byte_comparable<T, U>;
+  requires is_char<T> && is_char<U>;
+  requires bool(BEST_CONSTEXPR_MEMCMP_);
+};
+
 template <typename T, typename U>
 BEST_INLINE_ALWAYS constexpr bool equate(best::span<T> lhs, best::span<U> rhs) {
   if (lhs.size() != rhs.size()) return false;
@@ -129,8 +145,8 @@ best::option<size_t> constexpr search_byte(best::span<T> haystack,
 }
 
 template <typename T, typename U>
-best::option<size_t> constexpr search(best::span<T> haystack,
-                                      best::span<U> needle) {
+best::option<size_t> constexpr search_memmem(best::span<T> haystack,
+                                             best::span<U> needle) {
   if constexpr (sizeof(U) == 1) {
     if (needle.size() == 1) {
       return search_byte(haystack, needle);
@@ -200,8 +216,23 @@ BEST_INLINE_ALWAYS constexpr best::option<size_t> search_constexpr(
   }
 }
 
+template <typename T, typename U = const T>
+BEST_INLINE_ALWAYS constexpr best::option<size_t> search(best::span<T> haystack,
+                                                         best::span<U> needle)
+  requires byte_comparable<T, U>
+{
+  if (!std::is_constant_evaluated()) {
+    return bytes_internal::search_memmem(haystack, needle);
+  } else if constexpr (constexpr_byte_comparable<T, U>) {
+    return bytes_internal::search_constexpr(haystack, needle);
+  } else {
+    best::crash_internal::crash(
+        "cannot call best::search_bytes() in constexpr for this type");
+  }
+}
+
 #undef BEST_memcmp_
 #undef BEST_memchr_
 }  // namespace best::bytes_internal
 
-#endif  // BEST_MEMORY_INTERNAL_BYTES_H_
+#endif  // BEST_CONTAINER_INTERNAL_BYTES_H_

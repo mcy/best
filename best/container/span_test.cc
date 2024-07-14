@@ -396,11 +396,12 @@ best::test Shift = [](auto& t) {
   ints[6] = 3;
   ints[7] = 8;
 
+  // NOTE: These cases hit a specific case of `ptr::relo_overlapping()` that
+  // does not bother clobbering relocated-from places.
   ints.shift_within(u, 1, 3, 4);
-  t.expect_eq(best::black_box(ints), best::span{1, 4, 5, 2, 3, d, d, 8});
-
+  t.expect_eq(best::black_box(ints), best::span{1, 4, 5, 2, 3, 2, 3, 8});
   ints.shift_within(u, 3, 1, 4);
-  t.expect_eq(best::black_box(ints), best::span{1, d, d, 4, 5, 2, 3, 8});
+  t.expect_eq(best::black_box(ints), best::span{1, 4, 5, 4, 5, 2, 3, 8});
 
   NonPod a2[] = {1, 2, 3, 4, 5, 6, 7, 8};
   best::span nps = a2;

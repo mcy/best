@@ -30,6 +30,7 @@ cc_library(
   hdrs = ["object.h"],
   deps = [
     "//best/base:ord",
+    "//best/memory:ptr",
     "//best/meta:empty",
   ]
 )
@@ -143,6 +144,7 @@ cc_library(
   hdrs = [
     "span.h",
     "span_sort.h",
+    "internal/bytes.h",
   ],
   deps = [
     ":option",
