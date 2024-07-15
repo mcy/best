@@ -77,7 +77,7 @@ bool test::run_all(const flags& flags) {
       if (test->name().contains(skip)) goto skip;
     }
     if (!flags.filters.is_empty()) {
-      auto found = flags.filters.as_span().contains(
+      auto found = flags.filters->contains(
           [&](const auto& f) { return test->name().contains(f); });
 
       if (!found) goto skip;

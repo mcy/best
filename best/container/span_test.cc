@@ -237,10 +237,10 @@ best::test FrontAndBack = [](auto& t) {
 
 best::test Swap = [](auto& t) {
   best::vec<int> ints = {1, 2, 3, 4, 5};
-  ints.as_span().swap(1, 2);
+  ints->swap(1, 2);
   t.expect_eq(ints, best::span{1, 3, 2, 4, 5});
 
-  ints.as_span().reverse();
+  ints->reverse();
   t.expect_eq(ints, best::span{5, 4, 2, 3, 1});
 };
 
@@ -332,13 +332,13 @@ best::test Sort = [](auto& t) {
   best::mark_sort_header_used();
 
   best::vec<int> ints = {5, 4, 3, 2, 1};
-  ints.as_span().sort();
+  ints->sort();
   t.expect_eq(ints, best::span{1, 2, 3, 4, 5});
 
-  ints.as_span().stable_sort([](int x) { return best::count_ones(x); });
+  ints->stable_sort([](int x) { return best::count_ones(x); });
   t.expect_eq(ints, best::span{1, 2, 4, 3, 5});
 
-  ints.as_span().sort([](int x, int y) { return y <=> x; });
+  ints->sort([](int x, int y) { return y <=> x; });
   t.expect_eq(ints, best::span{5, 4, 3, 2, 1});
 };
 
