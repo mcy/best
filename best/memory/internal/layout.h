@@ -23,7 +23,6 @@
 #include <cstddef>
 #include <cstdlib>
 
-#include "best/container/object.h"
 #include "best/meta/tlist.h"
 
 // This header contains implementations of the layout algorithms for structs and
@@ -31,6 +30,10 @@
 // to avoid recomputing them.
 
 namespace best::layout_internal {
+template <typename T>
+using to_object = best::devoid<
+    best::select<best::is_object<T> || best::is_void<T>, T, best::as_ptr<T>>>;
+
 /// Computes the alignment of a struct/union with the given member types.
 ///
 /// In other words, this computes the maximum among the alignments of Types.
@@ -40,7 +43,7 @@ namespace best::layout_internal {
 template <typename... Types>
 inline constexpr size_t align_of = [] {
   size_t align = 1;
-  best::types<best::object<Types>...>.each(
+  best::types<to_object<Types>...>.each(
       [&]<typename T> { align = (align > alignof(T) ? align : alignof(T)); });
   return align;
 }();
@@ -62,7 +65,7 @@ inline constexpr size_t size_of = [] {
     }
   };
 
-  best::types<best::object<Types>...>.each([&]<typename T> {
+  best::types<to_object<Types>...>.each([&]<typename T> {
     align_to(alignof(T));
     align = (align > alignof(T) ? align : alignof(T));
     size += sizeof(T);
@@ -89,7 +92,7 @@ inline constexpr size_t size_of_union = [] {
     }
   };
 
-  best::types<best::object<Types>...>.each([&]<typename T> {
+  best::types<to_object<Types>...>.each([&]<typename T> {
     align = (align > alignof(T) ? align : alignof(T));
     size = (size > sizeof(T) ? size : sizeof(T));
   });

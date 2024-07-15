@@ -107,6 +107,13 @@ struct int_range;
 template <typename>
 class track_location;
 
+// best/memory.ptr.h
+template <typename>
+class ptr;
+class vtable;
+template <typename>
+class vptr;
+
 // best/meta/empty.h
 struct empty;
 

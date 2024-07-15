@@ -25,7 +25,6 @@ cc_library(
   ],
   deps = [
     "//best/base:unsafe",
-    "//best/container:object",
     "//best/math:overflow",
     "//best/meta:ops",
     "//best/meta:tlist",

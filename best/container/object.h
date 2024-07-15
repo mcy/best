@@ -115,10 +115,10 @@ class object final {
   ///
   /// Extracts an `ptr<T>` pointing to this object.
   constexpr best::ptr<const T> as_ptr() const {
-    return best::ptr<const T>(best::addr(BEST_OBJECT_VALUE_));
+    return best::ptr(best::addr(BEST_OBJECT_VALUE_)).template cast<const T>();
   }
   constexpr best::ptr<T> as_ptr() {
-    return best::ptr<T>(best::addr(BEST_OBJECT_VALUE_));
+    return best::ptr(best::addr(BEST_OBJECT_VALUE_)).template cast<T>();
   }
 
   /// # `ptr::operator*`, `ptr::operator->`

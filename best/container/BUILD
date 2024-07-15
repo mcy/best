@@ -1,6 +1,15 @@
 package(default_visibility = ["//visibility:public"])
 
 cc_library(
+  name = "box",
+  hdrs = ["box.h"],
+  deps = [
+    "//best/memory:allocator",
+    "//best/memory:ptr",
+  ]
+)
+
+cc_library(
   name = "choice",
   hdrs = [
     "choice.h",
