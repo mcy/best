@@ -24,6 +24,7 @@
 
 #include "best/container/span.h"
 #include "best/container/vec.h"
+#include "best/func/arrow.h"
 #include "best/memory/allocator.h"
 #include "best/text/encoding.h"
 #include "best/text/rune.h"
@@ -73,6 +74,10 @@ using strbuf32 = best::textbuf<utf32, best::malloc>;
 /// A `best::textbuf` may not point to invalidly-text data. Constructors from
 /// unauthenticated strings must go through factories that return
 /// `best::optional`.
+///
+/// Note that `best::textbuf` only provides a subset of the `best::textbuf`
+/// functions. To access the full suite of span operations, you must access them
+/// through `->`, e.g., `buf->find()`.
 template <typename E, best::allocator A = best::malloc>
 class textbuf final {
  public:
@@ -218,15 +223,19 @@ class textbuf final {
   /// Returns the underlying text encoding.
   const encoding& enc() const { return enc_; }
 
-  /// # `textbuf::as_text()`
+  /// # `textbuf::as_text()`, `vec::operator->()`
   ///
   /// Returns the span of code units that backs this string. This is also
   /// an implicit conversion.
+  ///
+  /// All of the text methods, including those not explicitly delegated, are
+  /// accessible through `->`. For example, `my_str->size()` works.
   text as_text() const {
     return text(unsafe("buf_ is always validly encoded"),
                 {buf_.as_span(), enc()});
   }
   operator text() const { return as_text(); }
+  best::arrow<text> operator->() const { return as_text(); }
 
   /// # `textbuf::operator buf`
   ///
@@ -234,22 +243,6 @@ class textbuf final {
   /// an implicit conversion.
   buf into_buf() && { return std::move(buf_); }
   operator buf() && { return std::move(buf_); }
-
-  /// # `textbuf::as_codes()`
-  ///
-  /// Returns the span of code units that backs this string.
-  best::span<const code> as_codes() const { return buf_; }
-
-  /// # `textbuf::is_rune_boundary()`
-  ///
-  /// Returns whether or not `idx` is a rune boundary or not. Returns `false`
-  /// for oud-of-bounds indices.
-  ///
-  /// For stateless encodings, this is an O(1) check. For non-synchronizing
-  /// encodings, it is O(n).
-  bool is_rune_boundary(size_t idx) const {
-    return as_text().is_rune_boundary(idx);
-  }
 
   /// # `text[{...}]`
   ///
@@ -272,11 +265,6 @@ class textbuf final {
     return as_text().at(range);
   }
 
-  /// # `textbuf::at(unsafe)`
-  ///
-  /// Gets the substring in the given range, performing no bounds checks.
-  text at(unsafe u, best::bounds range) const { return as_text().at(u, range); }
-
   /// # `text::rune_iter`, `text::runes()`.
   ///
   /// An iterator over the runes of a `best::text`.
@@ -289,109 +277,6 @@ class textbuf final {
   /// occur at in the underlying code span.
   using rune_index_iter = text::rune_index_iter;
   rune_index_iter rune_indices() const { return as_text().rune_indices(); }
-
-  /// # `textbuf::starts_with()`
-  ///
-  /// Checks whether this string begins with the specifies substring or rune.
-  bool starts_with(rune prefix) const { return as_text().starts_with(prefix); }
-  bool starts_with(const string_type auto& prefix) const {
-    return as_text().starts_with(prefix);
-  }
-  bool starts_with(best::callable<bool(rune)> auto&& pred) const {
-    return as_text().starts_with(BEST_FWD(pred));
-  }
-
-  /// # `textbuf::trim_prefix()`
-  ///
-  /// If this string starts with the given prefix, returns a copy of this string
-  /// with that prefix removed.
-  best::option<text> strip_prefix(rune prefix) const {
-    return as_text().strip_prefix(prefix);
-  }
-  best::option<text> strip_prefix(const string_type auto& prefix) const {
-    return as_text().strip_prefix(prefix);
-  }
-  best::option<text> strip_prefix(
-      best::callable<bool(rune)> auto&& pred) const {
-    return as_text().strip_prefix(BEST_FWD(pred));
-  }
-
-  /// # `textbuf::split_at()`
-  ///
-  /// Splits this string into two on the given index. If the desired split point
-  /// is out of bounds, returns `best::none`.
-  best::option<best::row<text, text>> split_at(size_t n) const {
-    return as_text().split_at(n);
-  }
-
-  /// # `textbuf::find()`.
-  ///
-  /// Finds the first occurrence of a pattern by linear search, and returns its
-  /// position.
-  ///
-  /// A pattern may be:
-  ///
-  /// - A rune.
-  /// - A string type.
-  /// - A rune predicate.
-  ///
-  /// Where possible, this function will automatically call vectorized
-  /// implementations of e.g. `memchr` and `memcmp` for finding the desired
-  /// pattern. Therefore, when possible, prefer to provide a needle by value.
-  best::option<size_t> find(best::rune needle) const {
-    return as_text().find(needle);
-  }
-  best::option<size_t> find(const best::string_type auto& needle) const {
-    return as_text().find(needle);
-  }
-  best::option<size_t> find(best::callable<bool(rune)> auto&& pred) const {
-    return as_text().find(BEST_FWD(pred));
-  }
-
-  /// # `text::contains()`
-  ///
-  /// Determines whether a substring exists that matches some pattern.
-  ///
-  /// A pattern may be as in `textbuf::find()`.
-  bool contains(rune needle) const { return find(needle).has_value(); }
-  bool contains(const string_type auto& needle) const {
-    return find(needle).has_value();
-  }
-  bool contains(best::callable<bool(rune)> auto&& needle) const {
-    return find(BEST_FWD(needle)).has_value();
-  }
-
-  /// # `text::split_once()`
-  ///
-  /// Calls `text::find()` to find the first occurrence of some pattern, and
-  /// if found, returns the substrings before and after the separator.
-  ///
-  /// A pattern for a separator may be as in `textbuf::find()`.
-  best::option<best::row<text, text>> split_once(rune needle) const {
-    return as_text().split_once(needle);
-  }
-  best::option<best::row<text, text>> split_once(
-      const string_type auto& needle) const {
-    return as_text().split_once(needle);
-  }
-  best::option<best::row<text, text>> split_once(
-      best::callable<bool(rune)> auto&& pred) const {
-    return as_text().split_once(BEST_FWD(pred));
-  }
-
-  /// # `pretext::split()`.
-  ///
-  /// Returns an iterator over substrings separated by some pattern. Internally,
-  /// it calls `text::split_once()` until it is out of string.
-  ///
-  /// A pattern for a separator may be as in `pretext::find()`.
-  auto split(best::rune needle) const { return as_text().split(needle); }
-  auto split(const best::string_type auto& needle) const {
-    return as_text().split(needle);
-  }
-  auto split(best::callable<bool(rune)> auto&& pred) const {
-    return as_text().split(BEST_FWD(pred));
-  }
 
   /// # `textbuf::reserve()`.
   ///
@@ -414,43 +299,8 @@ class textbuf final {
   ///
   /// Pushes a rune or string to this vector. Returns `false` if input text
   /// contains characters that cannot be transcoded to this strings's encoding.
-  bool push(rune r) {
-    code buf[About.max_codes_per_rune];
-    if (auto codes = r.encode(buf, enc())) {
-      buf_.append(*codes);
-      return true;
-    }
-    return false;
-  }
-  bool push(const string_type auto& that) {
-    if constexpr (best::is_text<decltype(that)> &&
-                  best::same_encoding_code<textbuf, decltype(that)>()) {
-      if (best::same_encoding(*this, that)) {
-        buf_.append(that);
-        return true;
-      }
-    }
-
-    if constexpr (best::is_text<decltype(that)> ||
-                  best::is_pretext<decltype(that)>) {
-      size_t watermark = size();
-      for (auto r : that.runes()) {
-        reserve(About.max_codes_per_rune);
-        best::span<code> buf{buf_.data() + buf_.size(),
-                             About.max_codes_per_rune};
-        if (auto codes = r.encode(buf, this->enc())) {
-          buf_.set_size(unsafe("we just wrote this much data in encode()"),
-                        size() + codes.ok()->size());
-          continue;
-        }
-        truncate(watermark);
-        return false;
-      }
-      return true;
-    } else {
-      return push(best::pretext(that));
-    }
-  }
+  bool push(rune r);
+  bool push(const string_type auto& that);
 
   /// # `textbuf::push_lossy()`.
   ///
@@ -458,47 +308,8 @@ class textbuf final {
   /// characters that cannot be transcoded into this string's encoding, they
   /// are replaced with `rune::Replacement`, or if that cannot be encoded, with
   /// `?`.
-  void push_lossy(rune r) {
-    code buf[About.max_codes_per_rune];
-    if (auto codes = r.encode(buf, enc())) {
-      buf_.append(*codes);
-    } else if (auto codes = rune::Replacement.encode(buf, enc())) {
-      buf_.append(*codes);
-    } else {
-      codes = rune('?').encode(buf, enc());
-      buf_.append(*codes);
-    }
-  }
-  void push_lossy(const string_type auto& that) {
-    if constexpr (best::is_text<decltype(that)> &&
-                  best::same_encoding_code<textbuf, decltype(that)>()) {
-      if (best::same_encoding(*this, that)) {
-        buf_.append(that);
-        return;
-      }
-    }
-
-    if constexpr (best::is_text<decltype(that)> ||
-                  best::is_pretext<decltype(that)>) {
-      for (auto r : that.runes()) {
-        reserve(About.max_codes_per_rune);
-        best::span<code> buf = {buf_.data() + buf_.size(),
-                                About.max_codes_per_rune};
-
-        unsafe u("we just wrote this much data in encode()");
-        if (auto codes = r.encode(buf, this->enc())) {
-          buf_.set_size(u, size() + codes.ok()->size());
-        } else if (auto codes = rune::Replacement.encode(buf, this->enc())) {
-          buf_.set_size(u, size() + codes.ok()->size());
-        } else {
-          codes = rune('?').encode(buf, this->enc());
-          buf_.set_size(u, size() + codes.ok()->size());
-        }
-      }
-    } else {
-      push_lossy(best::pretext(that));
-    }
-  }
+  void push_lossy(rune r);
+  void push_lossy(const string_type auto& that);
 
   /// # `textbuf::clear()`.
   ///
@@ -558,6 +369,90 @@ best::option<textbuf<E, A>> textbuf<E, A>::from(buf data, encoding enc) {
   }
 
   return textbuf(best::in_place, std::move(data), std::move(enc));
+}
+
+template <typename E, allocator A>
+bool textbuf<E, A>::push(rune r) {
+  code buf[About.max_codes_per_rune];
+  if (auto codes = r.encode(buf, enc())) {
+    buf_.append(*codes);
+    return true;
+  }
+  return false;
+}
+template <typename E, allocator A>
+bool textbuf<E, A>::push(const string_type auto& that) {
+  if constexpr (best::is_text<decltype(that)> &&
+                best::same_encoding_code<textbuf, decltype(that)>()) {
+    if (best::same_encoding(*this, that)) {
+      buf_.append(that);
+      return true;
+    }
+  }
+
+  if constexpr (best::is_text<decltype(that)> ||
+                best::is_pretext<decltype(that)>) {
+    size_t watermark = size();
+    for (auto r : that.runes()) {
+      reserve(About.max_codes_per_rune);
+      best::span<code> buf{buf_.data() + buf_.size(), About.max_codes_per_rune};
+      if (auto codes = r.encode(buf, this->enc())) {
+        buf_.set_size(unsafe("we just wrote this much data in encode()"),
+                      size() + codes.ok()->size());
+        continue;
+      }
+      truncate(watermark);
+      return false;
+    }
+    return true;
+  } else {
+    return push(best::pretext(that));
+  }
+}
+
+template <typename E, allocator A>
+void textbuf<E, A>::push_lossy(rune r) {
+  code buf[About.max_codes_per_rune];
+  if (auto codes = r.encode(buf, enc())) {
+    buf_.append(*codes);
+  } else if (auto codes = rune::Replacement.encode(buf, enc())) {
+    buf_.append(*codes);
+  } else {
+    codes = rune('?').encode(buf, enc());
+    buf_.append(*codes);
+  }
+}
+
+template <typename E, allocator A>
+void textbuf<E, A>::push_lossy(const string_type auto& that) {
+  if constexpr (best::is_text<decltype(that)> &&
+                best::same_encoding_code<textbuf, decltype(that)>()) {
+    if (best::same_encoding(*this, that)) {
+      buf_.append(that);
+      return;
+    }
+  }
+
+  if constexpr (best::is_text<decltype(that)> ||
+                best::is_pretext<decltype(that)>) {
+    for (auto r : that.runes()) {
+      reserve(About.max_codes_per_rune);
+      best::span<code> buf = {buf_.data() + buf_.size(),
+                              About.max_codes_per_rune};
+
+      unsafe u("we just wrote this much data in encode()");
+      if (auto codes = r.encode(buf, this->enc())) {
+        buf_.set_size(u, size() + codes.ok()->size());
+      } else if (auto codes = rune::Replacement.encode(buf, this->enc())) {
+        buf_.set_size(u, size() + codes.ok()->size());
+      } else {
+        codes = rune('?').encode(buf, this->enc());
+        buf_.set_size(u, size() + codes.ok()->size());
+      }
+    }
+  } else {
+    push_lossy(best::pretext(that));
+  }
 }
 }  // namespace best
 

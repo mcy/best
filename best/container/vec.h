@@ -27,6 +27,7 @@
 #include "best/container/object.h"
 #include "best/container/option.h"
 #include "best/container/span.h"
+#include "best/func/arrow.h"
 #include "best/log/internal/crash.h"
 #include "best/log/location.h"
 #include "best/math/bit.h"
@@ -77,8 +78,9 @@ constexpr size_t vec_inline_default() {
 /// corresponding span type. Most common span functions are re-implemented on
 /// `best::vec`, for convenience.
 ///
-/// In addition to all of the `best::span` functions, `best::vec` offers the
-/// usual complement of push, insert, remove, etc. functionality.
+/// Note that `best::vec` only provides a subset of the `best::span` functions.
+/// To access the full suite of span operations, you must access them through
+/// `->`, e.g., `vec->sort()`.
 template <best::relocatable T, size_t max_inline = vec_inline_default<T>(),
           best::allocator A = best::malloc>
 class vec final {
@@ -216,11 +218,16 @@ class vec final {
   bool is_inlined() const { return on_heap().is_empty(); }
   bool is_on_heap() { return on_heap().has_value(); }
 
-  /// # `vec::as_span()`
+  /// # `vec::as_span()`, `vec::operator->()`
   ///
   /// Returns a span over the array this vector manages.
+  ///
+  /// All of the span methods, including those not explicitly delegated, are
+  /// accessible through `->`. For example, `my_vec->size()` works.
   best::span<const T> as_span() const { return *this; }
   best::span<T> as_span() { return *this; }
+  best::arrow<best::span<const T>> operator->() const { return as_span(); }
+  best::arrow<best::span<T>> operator->() { return as_span(); }
 
   /// # `vec::spare_capacity()`
   ///
@@ -232,48 +239,23 @@ class vec final {
     return best::span(data() + size(), capacity() - size());
   }
 
-  /// # `vec::first()`
+  /// # `vec::first()`, `vec::last()`
   ///
-  /// Returns the first, or first `m`, elements of this vector, or `best::none`
-  /// if there are not enough elements.
+  /// Returns the first or last element of the vector, or `best::none` if the
+  /// vector is empty.
   best::option<const T&> first() const { return as_span().first(); }
   best::option<T&> first() { return as_span().first(); }
-  template <size_t m>
-  best::option<best::span<const T, m>> first(best::index_t<m> i = {}) const {
-    return as_span().first(i);
-  }
-  template <size_t m>
-  best::option<best::span<T, m>> first(best::index_t<m> i = {}) {
-    return as_span().first(i);
-  }
-
-  /// # `vec::last()`
-  ///
-  /// Returns the last, or last `m`, elements of this vector, or `best::none` if
-  /// there are not enough elements.
   best::option<const T&> last() const { return as_span().last(); }
   best::option<T&> last() { return as_span().last(); }
-  template <size_t m>
-  best::option<best::span<const T, m>> last(best::index_t<m> i = {}) const {
-    return as_span().last(i);
-  }
-  template <size_t m>
-  best::option<best::span<T, m>> last(best::index_t<m> i = {}) {
-    return as_span().last(i);
-  }
 
-  /// # `vec[idx]`
+  /// # `vec[idx]`, `vec[{.start = ...}]`
   ///
-  /// Extracts a single element. Crashes if the requested index is
+  /// Extracts a single element or a subspan. Crashes if the requested index is
   /// out-of-bounds.
   const T& operator[](best::track_location<size_t> idx) const {
     return as_span()[idx];
   }
   T& operator[](best::track_location<size_t> idx) { return as_span()[idx]; }
-
-  /// # `vec[{.start = ...}]`
-  ///
-  /// Extracts a subspan. Crashes if the requested range is out-of-bounds.
   best::span<const T> operator[](best::bounds::with_location range) const {
     return as_span()[range];
   }
@@ -281,146 +263,12 @@ class vec final {
     return as_span()[range];
   }
 
-  /// # `vec::at(idx)`
+  /// # `vec::at(idx)`, `vec::at({.start = ...})`
   ///
-  /// Extracts a single element. If the requested index is out-of-bounds,
-  /// returns best::none.
+  /// Extracts a single element or a subspan. If the requested index is
+  /// out-of-bounds, returns `best::none`.
   best::option<const T&> at(size_t idx) const { return as_span().at(idx); }
   best::option<T&> at(size_t idx) { return as_span().at(idx); }
-
-  /// # `vec::at(unsafe, idx)`
-  ///
-  /// Extracts a single element. If the requested index is out-of-bounds,
-  /// Undefined Behavior.
-  const T& at(unsafe u, size_t idx) const { return as_span().at(u, idx); }
-  T& at(unsafe u, size_t idx) { return as_span().at(u, idx); }
-
-  /// # `vec::at({.start = ...})`
-  ///
-  /// Extracts a subspan. If the requested range is out-of-bounds, returns
-  /// best::none.
-  best::option<best::span<const T>> at(best::bounds range) const {
-    return as_span().at(range);
-  }
-  best::option<best::span<T>> at(best::bounds range) {
-    return as_span().at(range);
-  }
-
-  /// # `vec::at(unsafe, {.start = ...})`
-  ///
-  /// Extracts a subspan. If the requested range is out-of-bounds, returns
-  /// best::none.
-  best::span<const T> at(unsafe u, best::bounds range) const {
-    return as_span().at(u, range);
-  }
-  best::span<T> at(unsafe u, best::bounds range) {
-    return as_span().at(u, range);
-  }
-
-  /// # `vec::reverse()`
-  ///
-  /// Reverses the order of the elements in this vector, in-place.
-  void reverse() { as_span().reverse(); }
-
-  /// # `vec::contains()`
-  ///
-  /// Performs a linear search for a matching element.
-  bool contains(const best::equatable<T> auto& needle) const {
-    return as_span().contains(needle);
-  }
-
-  /// # `vec::starts_with()`
-  ///
-  /// Checks if this vector starts with a particular pattern.
-  template <best::equatable<T> U = T>
-  constexpr bool starts_with(best::span<const U> needle) const {
-    return as_span().starts_with(needle);
-  }
-
-  /// # `vec::ends_with()`
-  ///
-  /// Checks if this vector ends with a particular pattern.
-  template <best::equatable<T> U = T>
-  constexpr bool ends_with(best::span<const U> needle) const {
-    return as_span().ends_with(needle);
-  }
-
-  /// # `vec::strip_prefix()`
-  ///
-  /// If this vector starts with `prefix`, removes it and returns the rest;
-  /// otherwise returns `best::none`.
-  template <best::equatable<T> U = T>
-  best::option<best::span<const T>> strip_prefix(
-      best::span<const U> prefix) const {
-    return as_span().strip_prefix(prefix);
-  }
-  template <best::equatable<T> U = T>
-  best::option<best::span<T>> strip_prefix(best::span<const U> prefix) {
-    return as_span().strip_prefix(prefix);
-  }
-
-  /// # `vec::strip_suffix()`
-  ///
-  /// If this vector ends with `suffix`, removes it and returns the rest;
-  /// otherwise returns `best::none`.
-  template <best::equatable<T> U = T>
-  best::option<best::span<const T>> strip_suffix(
-      best::span<const U> suffix) const {
-    return as_span().strip_prefix(suffix);
-  }
-  template <best::equatable<T> U = T>
-  best::option<best::span<T>> strip_suffix(best::span<const U> suffix) {
-    return as_span().strip_prefix(suffix);
-  }
-
-  /// # `span::sort()`
-  ///
-  /// Sorts the vector in place. See span::sort() for more information on
-  /// the three overloads.
-  ///
-  /// Because this is implemented using the <algorithm> header, which would
-  /// pull in a completely unacceptable amount of this, the implementations of
-  /// these functions live in `//best/container/span_sort.h`, which must be
-  /// included separately.
-  void sort()
-    requires best::comparable<T>
-  {
-    as_span().sort();
-  }
-  void sort(best::callable<void(const T&)> auto&& get_key) {
-    as_span().sort(BEST_FWD(get_key));
-  }
-  void sort(best::callable<best::partial_ord(const T&, const T&)> auto&& cmp) {
-    as_span().sort(BEST_FWD(cmp));
-  }
-
-  /// # `vec::stable_sort()`
-  ///
-  /// Identical to `sort()`, but uses a stable sort which guarantees that equal
-  /// items are not reordered past each other. This usually means the algorithm
-  /// is slower.
-  void stable_sort()
-    requires best::comparable<T>
-  {
-    as_span().stable_sort();
-  }
-  void stable_sort(best::callable<void(const T&)> auto&& get_key) {
-    as_span().stable_sort(BEST_FWD(get_key));
-  }
-  void stable_sort(
-      best::callable<best::partial_ord(const T&, const T&)> auto&& cmp) {
-    as_span().stable_sort(BEST_FWD(cmp));
-  }
-
-  /// # `vec::copy_from()`
-  ///
-  /// Copies values from src. This has the same semantics as Go's `copy()`
-  /// builtin: if the lengths are not equal, only the overlapping part is
-  /// copied.
-  template <typename U = T>
-  void copy_from(best::span<const U> src) {
-    as_span().copy_from(src);
-  }
 
   /// # `vec::citer`, `vec::iter`, `vec::begin()`, `vec::end()`.
   ///
@@ -549,18 +397,6 @@ class vec final {
   /// elements as-needed. If the requested size is greater than the capacity,
   /// this resizes the underlying buffer. Otherwise, does nothing.
   void resize_uninit(size_t new_size);
-
-  /// # `vec::shift_within()`
-  ///
-  /// Performs an internal `memmove()`. This relocates `count` elements starting
-  /// at `src` to `dst`.
-  ///
-  /// NOTE! This function assumes that the destination range is uninitialized,
-  /// *and* that the source range is initialized. It will not update the
-  /// size of the vector; the caller is responsible for doing that themselves.
-  void shift_within(unsafe u, size_t dst, size_t src, size_t count) {
-    as_span().shift_within(u, dst, src, count);
-  }
 
   /// # `vec::spill_to_heap()`
   ///
@@ -858,24 +694,29 @@ void vec<T, max_inline, A>::splice_within(size_t idx, size_t start,
   if (idx > end) {
     // The spliced-from region is before the insertion point, so we have
     // one loop.
-    at(u, {.start = idx, .count = count})
-        .emplace_from(at(u, {.start = start, .end = end}));
+    as_span()
+        .at(u, {.start = idx, .count = count})
+        .emplace_from(as_span().at(u, {.start = start, .end = end}));
   } else if (idx < start) {
     // The spliced-from region is after the insertion point. This is the
     // same as above, but we need to offset the slice operation by
     // `that.size()`.
 
-    at(u, {.start = idx, .count = count})
-        .emplace_from(at(u, {.start = start + count, .end = end + count}));
+    as_span()
+        .at(u, {.start = idx, .count = count})
+        .emplace_from(
+            as_span().at(u, {.start = start + count, .end = end + count}));
   } else {
     // The annoying case. We need to do the copy in two parts.
     size_t before = idx - start;
     size_t after = count - before;
 
-    at(u, {.start = idx, .count = before})
-        .emplace_from(at(u, {.start = start, .count = before}));
-    at(u, {.start = idx + before, .count = after})
-        .emplace_from(at(u, {.start = idx, .count = after}));
+    as_span()
+        .at(u, {.start = idx, .count = before})
+        .emplace_from(as_span().at(u, {.start = start, .count = before}));
+    as_span()
+        .at(u, {.start = idx + before, .count = after})
+        .emplace_from(as_span().at(u, {.start = idx, .count = after}));
   }
 }
 
@@ -915,8 +756,9 @@ void vec<T, max_inline, A>::erase(best::bounds bounds) {
   size_t start = bounds.start;
   size_t end = bounds.start + range.size();
   size_t len = size() - end;
-  shift_within(unsafe("shifting elements over the ones we just destroyed"),
-               start, end, len);
+  as_span().shift_within(
+      unsafe("shifting elements over the ones we just destroyed"), start, end,
+      len);
   set_size(unsafe("updating length to exclude the range we just deleted"),
            size() - range.size());
 }
@@ -935,7 +777,7 @@ best::object_ptr<T> vec<T, max_inline, A>::insert_uninit(unsafe u, size_t start,
   /// Relocate elements to create an empty space.
   auto end = start + count;
   if (start < size()) {
-    shift_within(u, end, start, size() - start);
+    as_span().shift_within(u, end, start, size() - start);
   }
   set_size(u, size() + count);
   return data() + start;
@@ -946,7 +788,8 @@ void vec<T, max_inline, A>::resize_uninit(size_t new_size) {
   auto old_size = this->size();
   if (new_size <= capacity()) {
     if (new_size < old_size) {
-      at(unsafe{"we just did a bounds check (above)"}, {.start = new_size})
+      as_span()
+          .at(unsafe{"we just did a bounds check (above)"}, {.start = new_size})
           .destroy_in_place();
       set_size(unsafe("elements beyond new_size destroyed above"), new_size);
     }

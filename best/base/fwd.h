@@ -72,6 +72,10 @@ class pun;
 // template <typename, best::option<size_t>>
 // class span;
 
+// best/func/arrow.h
+template <typename>
+class arrow;
+
 // best/func/fnref.h
 template <typename>
 class fnref;

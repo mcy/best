@@ -1,6 +1,14 @@
 package(default_visibility = ["//visibility:public"])
 
 cc_library(
+  name = "arrow",
+  hdrs = ["arrow.h"],
+  deps = [
+    "//best/meta:taxonomy",
+  ]
+)
+
+cc_library(
   name = "call",
   hdrs = [
     "call.h",

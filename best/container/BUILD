@@ -169,6 +169,7 @@ cc_library(
     ":object",
     ":option",
     ":span",
+    "//best/func:arrow",
     "//best/math:bit",
     "//best/math:overflow",
     "//best/memory:allocator",

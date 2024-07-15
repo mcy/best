@@ -135,8 +135,8 @@ void normalize(best::strbuf& name, const auto& about) {
   }
 
   // TODO: also check the ends.
-  if (name.starts_with('-') || name.starts_with('_') ||
-      name.contains(&reserved_rune)) {
+  if (name->starts_with('-') || name->starts_with('_') ||
+      name->contains(&reserved_rune)) {
     best::wtf("field {}::{}'s name ({:?}) contains reserved runes",
               about.strukt->path(), about.field, name);
   }
@@ -342,8 +342,8 @@ void cli::init() {
   });
 
   // Now, sort the flags so we can bisect through them later.
-  impl_->sorted_flags.sort(&impl::entry::key);
-  impl_->sorted_subs.sort(&impl::entry::key);
+  impl_->sorted_flags->sort(&impl::entry::key);
+  impl_->sorted_subs->sort(&impl::entry::key);
 
   // Check for duplicates.
   best::option<best::str> prev;
@@ -647,7 +647,7 @@ best::strbuf cli::usage(best::pretext<wtf8> exe, bool hidden) const {
 
   best::format(out, "Usage: {}", exe);
   if (!parents.is_empty()) {
-    parents.reverse();
+    parents->reverse();
     for (auto sub : parents) {
       best::format(out, " {}", sub);
     }
@@ -809,7 +809,7 @@ best::strbuf cli::usage(best::pretext<wtf8> exe, bool hidden) const {
     }
 
     best::str prefix = e.key[{
-        .end = e.key.size() - e.key.split('.').last()->size(),
+        .end = e.key.size() - e.key->split('.').last()->size(),
     }];
     // Chop off everything past the last `.` to make the prefix.
 
