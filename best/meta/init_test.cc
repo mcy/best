@@ -127,6 +127,9 @@ static_assert(best::convertible<void, void>);
 static_assert(best::convertible<void, int>);
 static_assert(!best::convertible<void, void, void>);
 
+static_assert(best::convertible<void*, int*>);
+static_assert(best::convertible<const void*, const int*>);
+
 static_assert(best::assignable<int, int>);
 static_assert(best::assignable<int, long>);
 static_assert(!best::assignable<int&, int>);

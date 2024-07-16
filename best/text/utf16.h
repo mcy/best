@@ -23,7 +23,7 @@
 #include <cstddef>
 
 #include "best/container/option.h"
-#include "best/container/span.h"
+#include "best/memory/span.h"
 #include "best/text/encoding.h"
 #include "best/text/internal/utf.h"
 #include "best/text/rune.h"

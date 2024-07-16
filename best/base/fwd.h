@@ -38,6 +38,12 @@ namespace best {
 struct argv_query;
 class cli;
 
+// best/container/box.h
+template <typename, typename>
+class box;
+template <typename, typename>
+class vbox;
+
 // best/container/choice.h
 template <typename...>
 class choice;
@@ -64,13 +70,6 @@ struct args;
 // best/container/pun.h
 template <typename...>
 class pun;
-
-// best::span cannot be forward-declared because that depends on
-// best::option<size_t> being defined.
-//
-// best/container/span.h
-// template <typename, best::option<size_t>>
-// class span;
 
 // best/func/arrow.h
 template <typename>
@@ -106,6 +105,20 @@ struct int_range;
 // best/log/location.h
 template <typename>
 class track_location;
+
+// best/memory.ptr.h
+template <typename>
+class ptr;
+class vtable;
+template <typename>
+class vptr;
+
+// best::span cannot be forward-declared because that depends on
+// best::option<size_t> being defined.
+//
+// best/memory/span.h
+// template <typename, best::option<size_t>>
+// class span;
 
 // best/meta/empty.h
 struct empty;

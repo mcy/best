@@ -25,8 +25,8 @@
 #include "best/base/hint.h"
 #include "best/container/option.h"
 #include "best/container/result.h"
-#include "best/container/span.h"
 #include "best/log/internal/crash.h"
+#include "best/memory/span.h"
 #include "best/text/encoding.h"
 
 //! Unicode characters and encodings.

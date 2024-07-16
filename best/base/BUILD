@@ -41,6 +41,15 @@ cc_library(
 )
 
 cc_library(
+  name = "niche",
+  hdrs = ["niche.h"],
+  deps = [
+    ":ord",
+    "//best/meta:taxonomy",
+  ]
+)
+
+cc_library(
   name = "ord",
   hdrs = [
     "ord.h",

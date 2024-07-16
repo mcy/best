@@ -17,12 +17,12 @@
 
 \* ////////////////////////////////////////////////////////////////////////// */
 
-#ifndef BEST_CONTAINER_SPAN_SORT_H_
-#define BEST_CONTAINER_SPAN_SORT_H_
+#ifndef BEST_MEMORY_SPAN_SORT_H_
+#define BEST_MEMORY_SPAN_SORT_H_
 
 #include <algorithm>
 
-#include "best/container/span.h"
+#include "best/memory/span.h"
 
 //! Implementations for best::span::sort and friends.
 //!
@@ -85,4 +85,4 @@ constexpr void span<T, n>::stable_sort(
 inline constexpr int mark_sort_header_used() { return 0; }
 }  // namespace best
 
-#endif  // BEST_CONTAINER_SPAN_SORT_H_
+#endif  // BEST_MEMORY_SPAN_SORT_H_

@@ -24,8 +24,8 @@
 
 #include "best/cli/parser.h"
 #include "best/container/result.h"
-#include "best/container/span.h"
 #include "best/log/location.h"
+#include "best/memory/span.h"
 #include "best/text/format.h"
 #include "best/text/str.h"
 

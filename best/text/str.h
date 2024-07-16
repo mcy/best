@@ -25,9 +25,8 @@
 #include <cstddef>
 
 #include "best/base/guard.h"
-#include "best/container/span.h"
 #include "best/math/overflow.h"
-#include "best/memory/bytes.h"
+#include "best/memory/span.h"
 #include "best/meta/taxonomy.h"
 #include "best/text/encoding.h"
 #include "best/text/rune.h"
@@ -949,7 +948,7 @@ constexpr std::array<size_t, 2> splits(best::pretext<N> haystack,
     return {0, haystack.size()};
   }
 
-  if constexpr (best::byte_comparable<code<H>> &&
+  if constexpr (best::bytes_internal::byte_comparable<code<H>> &&
                 haystack.About.is_self_syncing &&
                 best::same_encoding_code<decltype(haystack),
                                          decltype(needle)>()) {
@@ -1341,7 +1340,8 @@ constexpr best::ord pretext<E>::operator<=>(rune r) const {
 template <typename E>
 constexpr best::ord pretext<E>::operator<=>(const string_type auto& str) const {
   if constexpr (best::is_pretext<best::as_auto<decltype(str)>>) {
-    if constexpr (best::byte_comparable<code> && About.is_self_syncing &&
+    if constexpr (best::bytes_internal::byte_comparable<code> &&
+                  About.is_self_syncing &&
                   best::same_encoding_code<pretext, decltype(str)>()) {
       return span_ <=> str.as_codes();
     }

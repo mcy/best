@@ -1,6 +1,47 @@
 package(default_visibility = ["//visibility:public"])
 
 cc_library(
+  name = "ptr",
+  hdrs = [
+    "ptr.h",
+    "internal/ptr.h",
+  ],
+  deps = [
+    "//best/base:hint",
+    "//best/base:niche",
+    "//best/base:ord",
+    "//best/meta:init",
+    "//best/meta:taxonomy",
+    "//best/meta:tlist",
+    "//best/meta:traits",
+  ],
+)
+
+cc_library(
+  name = "span",
+  hdrs = [
+    "span.h",
+    "span_sort.h",
+    "internal/bytes.h",
+  ],
+  deps = [
+    "//best/container:option",
+    "//best/container:result",
+    "//best/iter",
+  ],
+)
+
+cc_test(
+  name = "span_test",
+  srcs = ["span_test.cc"],
+  linkopts = ["-rdynamic"],
+  deps = [
+    ":span",
+    "//best/test",
+  ],
+)
+
+cc_library(
   name = "layout",
   hdrs = [
     "layout.h",
@@ -8,7 +49,6 @@ cc_library(
   ],
   deps = [
     "//best/base:unsafe",
-    "//best/container:object",
     "//best/math:overflow",
     "//best/meta:ops",
     "//best/meta:tlist",
@@ -32,28 +72,5 @@ cc_library(
   deps = [
     ":layout",
     "//best/meta:init",
-  ]
-)
-
-cc_library(
-  name = "bytes",
-  hdrs = [
-    "bytes.h",
-    "internal/bytes.h",
-  ],
-  srcs = ["bytes.cc"],
-  deps = [
-    "//best/container:option",
-  ]
-)
-
-cc_test(
-  name = "bytes_test",
-  srcs = ["bytes_test.cc"],
-  linkopts = ["-rdynamic"],
-  deps = [
-    ":bytes",
-    "//best/container:span",
-    "//best/test",
   ]
 )

@@ -22,10 +22,10 @@
 
 #include <cstddef>
 
-#include "best/container/span.h"
 #include "best/container/vec.h"
 #include "best/func/arrow.h"
 #include "best/memory/allocator.h"
+#include "best/memory/span.h"
 #include "best/text/encoding.h"
 #include "best/text/rune.h"
 #include "best/text/str.h"
