@@ -24,6 +24,7 @@
 #include <initializer_list>
 
 #include "best/base/tags.h"
+#include "best/container/box.h"
 #include "best/container/object.h"
 #include "best/container/option.h"
 #include "best/container/span.h"
@@ -162,6 +163,16 @@ class vec final {
     assign(range);
   }
 
+  /// # `vec::vec(box)`
+  ///
+  /// Constructs a vector from an array box, by taking ownership of the
+  /// allocation.
+  vec(box<T[], alloc>&& box)
+      : alloc_(best::in_place, BEST_MOVE(box.allocator())) {
+    raw_ = BEST_MOVE(box).leak();
+    store_size(~raw_.size());
+  }
+
   /// # `vec::vec(vec)`
   ///
   /// Vectors are copyable if their elements are copyable; vectors are
@@ -269,6 +280,8 @@ class vec final {
   /// out-of-bounds, returns `best::none`.
   best::option<const T&> at(size_t idx) const { return as_span().at(idx); }
   best::option<T&> at(size_t idx) { return as_span().at(idx); }
+  best::option<const T&> at(best::bounds b) const { return as_span().at(b); }
+  best::option<T&> at(best::bounds b) { return as_span().at(b); }
 
   /// # `vec::citer`, `vec::iter`, `vec::begin()`, `vec::end()`.
   ///
@@ -282,11 +295,34 @@ class vec final {
   auto begin() { return as_span().begin(); }
   auto end() { return as_span().end(); }
 
+  /// # `vec::to_box()`
+  ///
+  /// Converts this vector into a box by taking ownership of the allocation.
+  best::box<T[], alloc> to_box() && {
+    if (is_empty()) return {};
+
+    spill_to_heap(size(), true);
+    auto span = as_span();
+    store_size(0);  // This disables the destructor by marking this as an empty
+                    // inlined vector.
+    return best::box<T[], alloc>(
+        unsafe("we are marking this vector completely empty in this function"),
+        *BEST_MOVE(alloc_), span);
+  }
+
   /// # `vec::reserve()`.
   ///
   /// Ensures that pushing an additional `count` elements would not cause this
   /// vector to resize, by resizing the internal array eagerly.
   void reserve(size_t count) { resize_uninit(size() + count); }
+
+  /// # `vec::shrink_to_fit()`
+  ///
+  /// Resizes the underlying allocation such that `capacity == size`.
+  void shrink_to_fit() {
+    if (size() == capacity() || !on_heap()) return;
+    spill_to_heap(size());
+  }
 
   /// # `vec::truncate()`.
   ///
@@ -400,13 +436,16 @@ class vec final {
 
   /// # `vec::spill_to_heap()`
   ///
-  /// Forces this vector to be in heap mode instead of inlined mode. The vector
-  /// may ignore this request.
+  /// Forces this vector to be in heap mode instead of inlined mode.
   ///
   /// The caller may also request a larger capacity than the one that would
   /// be ordinarily used. If a hint is specified, the result is guaranteed
   /// to have a backing array at least that large.
-  void spill_to_heap(best::option<size_t> capacity_hint = best::none);
+  ///
+  /// If exact is specified, the new capacity will be exactly `*capacity_hint`
+  /// if specified.
+  void spill_to_heap(best::option<size_t> capacity_hint = best::none,
+                     bool exact = false);
 
   bool operator==(const contiguous auto& range) const
     requires best::equatable<T, decltype(*best::data(range))>
@@ -807,15 +846,17 @@ void vec<T, max_inline, A>::resize_uninit(size_t new_size) {
 }
 
 template <best::relocatable T, size_t max_inline, best::allocator A>
-void vec<T, max_inline, A>::spill_to_heap(best::option<size_t> capacity_hint) {
-  if ((on_heap() && capacity_hint <= capacity()) ||
+void vec<T, max_inline, A>::spill_to_heap(best::option<size_t> capacity_hint,
+                                          bool exact) {
+  if ((on_heap() && !exact && capacity_hint <= capacity()) ||
+      (on_heap() && capacity_hint < size()) ||
       (size() == 0 && !capacity_hint)) {
     return;
   }
 
-  size_t new_size = best::max(capacity(), capacity_hint.value_or(0));
+  size_t new_size = best::max(size(), capacity_hint.value_or(capacity()));
   // Always snap to a power of 2.
-  if (!best::is_pow2(new_size)) {
+  if (!best::is_pow2(new_size) && (!exact || !capacity_hint)) {
     new_size = best::next_pow2(new_size);
   }
 
@@ -842,13 +883,8 @@ void vec<T, max_inline, A>::spill_to_heap(best::option<size_t> capacity_hint) {
       static_cast<best::ptr<T>::pointee*>(alloc_->alloc(new_layout));
 
   size_t old_size = size();
-  if (best::relocatable<T, trivially>) {
-    std::memcpy(new_data, data(), old_size * size_of<T>);
-  } else {
-    new_data.move(data(), old_size);
-  }
-
-  destroy();  // Deallocate the old block.
+  new_data.relo(data(), old_size);
+  if (on_heap()) alloc_->dealloc(data(), old_layout);
 
   // construct_at instead of assignment, since raw_ may contain garbage, so
   // calling its operator= is UB.

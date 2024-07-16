@@ -43,6 +43,7 @@ best::test Chars = [](auto& t) {
 
   for (size_t i = 0; i < bytes.capacity(); ++i) {
     bytes.push(std::byte(i));
+    t.expect(bytes.is_inlined(), "{}/{}", i, bytes.capacity());
   }
 
   // Verify we're still in inlined mode.
@@ -168,6 +169,10 @@ best::test Leaky = [](auto& t) {
   x2.push(std::move(x0[0]));
   x0.push();
   x2[0] = x0[0];
+
+  auto x4 = std::move(x2).to_box();
+  // x0 = best::vec(x4);
+  // x0 = best::vec(BEST_MOVE(x4));
 };
 
 best::test NoInline = [](auto& t) {

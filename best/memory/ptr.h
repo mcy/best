@@ -136,11 +136,7 @@ class ptr final {
   ///
   /// Returns a non-null but dangling pointer, which is unique for the choice of
   /// `T`.
-  static constexpr ptr dangling() {
-    return best::addr(
-        dangling_.get(unsafe{"this reference will not be read/written to"}),
-        best::index<0>);
-  }
+  static ptr dangling() { return from_addr(best::align_of<T>); }
 
   /// # `ptr::to_object()`
   ///
@@ -362,7 +358,30 @@ class ptr final {
         that, count);
   }
 
+  friend void BestFmt(auto& fmt, ptr value) {
+    fmt.format("{:#x}", value.to_addr());
+  }
+  friend constexpr void BestFmtQuery(auto& query, ptr*) {
+    query.requires_debug = false;
+    query.uses_method = [](auto r) { return r == 'p'; };
+  }
+
  private:
+  template <typename>
+  friend class ptr;
+  template <typename>
+  friend class vptr;
+
+  BEST_INLINE_ALWAYS constexpr void check() const {
+    if (!best::is_debug() || std::is_constant_evaluated()) return;
+    if (*this == nullptr) {
+      best::crash_internal::crash("dereferenced a null `best::ptr`");
+    }
+    if (*this < from_addr(0x1000)) {
+      best::crash_internal::crash("dereferenced a dangling `best::ptr`");
+    };
+  }
+
   struct how final {
     enum { Copy, Move, Relo } kind;
     bool overlapping = false;
@@ -386,8 +405,6 @@ class ptr final {
   BEST_INLINE_SYNTHETIC constexpr void copy_impl(ptr<U> that,
                                                  size_t count) const;
 
-  inline static best::pun<pointee> dangling_;
-
   static constexpr uint8_t Magic = 0xcd;
 
  public:
@@ -410,7 +427,7 @@ class vtable final {
   /// A constant referring to the vtable for a given type.
   template <typename T>
   static constexpr const vtable* of() {
-    return vt<best::unqual<T>>;
+    return &vt<best::unqual<T>>;
   }
 
   /// # `vtable::layout()`
@@ -443,8 +460,11 @@ template <typename T>
 inline constexpr const vtable vtable::vt = [] {
   vtable vt;
   vt.layout_ = layout::of<T>();
-  vt.dtor_ = +[](void* p) { best::ptr(p).template cast<T>().destroy(); };
   vt.id_ = of<T>();
+
+  if constexpr (!std::is_class_v<T> || !std::is_abstract_v<T>) {
+    vt.dtor_ = +[](void* p) { best::ptr(p).template cast<T>().destroy(); };
+  }
 
   if constexpr (best::copyable<T>) {
     vt.copy_ = +[](void* to, const void* from) {
@@ -503,7 +523,7 @@ class vptr final {
   template <ptr_convertible_to<T> U>
   constexpr vptr(U* ptr) : vptr(ptr), vt_(vtable::of<U>()) {}
   template <ptr_convertible_to<T> U>
-  constexpr vptr(ptr<U> ptr) : ptr_(ptr.raw()), vt_(vtable::of<U>()) {}
+  constexpr vptr(ptr<U> ptr) : ptr_(ptr), vt_(vtable::of<U>()) {}
 
   /// # `vptr::vptr(vptr<U>)`
   ///
@@ -519,12 +539,12 @@ class vptr final {
   constexpr vptr(unsafe, U* ptr, const best::vtable* vt) : ptr_(ptr), vt_(vt) {}
   template <ptr_convertible_to<T> U>
   constexpr vptr(unsafe, ptr<U> ptr, const best::vtable* vt)
-      : ptr_(ptr.raw()), vt_(vt) {}
+      : ptr_(ptr), vt_(vt) {}
 
   /// # `vptr::raw()`, `vptr::thin()`
   ///
   /// Returns the raw underlying pointer.
-  constexpr T* raw() const { return ptr_; }
+  constexpr T* raw() const { return ptr_.raw(); }
   constexpr best::ptr<T> thin() const { return ptr_; }
 
   /// # `vptr::vtable()`
@@ -552,8 +572,10 @@ class vptr final {
   ///
   /// For example, this will dereference the wrapping pointer of a `T&`, so
   /// if `T = U&`, then `raw = U**` and this dereferences that twice.
-  BEST_INLINE_SYNTHETIC constexpr ref operator*() const;
-  BEST_INLINE_SYNTHETIC constexpr best::as_ptr<ref> operator->() const;
+  BEST_INLINE_SYNTHETIC constexpr ref operator*() const { return *ptr_; }
+  BEST_INLINE_SYNTHETIC constexpr best::as_ptr<ref> operator->() const {
+    return ptr_.operator->();
+  }
 
   /// # `vptr[idx]`, `vptr::operator+`, `vptr::operator-`
   ///
@@ -590,14 +612,23 @@ class vptr final {
   /// complete object destructor.
   ///
   /// If the complete type is not copyable, this function crashes.
-  BEST_INLINE_SYNTHETIC void copy_to(void* to) const
-    requires best::copyable<T>;
+  BEST_INLINE_SYNTHETIC void copy_to(void* to) const;
+
+  friend void BestFmt(auto& fmt, vptr value) {
+    fmt.format("{:#x}/{:#x}", value.to_addr(), value.vtable());
+  }
+  friend constexpr void BestFmtQuery(auto& query, vptr*) {
+    query.requires_debug = false;
+    query.uses_method = [](auto r) { return r == 'p'; };
+  }
 
  private:
   template <typename>
+  friend class ptr;
+  template <typename>
   friend class vptr;
 
-  pointee* ptr_;
+  best::ptr<T> ptr_;
   const best::vtable* vt_;
 };
 
@@ -643,6 +674,7 @@ constexpr best::ord ptr<T>::operator<=>(U* that) const {
 
 template <typename T>
 BEST_INLINE_SYNTHETIC constexpr ptr<T>::ref ptr<T>::operator*() const {
+  check();
   if constexpr (best::is_object<T>) {
     return *raw();
   } else if constexpr (best::is_void<T>) {
@@ -654,26 +686,7 @@ BEST_INLINE_SYNTHETIC constexpr ptr<T>::ref ptr<T>::operator*() const {
 template <typename T>
 BEST_INLINE_SYNTHETIC constexpr auto ptr<T>::operator->() const
     -> best::as_ptr<ref> {
-  if constexpr (best::is_object<T> || best::is_void<T>) {
-    return raw();
-  } else {
-    return *raw();
-  }
-}
-
-template <typename T>
-BEST_INLINE_SYNTHETIC constexpr vptr<T>::ref vptr<T>::operator*() const {
-  if constexpr (best::is_object<T>) {
-    return *raw();
-  } else if constexpr (best::is_void<T>) {
-    return;
-  } else {
-    return **raw();
-  }
-}
-template <typename T>
-BEST_INLINE_SYNTHETIC constexpr auto vptr<T>::operator->() const
-    -> best::as_ptr<ref> {
+  check();
   if constexpr (best::is_object<T> || best::is_void<T>) {
     return raw();
   } else {
@@ -683,6 +696,8 @@ BEST_INLINE_SYNTHETIC constexpr auto vptr<T>::operator->() const
 
 template <typename T>
 constexpr ptr<T> ptr<T>::operator+(ptrdiff_t idx) const {
+  if (idx == 0) return *this;
+  check();
   if constexpr (best::is_void<T>) {
     return *this;
   } else {
@@ -773,6 +788,8 @@ template <typename... Args>
 BEST_INLINE_SYNTHETIC constexpr void ptr<T>::construct(Args&&... args) const
   requires best::constructible<T, Args&&...>
 {
+  check();
+
   // TODO: Add array traits, support multi-dimensional arrays?
   if constexpr (std::is_bounded_array_v<T> && sizeof...(Args) == 1 &&
                 ((std::extent_v<best::as_auto<Args>> == std::extent_v<T>) &&
@@ -800,6 +817,7 @@ template <typename T>
 BEST_INLINE_SYNTHETIC constexpr void ptr<T>::construct(niche) const
   requires best::has_niche<T>
 {
+  check();
   if constexpr (best::is_object<T>) {
     new (raw()) T(niche{});
   } else if constexpr (best::is_ref<T>) {
@@ -812,6 +830,7 @@ template <typename... Args>
 BEST_INLINE_SYNTHETIC constexpr void ptr<T>::assign(Args&&... args) const
   requires best::assignable<T, Args&&...>
 {
+  check();
   if constexpr (std::is_bounded_array_v<T> && sizeof...(Args) == 1 &&
                 ((std::extent_v<best::as_auto<Args>> == std::extent_v<T>) &&
                  ...)) {
@@ -837,11 +856,18 @@ template <typename T>
 BEST_INLINE_SYNTHETIC constexpr void ptr<T>::destroy() const
   requires best::destructible<T>
 {
+  check();
   if constexpr (best::is_object<T>) {
     raw()->~T();
   }
   if (!std::is_constant_evaluated() && best::is_debug()) {
+    BEST_PUSH_GCC_DIAGNOSTIC()
+    BEST_IGNORE_GCC_DIAGNOSTIC("-Wdynamic-class-memaccess")
+    // If T is polymorphic, Clang will whine that we're clobbering the vtable.
+    // However, we literally just called the destructor, so it's simply wrong.
+    // Hence, we disable the warning.
     best::ptr_internal::memset(raw(), Magic, sizeof(pointee));
+    BEST_POP_GCC_DIAGNOSTIC()
   }
 }
 
@@ -849,6 +875,7 @@ template <typename T>
 BEST_INLINE_SYNTHETIC void vptr<T>::destroy() const
   requires best::destructible<T>
 {
+  (void)**this;
   vt_->dtor_(this->raw());
 }
 
@@ -856,6 +883,9 @@ template <typename T>
 template <ptr<T>::how how, typename U>
 BEST_INLINE_SYNTHETIC constexpr void ptr<T>::copy_impl(ptr<U> that,
                                                        size_t count) const {
+  if (count == 0) return;
+  check();
+  that.check();
   if constexpr (how.template can_memcpy<U>()) {
     if (how.should_memcpy()) {
       auto len = count * sizeof(pointee);
@@ -973,9 +1003,7 @@ BEST_INLINE_ALWAYS constexpr void ptr<T>::relo_overlapping(ptr<T> that,
 }
 
 template <typename T>
-BEST_INLINE_SYNTHETIC void vptr<T>::copy_to(void* to) const
-  requires best::copyable<T>
-{
+BEST_INLINE_SYNTHETIC void vptr<T>::copy_to(void* to) const {
   if (!is_copyable()) {
     best::crash_internal::crash(
         "attempted to copy non-copyable type through a vptr at %p", raw());

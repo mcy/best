@@ -4,8 +4,20 @@ cc_library(
   name = "box",
   hdrs = ["box.h"],
   deps = [
+    ":span",
     "//best/memory:allocator",
     "//best/memory:ptr",
+  ]
+)
+
+cc_test(
+  name = "box_test",
+  srcs = ["box_test.cc"],
+  linkopts = ["-rdynamic"],
+  deps = [
+    ":box",
+    "//best/test",
+    "//best/test:fodder",
   ]
 )
 
@@ -177,6 +189,7 @@ cc_library(
   name = "vec",
   hdrs = ["vec.h"],
   deps = [
+    ":box",
     ":object",
     ":option",
     ":span",

@@ -38,6 +38,12 @@ namespace best {
 struct argv_query;
 class cli;
 
+// best/container/box.h
+template <typename, typename>
+class box;
+template <typename, typename>
+class vbox;
+
 // best/container/choice.h
 template <typename...>
 class choice;

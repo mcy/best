@@ -21,6 +21,7 @@
 #define BEST_CONTAINER_OPTION_H_
 
 #include <initializer_list>
+#include <type_traits>
 
 #include "best/base/fwd.h"
 #include "best/base/tags.h"
@@ -57,15 +58,18 @@ inline constexpr struct none_t {
 ///
 /// Whether `T` is some `best::option<U>`.
 template <typename T>
-concept is_option =
-    best::same<best::as_auto<T>,
-               best::option<typename best::as_auto<T>::type>> ||
-    requires {
-      requires best::is_object<typename best::as_auto<T>::type>;
-      requires best::same<
-          best::as_auto<T>,
-          best::container_internal::option<typename best::as_auto<T>::type>>;
-    };
+concept is_option = requires {
+  requires !std::is_class_v<typename best::as_auto<T>::type> ||
+               !std::is_abstract_v<typename best::as_auto<T>::type>;
+  requires best::same<best::as_auto<T>,
+                      best::option<typename best::as_auto<T>::type>> ||
+               requires {
+                 requires best::is_object<typename best::as_auto<T>::type>;
+                 requires best::same<best::as_auto<T>,
+                                     best::container_internal::option<
+                                         typename best::as_auto<T>::type>>;
+               };
+};
 
 /// # `best::option_type<T>`
 ///
@@ -124,8 +128,8 @@ class option final {
 
   template <typename U>
   static constexpr bool not_forbidden_conversion =
-      (!best::same<best::in_place_t, best::as_auto<U>>)&&  //
-      (!best::same<option, best::as_auto<U>>)&&            //
+      (!best::same<best::in_place_t, best::as_auto<U>>) &&  //
+      (!best::same<option, best::as_auto<U>>) &&            //
       (!best::same<bool, best::unqual<T>>);
 
  public:
