@@ -24,7 +24,7 @@
 
 #include "best/base/fwd.h"
 #include "best/base/port.h"
-#include "best/container/span.h"
+#include "best/memory/span.h"
 #include "best/text/str.h"
 
 // This needs to go in the global namespace, since its full name is relevant for

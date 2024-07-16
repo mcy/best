@@ -71,13 +71,6 @@ struct args;
 template <typename...>
 class pun;
 
-// best::span cannot be forward-declared because that depends on
-// best::option<size_t> being defined.
-//
-// best/container/span.h
-// template <typename, best::option<size_t>>
-// class span;
-
 // best/func/arrow.h
 template <typename>
 class arrow;
@@ -119,6 +112,13 @@ class ptr;
 class vtable;
 template <typename>
 class vptr;
+
+// best::span cannot be forward-declared because that depends on
+// best::option<size_t> being defined.
+//
+// best/memory/span.h
+// template <typename, best::option<size_t>>
+// class span;
 
 // best/meta/empty.h
 struct empty;

@@ -1,27 +1,6 @@
 package(default_visibility = ["//visibility:public"])
 
 cc_library(
-  name = "box",
-  hdrs = ["box.h"],
-  deps = [
-    ":span",
-    "//best/memory:allocator",
-    "//best/memory:ptr",
-  ]
-)
-
-cc_test(
-  name = "box_test",
-  srcs = ["box_test.cc"],
-  linkopts = ["-rdynamic"],
-  deps = [
-    ":box",
-    "//best/test",
-    "//best/test:fodder",
-  ]
-)
-
-cc_library(
   name = "choice",
   hdrs = [
     "choice.h",
@@ -161,28 +140,24 @@ cc_test(
 )
 
 cc_library(
-  name = "span",
-  hdrs = [
-    "span.h",
-    "span_sort.h",
-    "internal/bytes.h",
-  ],
+  name = "box",
+  hdrs = ["box.h"],
   deps = [
-    ":option",
-    ":result",
-    "//best/iter",
-    "//best/memory:bytes",
-  ],
+    "//best/memory:allocator",
+    "//best/memory:span",
+    "//best/memory:ptr",
+  ]
 )
 
 cc_test(
-  name = "span_test",
-  srcs = ["span_test.cc"],
+  name = "box_test",
+  srcs = ["box_test.cc"],
   linkopts = ["-rdynamic"],
   deps = [
-    ":span",
+    ":box",
     "//best/test",
-  ],
+    "//best/test:fodder",
+  ]
 )
 
 cc_library(
@@ -192,12 +167,11 @@ cc_library(
     ":box",
     ":object",
     ":option",
-    ":span",
     "//best/func:arrow",
     "//best/math:bit",
     "//best/math:overflow",
     "//best/memory:allocator",
-    "//best/memory:bytes",
+    "//best/memory:span",
     "//best/memory:layout",
     "//best/meta:init",
     "//best/base:tags",
@@ -214,7 +188,6 @@ cc_test(
     "//best/test:fodder",
   ],
 )
-
 
 cc_library(
   name = "simple_option",

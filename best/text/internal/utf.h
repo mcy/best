@@ -22,8 +22,8 @@
 
 #include <cstddef>
 
-#include "best/container/span.h"
 #include "best/math/bit.h"
+#include "best/memory/span.h"
 #include "best/text/encoding.h"
 
 //! Low-level UTF encode/decode routines.

@@ -17,10 +17,10 @@
 
 \* ////////////////////////////////////////////////////////////////////////// */
 
-#include "best/container/span.h"
+#include "best/memory/span.h"
 
-#include "best/container/span_sort.h"
 #include "best/container/vec.h"
+#include "best/memory/span_sort.h"
 #include "best/test/test.h"
 
 namespace best::span_test {

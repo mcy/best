@@ -17,8 +17,8 @@
 
 \* ////////////////////////////////////////////////////////////////////////// */
 
-#ifndef BEST_CONTAINER_SPAN_H_
-#define BEST_CONTAINER_SPAN_H_
+#ifndef BEST_MEMORY_SPAN_H_
+#define BEST_MEMORY_SPAN_H_
 
 #include <cstddef>
 #include <initializer_list>
@@ -26,13 +26,13 @@
 
 #include "best/base/ord.h"
 #include "best/base/port.h"
-#include "best/container/internal/bytes.h"
 #include "best/container/object.h"
 #include "best/container/option.h"
 #include "best/container/result.h"
 #include "best/iter/iter.h"
 #include "best/log/location.h"
 #include "best/math/overflow.h"
+#include "best/memory/internal/bytes.h"
 #include "best/meta/init.h"
 #include "best/meta/tlist.h"
 
@@ -569,7 +569,7 @@ class span final {
   ///
   /// Because this is implemented using the <algorithm> header, which would
   /// pull in a completely unacceptable amount of stuff, the implementations of
-  /// these functions live in `//best/container/span_sort.h`, which must be
+  /// these functions live in `//best/memory/span_sort.h`, which must be
   /// included separately.
   constexpr void sort() const
     requires best::comparable<T> && (!is_const);
@@ -1335,4 +1335,4 @@ constexpr void span<T, n>::shift_within(unsafe u, size_t dst, size_t src,
 }
 }  // namespace best
 
-#endif  // BEST_CONTAINER_SPAN_H_
+#endif  // BEST_MEMORY_SPAN_H_

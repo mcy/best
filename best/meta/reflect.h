@@ -21,7 +21,7 @@
 #define BEST_META_REFLECT_H_
 
 #include "best/container/row.h"
-#include "best/container/span_sort.h"
+#include "best/memory/span_sort.h"
 #include "best/meta/internal/reflect.h"
 #include "best/meta/taxonomy.h"
 #include "best/meta/traits.h"

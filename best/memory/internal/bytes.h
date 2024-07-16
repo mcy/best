@@ -17,8 +17,8 @@
 
 \* ////////////////////////////////////////////////////////////////////////// */
 
-#ifndef BEST_CONTAINER_INTERNAL_BYTES_H_
-#define BEST_CONTAINER_INTERNAL_BYTES_H_
+#ifndef BEST_MEMORY_INTERNAL_BYTES_H_
+#define BEST_MEMORY_INTERNAL_BYTES_H_
 
 #include <cstddef>
 #include <type_traits>
@@ -235,4 +235,4 @@ BEST_INLINE_ALWAYS constexpr best::option<size_t> search(best::span<T> haystack,
 #undef BEST_memchr_
 }  // namespace best::bytes_internal
 
-#endif  // BEST_CONTAINER_INTERNAL_BYTES_H_
+#endif  // BEST_MEMORY_INTERNAL_BYTES_H_

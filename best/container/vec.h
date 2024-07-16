@@ -27,7 +27,6 @@
 #include "best/container/box.h"
 #include "best/container/object.h"
 #include "best/container/option.h"
-#include "best/container/span.h"
 #include "best/func/arrow.h"
 #include "best/log/internal/crash.h"
 #include "best/log/location.h"
@@ -35,6 +34,7 @@
 #include "best/math/overflow.h"
 #include "best/memory/allocator.h"
 #include "best/memory/layout.h"
+#include "best/memory/span.h"
 #include "best/meta/init.h"
 
 //! Dynamically sized sequences.

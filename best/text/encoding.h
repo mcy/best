@@ -25,7 +25,7 @@
 #include "best/base/tags.h"
 #include "best/container/option.h"
 #include "best/container/result.h"
-#include "best/container/span.h"
+#include "best/memory/span.h"
 #include "best/meta/init.h"
 
 //! Unicode encodings.

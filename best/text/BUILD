@@ -4,8 +4,8 @@ cc_library(
   name = "encoding",
   hdrs = ["encoding.h"],
   deps = [
-    "//best/container:span",
     "//best/container:result",
+    "//best/memory:span",
   ]
 )
 
@@ -34,9 +34,9 @@ cc_library(
   hdrs = ["ascii.h"],
   deps = [
     ":rune",
-    "//best/container:option",
-    "//best/container:span",
     "//best/base:guard",
+    "//best/container:option",
+    "//best/memory:span",
   ]
 )
 
@@ -50,9 +50,9 @@ cc_library(
   ],
   deps = [
     ":rune",
-    "//best/container:option",
-    "//best/container:span",
     "//best/base:guard",
+    "//best/container:option",
+    "//best/memory:span",
   ]
 )
 
@@ -77,10 +77,10 @@ cc_library(
   deps = [
     ":rune",
     ":strbuf",
-    "//best/container:option",
-    "//best/container:span",
-    "//best/math:conv",
     "//best/base:guard",
+    "//best/container:option",
+    "//best/math:conv",
+    "//best/memory:span",
     "//best/meta:reflect",
   ]
 )
@@ -111,7 +111,7 @@ cc_library(
   deps = [
     ":rune",
     ":utf",
-    "//best/container:span",
+    "//best/memory:span",
   ]
 )
 

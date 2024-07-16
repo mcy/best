@@ -792,8 +792,8 @@ BEST_INLINE_SYNTHETIC constexpr void ptr<T>::construct(Args&&... args) const
 
   // TODO: Add array traits, support multi-dimensional arrays?
   if constexpr (std::is_bounded_array_v<T> && sizeof...(Args) == 1 &&
-                ((std::extent_v<best::as_auto<Args>> == std::extent_v<T>) &&
-                 ...)) {
+                ((std::extent_v<best::as_auto<Args>> ==
+                  std::extent_v<T>)&&...)) {
     for (size_t i = 0; i < std::extent_v<T>; ++i) {
       new (best::addr((*raw())[i])) std::remove_extent_t<T>(args[i]...);
     }
@@ -832,8 +832,8 @@ BEST_INLINE_SYNTHETIC constexpr void ptr<T>::assign(Args&&... args) const
 {
   check();
   if constexpr (std::is_bounded_array_v<T> && sizeof...(Args) == 1 &&
-                ((std::extent_v<best::as_auto<Args>> == std::extent_v<T>) &&
-                 ...)) {
+                ((std::extent_v<best::as_auto<Args>> ==
+                  std::extent_v<T>)&&...)) {
     for (size_t i = 0; i < std::extent_v<T>; ++i) {
       (*this)[i] = (args[i], ...);
     }

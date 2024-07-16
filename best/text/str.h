@@ -25,8 +25,8 @@
 #include <cstddef>
 
 #include "best/base/guard.h"
-#include "best/container/span.h"
 #include "best/math/overflow.h"
+#include "best/memory/span.h"
 #include "best/meta/taxonomy.h"
 #include "best/text/encoding.h"
 #include "best/text/rune.h"

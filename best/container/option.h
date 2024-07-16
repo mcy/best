@@ -128,8 +128,8 @@ class option final {
 
   template <typename U>
   static constexpr bool not_forbidden_conversion =
-      (!best::same<best::in_place_t, best::as_auto<U>>) &&  //
-      (!best::same<option, best::as_auto<U>>) &&            //
+      (!best::same<best::in_place_t, best::as_auto<U>>)&&  //
+      (!best::same<option, best::as_auto<U>>)&&            //
       (!best::same<bool, best::unqual<T>>);
 
  public:

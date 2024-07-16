@@ -18,6 +18,30 @@ cc_library(
 )
 
 cc_library(
+  name = "span",
+  hdrs = [
+    "span.h",
+    "span_sort.h",
+    "internal/bytes.h",
+  ],
+  deps = [
+    "//best/container:option",
+    "//best/container:result",
+    "//best/iter",
+  ],
+)
+
+cc_test(
+  name = "span_test",
+  srcs = ["span_test.cc"],
+  linkopts = ["-rdynamic"],
+  deps = [
+    ":span",
+    "//best/test",
+  ],
+)
+
+cc_library(
   name = "layout",
   hdrs = [
     "layout.h",
@@ -49,8 +73,4 @@ cc_library(
     ":layout",
     "//best/meta:init",
   ]
-)
-
-cc_library(
-  name = "bytes",
 )
