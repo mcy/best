@@ -107,6 +107,9 @@ struct iter_range_end final {};
 template <typename>
 struct int_range;
 
+// best/io/ioerr.h
+class ioerr;
+
 // best/log/location.h
 template <typename>
 class track_location;
