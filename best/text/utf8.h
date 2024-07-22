@@ -39,10 +39,10 @@ namespace best {
 struct utf8 final {
   using code = char;  // Not char8_t because the standard messed up.
   static constexpr best::encoding_about About{
-      .max_codes_per_rune = 4,
-      .is_self_syncing = true,
-      .is_lexicographic = true,
-      .is_universal = true,
+    .max_codes_per_rune = 4,
+    .is_self_syncing = true,
+    .is_lexicographic = true,
+    .is_universal = true,
   };
 
   static constexpr bool validate(best::span<const char> input) {
@@ -56,9 +56,9 @@ struct utf8 final {
   }
 
   static constexpr best::result<void, encoding_error> encode(
-      best::span<char>* output, rune rune) {
+    best::span<char>* output, rune rune) {
     size_t bytes = best::utf_internal::encode8_size(rune);
-    if (output->size() < bytes) return encoding_error::OutOfBounds;
+    if (output->size() < bytes) { return encoding_error::OutOfBounds; }
     best::utf_internal::encode8(output->data(), rune, bytes);
 
     *output = (*output)[{.start = bytes}];
@@ -66,26 +66,26 @@ struct utf8 final {
   }
 
   static constexpr best::result<rune, encoding_error> decode(
-      best::span<const char>* input) {
+    best::span<const char>* input) {
     auto bytes = best::utf_internal::decode8_size(*input);
-    if (bytes < 0) return encoding_error(~bytes);
+    if (bytes < 0) { return encoding_error(~bytes); }
 
     auto code = best::utf_internal::decode8(input->data(), bytes);
-    if (code < 0) return encoding_error(~code);
+    if (code < 0) { return encoding_error(~code); }
 
     // Elide a bounds check here; this shaves off milliseconds off of the
     // per-rune cost of validating a best::format_template.
     *input = best::span(input->data() + bytes, input->size() - bytes);
-    if (auto r = rune::from_int(code)) return *r;
+    if (auto r = rune::from_int(code)) { return *r; }
     return encoding_error::Invalid;
   }
 
   static constexpr best::result<rune, encoding_error> undecode(
-      best::span<const char>* input) {
+    best::span<const char>* input) {
     auto code = best::utf_internal::undecode8(input);
-    if (code < 0) return encoding_error(~code);
+    if (code < 0) { return encoding_error(~code); }
 
-    if (auto r = rune::from_int(code)) return *r;
+    if (auto r = rune::from_int(code)) { return *r; }
     return encoding_error::Invalid;
   }
 
@@ -101,11 +101,11 @@ struct utf8 final {
 struct wtf8 final {
   using code = char;  // Not char8_t because the standard messed up.
   static constexpr best::encoding_about About{
-      .max_codes_per_rune = 4,
-      .is_self_syncing = true,
-      .is_lexicographic = true,
-      .is_universal = true,
-      .allows_surrogates = true,
+    .max_codes_per_rune = 4,
+    .is_self_syncing = true,
+    .is_lexicographic = true,
+    .is_universal = true,
+    .allows_surrogates = true,
   };
 
   static constexpr bool is_boundary(best::span<const char> input, size_t idx) {
@@ -113,31 +113,31 @@ struct wtf8 final {
   }
 
   static constexpr best::result<void, encoding_error> encode(
-      best::span<char>* output, rune rune) {
+    best::span<char>* output, rune rune) {
     return utf8::encode(output, rune);
   }
 
   static constexpr best::result<rune, encoding_error> decode(
-      best::span<const char>* input) {
+    best::span<const char>* input) {
     auto bytes = best::utf_internal::decode8_size(*input);
-    if (bytes < 0) return encoding_error(~bytes);
+    if (bytes < 0) { return encoding_error(~bytes); }
 
     auto code = best::utf_internal::decode8(input->data(), bytes);
-    if (code < 0) return encoding_error(~code);
+    if (code < 0) { return encoding_error(~code); }
 
     // Elide a bounds check here; this shaves off milliseconds off of the
     // per-rune cost of validating a best::format_template.
     *input = best::span(input->data() + bytes, input->size() - bytes);
-    if (auto r = rune::from_int_allow_surrogates(code)) return *r;
+    if (auto r = rune::from_int_allow_surrogates(code)) { return *r; }
     return encoding_error::Invalid;
   }
 
   static constexpr best::result<rune, encoding_error> undecode(
-      best::span<const char>* input) {
+    best::span<const char>* input) {
     auto code = best::utf_internal::undecode8(input);
-    if (code < 0) return encoding_error(~code);
+    if (code < 0) { return encoding_error(~code); }
 
-    if (auto r = rune::from_int_allow_surrogates(code)) return *r;
+    if (auto r = rune::from_int_allow_surrogates(code)) { return *r; }
     return encoding_error::Invalid;
   }
 
@@ -145,7 +145,7 @@ struct wtf8 final {
 };
 
 constexpr const utf8& BestEncoding(
-    auto, const utf_internal::is_std_string<char> auto&) {
+  auto, const utf_internal::is_std_string<char> auto&) {
   return best::val<utf8{}>::value;
 }
 template <size_t n>

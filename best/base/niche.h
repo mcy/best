@@ -50,8 +50,8 @@ struct niche final {};
 /// Whether T is a type with a niche.
 template <typename T>
 concept has_niche =
-    best::is_ref<T> || (best::is_object<T> && best::constructible<T, niche> &&
-                        best::equatable<T, best::niche>);
+  best::is_ref<T> || (best::is_object<T> && best::constructible<T, niche> &&
+                      best::equatable<T, best::niche>);
 }  // namespace best
 
 #endif  // BEST_BASE_NICHE_H_

@@ -54,10 +54,10 @@ concept reflected = requires {
 };
 template <typename T>
 concept is_reflected_struct =
-    best::is_struct<best::as_auto<T>> && best::reflected<T>;
+  best::is_struct<best::as_auto<T>> && best::reflected<T>;
 template <typename T>
 concept is_reflected_enum =
-    best::is_enum<best::as_auto<T>> && best::reflected<T>;
+  best::is_enum<best::as_auto<T>> && best::reflected<T>;
 
 /// # `best::reflect<T>`
 ///
@@ -65,7 +65,7 @@ concept is_reflected_enum =
 /// `best::reflected_type`, although the exact specialization is not nameable.
 template <best::reflected T>
 inline constexpr auto reflect =
-    best::reflected_type<reflect_internal::desc<best::as_auto<T>>>{};
+  best::reflected_type<reflect_internal::desc<best::as_auto<T>>>{};
 
 /// # `best::fields()`
 ///
@@ -73,7 +73,7 @@ inline constexpr auto reflect =
 /// of references of them.
 constexpr auto fields(best::is_reflected_struct auto&& value) {
   return best::reflect<decltype(value)>.apply(
-      [&](auto... f) { return best::row(best::bind, BEST_FWD(value)->*f...); });
+    [&](auto... f) { return best::row(best::bind, BEST_FWD(value)->*f...); });
 }
 
 /// # `best::mirror`
@@ -150,7 +150,7 @@ class mirror final {
   friend class mirror;
 
   constexpr explicit mirror(info_t info, with_t with)
-      : info_(info), with_(with) {}
+    : info_(info), with_(with) {}
   info_t info_;
   with_t with_;
 };
@@ -359,10 +359,10 @@ class reflected_type final {
   static constexpr size_t index_of(best::str name) {
     best::mark_sort_header_used();
     return best::span(Name2Index<T>)
-        .bisect(name, &entry::k)
-        .ok()
-        .map([](auto i) { return Name2Index<T>[i].v; })
-        .value_or(0);
+      .bisect(name, &entry::k)
+      .ok()
+      .map([](auto i) { return Name2Index<T>[i].v; })
+      .value_or(0);
   }
 };
 }  // namespace best
@@ -386,8 +386,8 @@ constexpr auto mirror<I, W>::infer() const
              BEST_REFLECT_MAX_FIELDS_))
 {
   return best::mirror{
-      reflect_internal::tdesc<reflected>::infer_struct(),
-      best::row(),
+    reflect_internal::tdesc<reflected>::infer_struct(),
+    best::row(),
   };
 }
 
@@ -397,9 +397,9 @@ constexpr auto mirror<I, W>::infer() const
   requires best::is_enum<reflected> && (range.try_compute_count({}).has_value())
 {
   return best::mirror{
-      reflect_internal::tdesc<reflected>::template infer_enum<
-          range.start, *range.try_compute_count({})>(),
-      best::row(),
+    reflect_internal::tdesc<reflected>::template infer_enum<
+      range.start, *range.try_compute_count({})>(),
+    best::row(),
   };
 }
 
@@ -493,7 +493,7 @@ constexpr void reflected_type<desc_>::zip_fields(auto&&... args) const
   auto row = best::row(best::bind, BEST_FWD(args)...);
   auto&& cb = BEST_MOVE(row).last();
   auto rest =
-      BEST_MOVE(row).at(best::vals<best::bounds{.end = sizeof...(args) - 1}>);
+    BEST_MOVE(row).at(best::vals<best::bounds{.end = sizeof...(args) - 1}>);
 
   return each([&](auto field) -> decltype(auto) {
     return BEST_MOVE(rest).apply([&](auto&&... structs) -> decltype(auto) {

@@ -69,14 +69,14 @@ auto make_indexer(std::index_sequence<i...>) {
 template <size_t i, typename... Ts>
 using fast_nth =
 #if BEST_TLIST_USE_CLANG_MAGIC_ && BEST_HAS_BUILTIN(__type_pack_element)
-    __type_pack_element<i, Ts...>;
+  __type_pack_element<i, Ts...>;
 #else
-    typename decltype(typename make_indexer(std::make_index_sequence<i_>{})(
-        best::id<Ts>{}...))::type;
+  typename decltype(typename make_indexer(std::make_index_sequence<i_>{})(
+    best::id<Ts>{}...))::type;
 #endif
 
 template <size_t n, typename Default, typename... Ts>
-  requires(n < sizeof...(Ts))
+requires (n < sizeof...(Ts))
 auto nth_impl(tlist<Ts...>) {
 #if BEST_TLIST_USE_CLANG_MAGIC_ && BEST_HAS_BUILTIN(__type_pack_element)
   return best::id<__type_pack_element<n, Ts...>>{};
@@ -86,7 +86,7 @@ auto nth_impl(tlist<Ts...>) {
 }
 
 template <size_t n, not_strict Default, typename... Ts>
-  requires(n >= sizeof...(Ts))
+requires (n >= sizeof...(Ts))
 auto nth_impl(tlist<Ts...>) {
   return best::id<Default>{};
 }
@@ -110,64 +110,64 @@ template <size_t... i, size_t... j, size_t... k>
 auto make_slicer(std::index_sequence<i...>, std::index_sequence<j...>,
                  std::index_sequence<k...>) {
   return []<splat<i>... prefix, splat<j>... infix, splat<k>... suffix>(
-             id<prefix>..., id<infix>..., id<suffix>...) {
+           id<prefix>..., id<infix>..., id<suffix>...) {
     return best::id<tlist<infix...>>{};
   };
 }
 
 template <size_t start, auto count, typename Default, typename... Ts>
-  requires(count.has_value())
+requires (count.has_value())
 auto slice_impl(tlist<Ts...>) {
   return make_slicer(
-      std::make_index_sequence<start>{}, std::make_index_sequence<*count>{},
-      std::make_index_sequence<sizeof...(Ts) - (start + *count)>{})(
-      best::id<Ts>{}...);
+    std::make_index_sequence<start>{}, std::make_index_sequence<*count>{},
+    std::make_index_sequence<sizeof...(Ts) - (start + *count)>{})(
+    best::id<Ts>{}...);
 }
 template <size_t start, auto count, not_strict Default, typename... Ts>
-  requires(!count.has_value())
+requires (!count.has_value())
 best::id<Default> slice_impl(tlist<Ts...>);
 
 template <best::bounds b, typename Default, typename Pack>
 using slice =
-    decltype(slice_impl<b.start, b.try_compute_count(Pack::size()), Default>(
-        best::lie<Pack>))::type;
+  decltype(slice_impl<b.start, b.try_compute_count(Pack::size()), Default>(
+    best::lie<Pack>))::type;
 
 // Inside-out version of make_slicer.
 template <typename... Ts, size_t... i, size_t... j, size_t... k>
 auto make_splicer(std::index_sequence<i...>, std::index_sequence<j...>,
                   std::index_sequence<k...>) {
   return []<splat<i>... prefix, splat<j>... infix, splat<k>... suffix>(
-             id<prefix>..., id<infix>..., id<suffix>...) {
+           id<prefix>..., id<infix>..., id<suffix>...) {
     return best::id<tlist<prefix..., Ts..., suffix...>>{};
   };
 }
 
 template <size_t start, auto count, typename Default, typename... Ts,
           typename... Us>
-  requires(count.has_value())
+requires (count.has_value())
 auto splice_impl(tlist<Ts...>, tlist<Us...>) {
   return make_splicer<Us...>(
-      std::make_index_sequence<start>{}, std::make_index_sequence<*count>{},
-      std::make_index_sequence<sizeof...(Ts) - (start + *count)>{})(
-      best::id<Ts>{}...);
+    std::make_index_sequence<start>{}, std::make_index_sequence<*count>{},
+    std::make_index_sequence<sizeof...(Ts) - (start + *count)>{})(
+    best::id<Ts>{}...);
 }
 template <size_t start, auto count, not_strict Default, typename... Ts,
           typename... Us>
-  requires(!count.has_value())
+requires (!count.has_value())
 best::id<Default> splice_impl(tlist<Ts...>, tlist<Us...>);
 
 template <best::bounds b, typename Default, typename Pack, typename Insert>
 using splice =
-    decltype(splice_impl<b.start, b.try_compute_count(Pack::size()), Default>(
-        best::lie<Pack>, best::lie<Insert>))::type;
+  decltype(splice_impl<b.start, b.try_compute_count(Pack::size()), Default>(
+    best::lie<Pack>, best::lie<Insert>))::type;
 
 template <typename Default, size_t... i, typename... Ts>
-  requires((i < sizeof...(Ts)) && ...)  // Fast path for no out-of-bounds.
+requires ((i < sizeof...(Ts)) && ...)  // Fast path for no out-of-bounds.
 auto gather_impl(tlist<Ts...>) {
   return best::tlist<fast_nth<i, Ts...>...>{};
 }
 template <not_strict Default, size_t... i, typename... Ts>
-  requires((i >= sizeof...(Ts)) || ...)
+requires ((i >= sizeof...(Ts)) || ...)
 auto gather_impl(tlist<Ts...>) {
   return best::tlist<nth<i, Default, tlist<Ts...>>...>{};
 }
@@ -177,7 +177,7 @@ using gather = decltype(gather_impl<Default, i...>(best::lie<Pack>));
 
 template <size_t... i, size_t... j, typename... Ts,
           typename... Us>
-  requires((i < sizeof...(Ts)) && ...)  // Fast path for no out-of-bounds.
+requires ((i < sizeof...(Ts)) && ...)  // Fast path for no out-of-bounds.
 auto scatter_impl(std::index_sequence<j...>, tlist<Ts...>, tlist<Us...>) {
   constexpr auto lut = [] {
     std::array<size_t, sizeof...(Ts)> lut{(j - j)...};
@@ -190,9 +190,8 @@ auto scatter_impl(std::index_sequence<j...>, tlist<Ts...>, tlist<Us...>) {
 }
 
 template <typename Pack, typename Those, size_t... i>
-using scatter =
-    decltype(scatter_impl<i...>(std::make_index_sequence<Pack::size()>{},
-                                best::lie<Pack>, best::lie<Those>));
+using scatter = decltype(scatter_impl<i...>(
+  std::make_index_sequence<Pack::size()>{}, best::lie<Pack>, best::lie<Those>));
 
 // This generates a lookup table for computing a join.
 //
@@ -200,7 +199,7 @@ using scatter =
 // for each element of the `n`th list. The odd elements are then `{0, 1, 2, 0,
 // 1, 2, 0, 1, 2}`: for each list `l`, the sequence `{.count = l.size() - 1}`.
 template <size_t total, typename... Packs>
-constexpr inline auto join_lut = [] {
+inline constexpr auto join_lut = [] {
   std::array<size_t, total * 2> lut = {};
 
   size_t running_total = 0;
@@ -225,7 +224,7 @@ auto join_impl(std::index_sequence<i...>, Packs...) {
 }
 template <typename... Packs>
 using join = decltype(join_impl(
-    std::make_index_sequence<(0 + ... + Packs::size())>{}, Packs{}...));
+  std::make_index_sequence<(0 + ... + Packs::size())>{}, Packs{}...));
 
 template <typename T>
 struct entry {};
@@ -268,7 +267,7 @@ concept vt_callable = sizeof...(Elems) > 0 &&
                       (... && requires(F f) { best::call<Elems::value>(f); });
 template <typename F, typename... Elems>
 concept vts_callable =
-    sizeof...(Elems) > 0 && requires(F f) { best::call<Elems::value...>(f); };
+  sizeof...(Elems) > 0 && requires(F f) { best::call<Elems::value...>(f); };
 }  // namespace best::tlist_internal
 
 #endif  // BEST_META_INTERNAL_TLIST_H_

@@ -184,10 +184,10 @@ class test final {
                   const auto& message, const auto&... args) {
     if (!cond) {
       best::eprintln(
-          "failed {}() at {:?}\nexpected these values to be {}:\n  {:?}\n  "
-          "{:?}",
-          func, message.where(), cmp, best::make_formattable(a),
-          best::make_formattable(b));
+        "failed {}() at {:?}\nexpected these values to be {}:\n  {:?}\n  "
+        "{:?}",
+        func, message.where(), cmp, best::make_formattable(a),
+        best::make_formattable(b));
       failed_ = true;
       if (!message.as_str().is_empty()) {
         best::eprint("=> ");
@@ -210,17 +210,17 @@ struct test::flags final {
 
   constexpr friend auto BestReflect(auto& m, flags*) {
     return m.infer()
-        .with(best::cli::app{.about = "a best unit test binary"})
-        .with(&flags::skip,
-              best::cli::flag{
-                  .arg = "FILTER",
-                  .help = "Skip tests whose names contain FILTER",
-              })
-        .with(&flags::filters,
-              best::cli::positional{
-                  .name = "FILTERS",
-                  .help = "Include only tests whose names contain FILTER",
-              });
+      .with(best::cli::app{.about = "a best unit test binary"})
+      .with(&flags::skip,
+            best::cli::flag{
+              .arg = "FILTER",
+              .help = "Skip tests whose names contain FILTER",
+            })
+      .with(&flags::filters,
+            best::cli::positional{
+              .name = "FILTERS",
+              .help = "Include only tests whose names contain FILTER",
+            });
   }
 };
 }  // namespace best

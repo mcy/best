@@ -45,16 +45,18 @@ constexpr bool validate_utf8_fast(const char* data, size_t len) {
   auto end = data + len;
   while (data != end) {
     uint32_t value = uint8_t(*data++);
-    if (value < 0x80) continue;  // ASCII fast path.
+    if (value < 0x80) {
+      continue;  // ASCII fast path.
+    }
 
     size_t bytes = best::leading_ones(uint8_t(value));
     value &= 0x7f >> bytes;
 
-    if (bytes > 4 || (end - data) < bytes - 1) return false;
+    if (bytes > 4 || (end - data) < bytes - 1) { return false; }
     while (--bytes > 0) {
       char c = data[0];
       ++data;
-      if (best::leading_ones(c) != 1) return false;
+      if (best::leading_ones(c) != 1) { return false; }
 
       value <<= 6;
       value |= c & 0b00'111111;
@@ -80,9 +82,9 @@ constexpr int32_t encode8_size(uint32_t rune) {
 }
 
 constexpr int32_t decode8_size(best::span<const char> input) {
-  if (input.is_empty()) return OutOfBounds;
+  if (input.is_empty()) { return OutOfBounds; }
   uint32_t ones = best::leading_ones(uint8_t(*input.data()));
-  if (ones == 1 || ones > 4) return Invalid;
+  if (ones == 1 || ones > 4) { return Invalid; }
   return ones + (ones == 0);
 }
 
@@ -94,31 +96,31 @@ constexpr int32_t decode8(const char* data, size_t rune_bytes) {
   uint32_t value = uint8_t(data[0]);
 
   // Fast-path for ASCII.
-  if (rune_bytes == 1) return value;
+  if (rune_bytes == 1) { return value; }
 
   value &= uint8_t{-1} >> rune_bytes;
   for (size_t i = 1; i < rune_bytes; ++i) {
     char c = data[i];
-    if (best::leading_ones(c) != 1) return Invalid;
+    if (best::leading_ones(c) != 1) { return Invalid; }
 
     value <<= 6;
     value |= c & 0b00'111111;
   }
 
   // Reject oversized encodings.
-  if (rune_bytes != encode8_size(value)) return Invalid;
+  if (rune_bytes != encode8_size(value)) { return Invalid; }
   return value;
 }
 
 constexpr int32_t undecode8(best::span<const char>* input) {
   size_t len = 0;
   for (; len < 4; ++len) {
-    if (input->size() < len) return OutOfBounds;
+    if (input->size() < len) { return OutOfBounds; }
     if (best::leading_ones(input->data()[input->size() - len - 1]) != 1) {
       break;
     }
   }
-  if (len == 4) return Invalid;
+  if (len == 4) { return Invalid; }
   *input = {input->data(), input->size() - len};
 
   return decode8(input->data() + input->size() - len, len);
@@ -132,10 +134,10 @@ constexpr void encode8(char* output, uint32_t rune, size_t bytes) {
   }
 
   constexpr std::array<std::array<uint8_t, 2>, 4> Masks = {{
-      {0b0111'1111, 0b0000'0000},
-      {0b0001'1111, 0b1100'0000},
-      {0b0000'1111, 0b1110'0000},
-      {0b0000'0111, 0b1111'0000},
+    {0b0111'1111, 0b0000'0000},
+    {0b0001'1111, 0b1100'0000},
+    {0b0000'1111, 0b1110'0000},
+    {0b0000'0111, 0b1111'0000},
   }};
 
   output[0] = (rune & Masks[bytes - 1][0]) | Masks[bytes - 1][1];
@@ -157,38 +159,38 @@ constexpr bool is_low_surrogate(char16_t code) {
 }
 
 constexpr size_t decode16_size(best::span<const char16_t> input) {
-  if (input.is_empty()) return OutOfBounds;
+  if (input.is_empty()) { return OutOfBounds; }
   auto value = input.data().raw()[0];
-  if (is_high_surrogate(value)) return 2;
-  if (is_low_surrogate(value)) return Invalid;
+  if (is_high_surrogate(value)) { return 2; }
+  if (is_low_surrogate(value)) { return Invalid; }
   return 1;
 }
 
 // This function expects the caller to pre-compute decode16_size.
 constexpr int32_t decode16(const char16_t* data, size_t rune_words) {
   uint16_t hi = data[0];
-  if (rune_words == 1) return hi;
+  if (rune_words == 1) { return hi; }
 
   uint16_t lo = data[1];
-  if (!is_low_surrogate(lo)) return Invalid;
+  if (!is_low_surrogate(lo)) { return Invalid; }
 
   uint32_t value = trunc_to_u10(hi) << 10 | trunc_to_u10(lo);
   return value + 0x10000;
 }
 
 constexpr int32_t undecode16(best::span<const char16_t>* input) {
-  if (input->is_empty()) return OutOfBounds;
+  if (input->is_empty()) { return OutOfBounds; }
   uint16_t lo = input->data()[input->size() - 1];
-  if (is_high_surrogate(lo)) return Invalid;
+  if (is_high_surrogate(lo)) { return Invalid; }
   if (!is_low_surrogate(lo)) {
     *input = {input->data(), input->size() - 1};
     return lo;
   }
 
-  if (input->size() < 2) return OutOfBounds;
+  if (input->size() < 2) { return OutOfBounds; }
   uint16_t hi = input->data()[input->size() - 2];
 
-  if (!is_high_surrogate(hi)) return Invalid;
+  if (!is_high_surrogate(hi)) { return Invalid; }
   *input = {input->data(), input->size() - 2};
 
   uint32_t value = trunc_to_u10(hi) << 10 | trunc_to_u10(lo);

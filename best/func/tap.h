@@ -79,7 +79,7 @@ namespace best {
 /// ```
 template <typename Guard, typename Cb>
 class [[nodiscard(
-    "a best::tap must be called using ->* to have any effect")]] tap final {
+  "a best::tap must be called using ->* to have any effect")]] tap final {
  public:
   BEST_CTAD_GUARD_("best::tap", Guard);
 

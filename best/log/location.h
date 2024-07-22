@@ -48,33 +48,31 @@ class track_location {
   /// Constructs a new location referring to the current context from
   /// best::here.
   constexpr track_location(
-      here_t, std::source_location loc = std::source_location::current())
+    here_t, std::source_location loc = std::source_location::current())
     requires best::is_void<T>
-      : value_{}, impl_(loc) {}
+    : value_{}, impl_(loc) {}
   template <typename Arg = T>
   constexpr track_location(
-      Arg&& arg, std::source_location loc = std::source_location::current())
+    Arg&& arg, std::source_location loc = std::source_location::current())
     requires std::convertible_to<Arg, T>
-      : value_(BEST_FWD(arg)), impl_(loc) {}
+    : value_(BEST_FWD(arg)), impl_(loc) {}
 
   /// Constructs a new location from the given location.
   template <typename U>
   constexpr track_location(best::track_location<U> loc)
     requires best::is_void<T>
-      : value_{}, impl_(loc.impl_) {}
+    : value_{}, impl_(loc.impl_) {}
   template <typename Arg = T, typename U>
   constexpr track_location(Arg&& arg, best::track_location<U> loc)
     requires std::convertible_to<Arg, T>
-      : value_(BEST_FWD(arg)), impl_(loc.impl_) {}
+    : value_(BEST_FWD(arg)), impl_(loc.impl_) {}
 
   /// Returns the file this location refers to.
   template <int&...,  // Delayed, since this header needs to
                       // appear extremely early.
             typename utf8 = best::utf8>
   constexpr best::text<utf8> file() const {
-    if (impl_.file_name() == nullptr) {
-      return "<unknown>";
-    }
+    if (impl_.file_name() == nullptr) { return "<unknown>"; }
     return *best::text<utf8>::from_nul(impl_.file_name());
   }
 
@@ -83,9 +81,7 @@ class track_location {
                       // appear extremely early.
             typename utf8 = best::utf8>
   constexpr best::text<utf8> func() const {
-    if (impl_.function_name() == nullptr) {
-      return "<unknown>";
-    }
+    if (impl_.function_name() == nullptr) { return "<unknown>"; }
     return *best::text<utf8>::from_nul(impl_.function_name());
   }
 
@@ -99,23 +95,20 @@ class track_location {
   constexpr track_location<void> location() const { return *this; }
 
   // This makes best::track_location into a smart pointer.
-  constexpr best::as_ref<const T> operator*() const
-    requires(!best::is_void<T>)
+  constexpr best::as_ref<const T> operator*() const requires (!best::is_void<T>)
   {
     return value_;
   }
-  constexpr best::as_ref<T> operator*()
-    requires(!best::is_void<T>)
+  constexpr best::as_ref<T> operator*() requires (!best::is_void<T>)
   {
     return value_;
   }
-  constexpr best::as_ptr<const T> operator->() const&
-    requires(!best::is_void<T>)
+  constexpr best::as_ptr<const T> operator->() const& requires (
+    !best::is_void<T>)
   {
     return best::addr(value_);
   }
-  constexpr best::as_ptr<const T> operator->() &
-    requires(!best::is_void<T>)
+  constexpr best::as_ptr<const T> operator->() & requires (!best::is_void<T>)
   {
     return best::addr(value_);
   }

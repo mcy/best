@@ -39,10 +39,10 @@ namespace best {
 struct utf32 final {
   using code = char32_t;
   static constexpr best::encoding_about About{
-      .max_codes_per_rune = 1,
-      .is_self_syncing = true,
-      .is_lexicographic = true,
-      .is_universal = true,
+    .max_codes_per_rune = 1,
+    .is_self_syncing = true,
+    .is_lexicographic = true,
+    .is_universal = true,
   };
 
   // Make all of these functions have delayed instantiation. Virtually no code
@@ -57,7 +57,7 @@ struct utf32 final {
 
   template <int = 0>
   static constexpr best::result<void, encoding_error> encode(
-      best::span<char32_t>* output, rune rune) {
+    best::span<char32_t>* output, rune rune) {
     auto next = output->take_first(1).ok_or(encoding_error::OutOfBounds);
     BEST_GUARD(next);
 
@@ -67,7 +67,7 @@ struct utf32 final {
 
   template <int = 0>
   static constexpr best::result<rune, encoding_error> decode(
-      best::span<const char32_t>* input) {
+    best::span<const char32_t>* input) {
     auto next = input->take_first(1).ok_or(encoding_error::OutOfBounds);
     BEST_GUARD(next);
 
@@ -76,7 +76,7 @@ struct utf32 final {
 
   template <int = 0>
   static constexpr best::result<rune, encoding_error> undecode(
-      best::span<const char32_t>* input) {
+    best::span<const char32_t>* input) {
     auto next = input->take_last(1).ok_or(encoding_error::OutOfBounds);
     BEST_GUARD(next);
 
@@ -87,7 +87,7 @@ struct utf32 final {
 };
 
 constexpr const utf32& BestEncoding(
-    auto, const utf_internal::is_std_string<char32_t> auto&) {
+  auto, const utf_internal::is_std_string<char32_t> auto&) {
   return best::val<utf32{}>::value;
 }
 template <size_t n>

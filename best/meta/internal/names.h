@@ -44,12 +44,12 @@ struct priv {};
 template <auto x>
 constexpr best::span<const char> raw_name() {
   return best::span<const char>::from_nul(
-      std::source_location::current().function_name());
+    std::source_location::current().function_name());
 }
 template <typename x>
 constexpr best::span<const char> raw_name() {
   return best::span<const char>::from_nul(
-      std::source_location::current().function_name());
+    std::source_location::current().function_name());
 }
 
 // Similar to best::lie, but this materializes a real reference that can be
@@ -67,15 +67,15 @@ constexpr T& materialize() {
 // Needles to search for that are *definitely* gonna be in the target compiler's
 // pretty printed function names.
 inline constexpr auto TypeNeedle =
-    best::span<const char>::from_nul("BEST_REFLECT_STRUCT_");
+  best::span<const char>::from_nul("BEST_REFLECT_STRUCT_");
 inline constexpr auto FieldNeedle = best::span<const char>::from_nul(
-    "&BEST_REFLECT_STRUCT_::BEST_REFLECT_FIELD1_");
+  "&BEST_REFLECT_STRUCT_::BEST_REFLECT_FIELD1_");
 inline constexpr auto FieldNeedle1 =
-    best::span<const char>::from_nul("BEST_REFLECT_FIELD1_");
+  best::span<const char>::from_nul("BEST_REFLECT_FIELD1_");
 inline constexpr auto FieldNeedle2 =
-    best::span<const char>::from_nul("BEST_REFLECT_FIELD2_");
-inline constexpr auto ValueNeedle = best::span<const char>::from_nul(
-    "BEST_REFLECT_STRUCT_::BEST_REFLECT_VALUE_");
+  best::span<const char>::from_nul("BEST_REFLECT_FIELD2_");
+inline constexpr auto ValueNeedle =
+  best::span<const char>::from_nul("BEST_REFLECT_STRUCT_::BEST_REFLECT_VALUE_");
 
 struct raw_offsets {
   size_t prefix, suffix;
@@ -87,25 +87,25 @@ inline constexpr auto TypeOffsets = [] {
   auto name = raw_name<BEST_REFLECT_STRUCT_>();
   auto idx = *name.find(TypeNeedle);
   return raw_offsets{
-      .prefix = idx,
-      .suffix = name.size() - idx - TypeNeedle.size(),
+    .prefix = idx,
+    .suffix = name.size() - idx - TypeNeedle.size(),
   };
 }();
 inline constexpr auto FieldOffsets = [] {
   auto name = raw_name<&BEST_REFLECT_STRUCT_::BEST_REFLECT_FIELD1_>();
   auto idx = *name.find(FieldNeedle1);
   return raw_offsets{
-      .prefix = idx,
-      .suffix = name.size() - idx - FieldNeedle1.size(),
+    .prefix = idx,
+    .suffix = name.size() - idx - FieldNeedle1.size(),
   };
 }();
 inline constexpr auto ValueOffsets = [] {
   auto name =
-      raw_name<BEST_REFLECT_STRUCT_::BEST_REFLECT_ENUM_::BEST_REFLECT_VALUE_>();
+    raw_name<BEST_REFLECT_STRUCT_::BEST_REFLECT_ENUM_::BEST_REFLECT_VALUE_>();
   auto idx = *name.find(ValueNeedle);
   return raw_offsets{
-      .prefix = idx,
-      .suffix = name.size() - idx - ValueNeedle.size(),
+    .prefix = idx,
+    .suffix = name.size() - idx - ValueNeedle.size(),
   };
 }();
 
@@ -126,15 +126,13 @@ inline constexpr auto FieldPtrOffsets = [] {
   auto name = names_internal::raw_name<eyepatch(p)>();
   auto idx = *name.find(FieldNeedle1);
   return raw_offsets{
-      .prefix = idx,
-      .suffix = name.size() - idx - FieldNeedle1.size(),
+    .prefix = idx,
+    .suffix = name.size() - idx - FieldNeedle1.size(),
   };
 }();
 
 constexpr best::str remove_namespace(best::str path) {
-  while (auto split = path.split_once("::")) {
-    path = split->second();
-  }
+  while (auto split = path.split_once("::")) { path = split->second(); }
   return path;
 }
 
@@ -143,12 +141,12 @@ constexpr Names parse() {
   auto offsets = names_internal::TypeOffsets;
   auto raw = names_internal::raw_name<T>();
   return Names(
-      priv{},
-      best::str(unsafe("the compiler made this string, it better be UTF-8"),
-                raw[{
-                    .start = offsets.prefix,
-                    .count = raw.size() - offsets.prefix - offsets.suffix,
-                }]));
+    priv{},
+    best::str(unsafe("the compiler made this string, it better be UTF-8"),
+              raw[{
+                .start = offsets.prefix,
+                .count = raw.size() - offsets.prefix - offsets.suffix,
+              }]));
 }
 
 template <best::is_member_ptr auto pm>
@@ -156,11 +154,11 @@ constexpr best::str parse() {
   auto offsets = names_internal::FieldOffsets;
   auto raw = names_internal::raw_name<pm>();
   auto name =
-      best::str(unsafe("the compiler made this string, it better be UTF-8"),
-                raw[{
-                    .start = offsets.prefix,
-                    .count = raw.size() - offsets.prefix - offsets.suffix,
-                }]);
+    best::str(unsafe("the compiler made this string, it better be UTF-8"),
+              raw[{
+                .start = offsets.prefix,
+                .count = raw.size() - offsets.prefix - offsets.suffix,
+              }]);
 
   // `name` is going to be scoped, so we need to strip off a leading path.
   return names_internal::remove_namespace(name);
@@ -176,16 +174,14 @@ constexpr best::str parse() {
   // search for the last `.` or `->` (MSVC uses -> and it feels easier to just
   // search for *both*...).
   auto prefix = raw[{
-      .end = raw.size() - offsets.suffix,
+    .end = raw.size() - offsets.suffix,
   }];
 
   // TODO(mcyoung): Use rfind() once we implement that.
   size_t i = prefix.size();
   for (; i > 0; --i) {
     unsafe u("already did the bounds check");
-    if (prefix.at(u, i - 1) == '.') {
-      break;
-    }
+    if (prefix.at(u, i - 1) == '.') { break; }
     if (i > 1 && prefix.at(u, i - 1) == '>' && prefix.at(u, i - 2) == '-') {
       break;
     }
@@ -202,13 +198,13 @@ constexpr best::option<best::str> parse() {
   auto offsets = names_internal::ValueOffsets;
   auto raw = names_internal::raw_name<e>();
   auto name =
-      best::str(unsafe("the compiler made this string, it better be UTF-8"),
-                raw[{
-                    .start = offsets.prefix,
-                    .count = raw.size() - offsets.prefix - offsets.suffix,
-                }]);
+    best::str(unsafe("the compiler made this string, it better be UTF-8"),
+              raw[{
+                .start = offsets.prefix,
+                .count = raw.size() - offsets.prefix - offsets.suffix,
+              }]);
 
-  if (name.starts_with('(')) return best::none;
+  if (name.starts_with('(')) { return best::none; }
   // `name` is going to be scoped, so we need to strip off a leading path.
   return names_internal::remove_namespace(name);
 };

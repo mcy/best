@@ -66,7 +66,7 @@ class layout final {
   /// This must observe two critical requirements: `size % align == 0`, and
   /// `best::is_pow2(align)`.
   constexpr explicit layout(unsafe, size_t size, size_t align)
-      : size_(size), align_(align) {}
+    : size_(size), align_(align) {}
 
   /// # `layout::of<T>()`
   ///
@@ -75,7 +75,7 @@ class layout final {
   /// Technically, this is the layout for `best::object<T>`, which coincides
   /// with that of `T` if `T` is an object type.
   template <typename T>
-  constexpr static layout of() {
+  static constexpr layout of() {
     return layout(unsafe("manifest from calling size_of and align_of"),
                   size_of<T>, align_of<T>);
   }
@@ -87,11 +87,11 @@ class layout final {
   ///
   /// Crashes on overflow.
   template <typename T>
-  constexpr static layout array(size_t n) {
+  static constexpr layout array(size_t n) {
     auto [sz, of] = best::overflow(size_of<T>) * n;
     if (of || sz > best::max_of<size_t>) {
       best::crash_internal::crash(
-          "attempted to allocate more than max_of<size_t>/2 bytes");
+        "attempted to allocate more than max_of<size_t>/2 bytes");
     }
 
     return layout(unsafe("manifest from the bounds check above and align_of"),
@@ -105,7 +105,7 @@ class layout final {
   /// This implement the C/C++ standard layout class sizing algorithm. Zero
   /// types produces the layout of `char`.
   template <typename... Members>
-  constexpr static layout of_struct() {
+  static constexpr layout of_struct() {
     return layout(unsafe("manifest from calling size_of and align_of"),
                   layout_internal::size_of<Members...>,
                   layout_internal::align_of<Members...>);
@@ -119,7 +119,7 @@ class layout final {
   /// rounded to the alignment of the most-aligned type. Zero types produces
   /// the layout of `char`.
   template <typename... Members>
-  constexpr static layout of_union() {
+  static constexpr layout of_union() {
     return layout(unsafe("manifest from calling size_of and align_of"),
                   layout_internal::size_of_union<Members...>,
                   layout_internal::align_of<Members...>);

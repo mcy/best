@@ -41,9 +41,7 @@ template <best::formattable... Args>
                       const Args&... args) {
   best::strbuf message = best::format(templ, args...);
   auto write = [&](char* scratch, size_t scratch_len, auto write) {
-    if (message.is_empty()) {
-      message.push("explicit call to best::wtf()");
-    }
+    if (message.is_empty()) { message.push("explicit call to best::wtf()"); }
     write(message.data(), message.size());
   };
 

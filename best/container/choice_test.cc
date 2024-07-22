@@ -122,25 +122,25 @@ best::test Match = [](auto& t) {
   t.expect_eq(x0.match([](auto x) { return (int)x; }), 42);
   t.expect_eq(x1.match([](auto x) { return (int)x; }), 43);
 
-  t.expect_eq(x0.match(                         //
-                  [](int x) { return x * 2; },  //
-                  [](float f) { return (int)f; }),
+  t.expect_eq(x0.match(                       //
+                [](int x) { return x * 2; },  //
+                [](float f) { return (int)f; }),
               84);
-  t.expect_eq(x1.match(                         //
-                  [](int x) { return x * 2; },  //
-                  [](float f) { return (int)f; }),
+  t.expect_eq(x1.match(                       //
+                [](int x) { return x * 2; },  //
+                [](float f) { return (int)f; }),
               43);
 
   best::choice<int, int> x2(best::index<0>, 42);
   best::choice<int, int> x3(best::index<1>, 45);
 
-  t.expect_eq(x2.index_match(                                     //
-                  [](best::index_t<0>, int x) { return x * 2; },  //
-                  [](auto, int x) { return x; }),
+  t.expect_eq(x2.index_match(                                   //
+                [](best::index_t<0>, int x) { return x * 2; },  //
+                [](auto, int x) { return x; }),
               84);
-  t.expect_eq(x3.index_match(                                     //
-                  [](best::index_t<0>, int x) { return x * 2; },  //
-                  [](auto, int x) { return x; }),
+  t.expect_eq(x3.index_match(                                   //
+                [](best::index_t<0>, int x) { return x * 2; },  //
+                [](auto, int x) { return x; }),
               45);
 };
 
@@ -152,12 +152,12 @@ best::test Permute = [](auto& t) {
 
 best::test Comparisons = [](auto& t) {
   std::array<best::choice<int, float, bool>, 6> alts = {{
-      {best::index<0>, 42},
-      {best::index<0>, 45},
-      {best::index<1>, 1.5},
-      {best::index<1>, 1.7},
-      {best::index<2>, false},
-      {best::index<2>, true},
+    {best::index<0>, 42},
+    {best::index<0>, 45},
+    {best::index<1>, 1.5},
+    {best::index<1>, 1.7},
+    {best::index<2>, false},
+    {best::index<2>, true},
   }};
 
   for (size_t i = 0; i < 6; ++i) {

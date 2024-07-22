@@ -39,20 +39,18 @@ constexpr bool UseCookies = best::is_debug();
 best::layout embiggen(best::layout layout) {
   size_t new_align = best::max(layout.align(), best::align_of<best::layout>);
   size_t grow_by = best::size_of<best::layout>;
-  if (grow_by < new_align) {
-    grow_by = new_align;
-  }
+  if (grow_by < new_align) { grow_by = new_align; }
 
   return best::layout(
-      unsafe("the alignment is a power of two, because it is either `layout`'s "
-             "alignment or that of `best::layout`"),
-      layout.size() + grow_by, new_align);
+    unsafe("the alignment is a power of two, because it is either `layout`'s "
+           "alignment or that of `best::layout`"),
+    layout.size() + grow_by, new_align);
 }
 
 // Given a pointer to free and its supposed layout, verifies the layout, and
 // returns the *actual* pointer to pass to free().
 void check_layout(void*& p, best::layout& layout) {
-  if (!UseCookies) return;
+  if (!UseCookies) { return; }
 
   auto actual = embiggen(layout);
   p = static_cast<char*>(p) - (actual.size() - layout.size());
@@ -61,9 +59,9 @@ void check_layout(void*& p, best::layout& layout) {
   std::memcpy(&cookie, p, sizeof(cookie));
   if (cookie.size() != layout.size() || cookie.align() != layout.align()) {
     best::crash_internal::crash(
-        "attempted to free allocation with layout %zu:%zu, but it was actually "
-        "allocated with %zu:%zu",
-        layout.size(), layout.align(), cookie.size(), cookie.align());
+      "attempted to free allocation with layout %zu:%zu, but it was actually "
+      "allocated with %zu:%zu",
+      layout.size(), layout.align(), cookie.size(), cookie.align());
   }
 
   layout = actual;
@@ -77,7 +75,7 @@ void check_addr(void* p) {
   }
   if (reinterpret_cast<uintptr_t>(p) < 0x1000) {
     best::crash_internal::crash(
-        "attempted to de/reallocate a dangling pointer");
+      "attempted to de/reallocate a dangling pointer");
   }
 }
 }  // namespace
@@ -94,8 +92,8 @@ void* malloc::alloc(best::layout layout) {
 
   if (best::unlikely(p == nullptr)) {
     best::crash_internal::crash(
-        "malloc() returned a null pointer on layout %zu:%zu", layout.size(),
-        layout.align());
+      "malloc() returned a null pointer on layout %zu:%zu", layout.size(),
+      layout.align());
   }
 
   if (UseCookies) {
@@ -103,9 +101,7 @@ void* malloc::alloc(best::layout layout) {
     p = static_cast<char*>(p) + (actual.size() - layout.size());
   }
 
-  if (best::is_debug()) {
-    std::memset(p, 0xcd, layout.size());
-  }
+  if (best::is_debug()) { std::memset(p, 0xcd, layout.size()); }
   return p;
 }
 
@@ -116,8 +112,8 @@ void* malloc::zalloc(best::layout layout) {
     void* p = ::calloc(actual.size(), 1);
     if (best::unlikely(p == nullptr)) {
       best::crash_internal::crash(
-          "calloc() returned a null pointer on layout %zu:%zu", layout.size(),
-          layout.align());
+        "calloc() returned a null pointer on layout %zu:%zu", layout.size(),
+        layout.align());
     }
     if (UseCookies) {
       std::memcpy(p, &layout, sizeof(layout));
@@ -140,8 +136,8 @@ void* malloc::realloc(void* ptr, best::layout old, best::layout layout) {
     void* p = ::realloc(ptr, actual.size());
     if (best::unlikely(p == nullptr)) {
       best::crash_internal::crash(
-          "realloc() returned a null pointer on layout %zu:%zu -> %zu:%zu",
-          old.size(), old.align(), layout.size(), layout.align());
+        "realloc() returned a null pointer on layout %zu:%zu -> %zu:%zu",
+        old.size(), old.align(), layout.size(), layout.align());
     }
     if (UseCookies) {
       std::memcpy(p, &layout, sizeof(layout));

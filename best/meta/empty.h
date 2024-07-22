@@ -83,7 +83,7 @@ class ebo /* not final! */ {
   ///
   /// Constructs a new `ebo` by calling the constructor of the wrapped type
   constexpr ebo(best::in_place_t, auto&&... args)
-      : BEST_EBO_VALUE_(BEST_FWD(args)...) {}
+    : BEST_EBO_VALUE_(BEST_FWD(args)...) {}
 
   constexpr ebo() = default;
   constexpr ebo(const ebo&) = default;
@@ -107,8 +107,7 @@ class ebo<T, Tag, ident, true, true, relo> /* not final! */ : T {
  public:
   constexpr ebo(best::in_place_t, auto&&... args) : T(BEST_FWD(args)...) {}
 
-  constexpr ebo()
-    requires best::constructible<T>
+  constexpr ebo() requires best::constructible<T>
   = default;
   constexpr ebo(const ebo&) = default;
   constexpr ebo& operator=(const ebo&) = default;
@@ -126,11 +125,10 @@ class ebo<T, Tag, ident, true, false, true> /* not final! */ {
     (void)T(BEST_FWD(args)...);
   }
 
-  constexpr ebo()
-    requires best::constructible<T, trivially>
+  constexpr ebo() requires best::constructible<T, trivially>
   = default;
   constexpr ebo()
-    requires(best::constructible<T> && !best::constructible<T, trivially>)
+    requires (best::constructible<T> && !best::constructible<T, trivially>)
   {
     (void)T();
   };

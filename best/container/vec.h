@@ -54,8 +54,8 @@ class vec;
 /// Determines whether `V` is some `best::vec<...>`.
 template <typename V>
 concept is_vec =
-    best::same<best::as_auto<V>,
-               best::vec<typename V::type, V::MaxInline, typename V::alloc>>;
+  best::same<best::as_auto<V>,
+             best::vec<typename V::type, V::MaxInline, typename V::alloc>>;
 
 /// # `best::vec_inline_default()`
 ///
@@ -64,8 +64,8 @@ template <typename T>
 constexpr size_t vec_inline_default() {
   // This is at most 24, so we only need to take a single byte
   // for the size.
-  auto best_possible = best::layout::of_struct<best::span<T>, size_t>().size() /
-                       best::size_of<T>;
+  auto best_possible =
+    best::layout::of_struct<best::span<T>, size_t>().size() / best::size_of<T>;
   return best::saturating_sub(best_possible, 1);
 }
 
@@ -120,11 +120,11 @@ class vec final {
   explicit vec(Range&& range)
     requires best::constructible<T, best::data_type<Range>> &&
              best::constructible<alloc>
-      : vec(alloc{}, BEST_FWD(range)) {}
+    : vec(alloc{}, BEST_FWD(range)) {}
   template <contiguous Range>
   vec(alloc alloc, Range&& range)
     requires best::constructible<T, best::data_type<Range>>
-      : vec(std::move(alloc)) {
+    : vec(std::move(alloc)) {
     assign(range);
     // TODO: move optimization?
   }
@@ -136,15 +136,13 @@ class vec final {
   explicit vec(Iter&& iter)
     requires best::constructible<T, best::iter_type<Iter>> &&
              best::constructible<alloc>
-      : vec(alloc{}, BEST_FWD(iter)) {}
+    : vec(alloc{}, BEST_FWD(iter)) {}
   template <is_iter Iter>
   vec(alloc alloc, Iter&& iter)
     requires best::constructible<T, best::iter_type<Iter>>
-      : vec(std::move(alloc)) {
+    : vec(std::move(alloc)) {
     reserve(iter.size_hint().lower);
-    for (auto&& elem : iter) {
-      push(BEST_FWD(elem));
-    }
+    for (auto&& elem : iter) { push(BEST_FWD(elem)); }
   }
 
   /// # `vec::vec{...}`
@@ -152,14 +150,13 @@ class vec final {
   /// Constructs a vector via initializer list.
   vec(std::initializer_list<value_type> range)
     requires best::constructible<alloc> && best::is_object<T>
-      : vec(alloc{}, range) {}
+    : vec(alloc{}, range) {}
 
   /// # `vec::vec(alloc, {...})`
   ///
   /// Constructs a vector via initializer list, using the given allocator.
-  vec(alloc alloc, std::initializer_list<T> range)
-    requires best::is_object<T>
-      : vec(std::move(alloc)) {
+  vec(alloc alloc, std::initializer_list<T> range) requires best::is_object<T>
+    : vec(std::move(alloc)) {
     assign(range);
   }
 
@@ -168,7 +165,7 @@ class vec final {
   /// Constructs a vector from an array box, by taking ownership of the
   /// allocation.
   vec(box<T[], alloc>&& box)
-      : alloc_(best::in_place, BEST_MOVE(box.allocator())) {
+    : alloc_(best::in_place, BEST_MOVE(box.allocator())) {
     raw_ = BEST_MOVE(box).leak();
     store_size(~raw_.size());
   }
@@ -177,8 +174,7 @@ class vec final {
   ///
   /// Vectors are copyable if their elements are copyable; vectors are
   /// always moveable.
-  vec(const vec& that)
-    requires best::copyable<T> && best::copyable<alloc>;
+  vec(const vec& that) requires best::copyable<T> && best::copyable<alloc>;
   vec& operator=(const vec& that)
     requires best::copyable<T> && best::copyable<alloc>;
   vec(vec&& that);
@@ -210,9 +206,7 @@ class vec final {
   /// Returns this vector's capacity (the number of elements it can hold before
   /// being forced to resize).
   size_t capacity() const {
-    if (auto heap = on_heap()) {
-      return heap->size();
-    }
+    if (auto heap = on_heap()) { return heap->size(); }
     return max_inline;
   }
 
@@ -299,15 +293,15 @@ class vec final {
   ///
   /// Converts this vector into a box by taking ownership of the allocation.
   best::box<T[], alloc> to_box() && {
-    if (is_empty()) return {};
+    if (is_empty()) { return {}; }
 
     spill_to_heap(size(), true);
     auto span = as_span();
     store_size(0);  // This disables the destructor by marking this as an empty
                     // inlined vector.
     return best::box<T[], alloc>(
-        unsafe("we are marking this vector completely empty in this function"),
-        *BEST_MOVE(alloc_), span);
+      unsafe("we are marking this vector completely empty in this function"),
+      *BEST_MOVE(alloc_), span);
   }
 
   /// # `vec::reserve()`.
@@ -320,7 +314,7 @@ class vec final {
   ///
   /// Resizes the underlying allocation such that `capacity == size`.
   void shrink_to_fit() {
-    if (size() == capacity() || !on_heap()) return;
+    if (size() == capacity() || !on_heap()) { return; }
     spill_to_heap(size());
   }
 
@@ -338,8 +332,7 @@ class vec final {
   /// # `vec::push()`.
   ///
   /// Constructs a new value at the end of this vector, in-place.
-  ref push(auto&&... args)
-    requires best::constructible<T, decltype(args)&&...>
+  ref push(auto&&... args) requires best::constructible<T, decltype(args)&&...>
   {
     return insert(size(), BEST_FWD(args)...);
   }
@@ -352,8 +345,8 @@ class vec final {
   ref insert(size_t idx, auto&&... args)
     requires best::constructible<T, decltype(args)&&...>
   {
-    auto ptr = insert_uninit(unsafe("we call construct immediately after this"),
-                             idx, 1);
+    auto ptr =
+      insert_uninit(unsafe("we call construct immediately after this"), idx, 1);
     ptr.construct(BEST_FWD(args)...);
     return *ptr;
   }
@@ -472,9 +465,7 @@ class vec final {
   void splice_within(size_t idx, size_t start, size_t count);
 
   best::option<best::span<T>> on_heap() const {
-    if (best::to_signed(load_size()) < 0) {
-      return raw_;
-    }
+    if (best::to_signed(load_size()) < 0) { return raw_; }
     return best::none;
   }
 
@@ -516,7 +507,7 @@ class vec final {
   // How big the area where inlined values live is, including the size.
   size_t inlined_region_size() const {
     return reinterpret_cast<const char*>(
-               &size_do_not_use_directly_or_else_ub_) -
+             &size_do_not_use_directly_or_else_ub_) -
            reinterpret_cast<const char*>(this) + best::size_of<size_t>;
   }
   size_t load_size() const {
@@ -529,15 +520,15 @@ class vec final {
   }
 
   static constexpr size_t InternalAlignment =
-      max_inline > 0 && best::align_of<T> > best::align_of<best::span<T>>
-          ? best::align_of<T>
-          : best::align_of<best::span<T>>;
+    max_inline > 0 && best::align_of<T> > best::align_of<best::span<T>>
+      ? best::align_of<T>
+      : best::align_of<best::span<T>>;
 
   alignas(InternalAlignment) best::span<T> raw_;
   [[no_unique_address]] padding padding_;
   ssize_t  // Signed so we get "reasonable"
            // debugging prints in gdb.
-      size_do_not_use_directly_or_else_ub_ = 0;
+    size_do_not_use_directly_or_else_ub_ = 0;
   [[no_unique_address]] best::object<alloc> alloc_;
 };
 
@@ -546,7 +537,7 @@ vec(std::initializer_list<T>) -> vec<T>;
 template <contiguous Range>
 vec(Range) -> vec<best::as_auto<typename best::data_type<Range>>>;
 template <is_iter Iter>
-  requires(!contiguous<Iter>)
+requires (!contiguous<Iter>)
 vec(Iter) -> vec<best::as_auto<typename best::iter_type<Iter>>>;
 }  // namespace best
 
@@ -558,12 +549,12 @@ namespace best {
 template <best::relocatable T, size_t max_inline, best::allocator A>
 vec<T, max_inline, A>::vec(const vec& that)
   requires best::copyable<T> && best::copyable<alloc>
-    : vec(that.allocator()) {
+  : vec(that.allocator()) {
   assign(that);
 }
 template <best::relocatable T, size_t max_inline, best::allocator A>
-auto vec<T, max_inline, A>::operator=(const vec& that) -> vec&
-  requires best::copyable<T> && best::copyable<alloc>
+auto vec<T, max_inline, A>::operator=(const vec& that)
+  -> vec& requires best::copyable<T> && best::copyable<alloc>
 {
   assign(that);
   return *this;
@@ -581,7 +572,7 @@ auto vec<T, max_inline, A>::operator=(vec&& that) -> vec& {
 
 template <best::relocatable T, size_t max_inline, best::allocator A>
 void vec<T, max_inline, A>::move_construct(vec&& that, bool assign) {
-  if (best::equal(this, &that)) return;
+  if (best::equal(this, &that)) { return; }
 
   if (auto heap = that.on_heap()) {
     destroy();
@@ -611,9 +602,7 @@ void vec<T, max_inline, A>::move_construct(vec&& that, bool assign) {
     data().relo(that.data(), new_size);
   }
 
-  if (assign) {
-    alloc_ = std::move(that.alloc_);
-  }
+  if (assign) { alloc_ = std::move(that.alloc_); }
 
   that.store_size(0);  // This resets `that` to being empty and inlined.
 }
@@ -630,17 +619,13 @@ void vec<T, max_inline, A>::destroy() {
 
 template <best::relocatable T, size_t max_inline, best::allocator A>
 best::ptr<const T> vec<T, max_inline, A>::data() const {
-  if (auto heap = on_heap()) {
-    return heap->data();
-  }
+  if (auto heap = on_heap()) { return heap->data(); }
   return reinterpret_cast<const best::ptr<T>::pointee*>(this);
 }
 
 template <best::relocatable T, size_t max_inline, best::allocator A>
 best::ptr<T> vec<T, max_inline, A>::data() {
-  if (auto heap = on_heap()) {
-    return heap->data();
-  }
+  if (auto heap = on_heap()) { return heap->data(); }
   return reinterpret_cast<best::ptr<T>::pointee*>(this);
 }
 
@@ -687,7 +672,7 @@ void vec<T, max_inline, A>::set_size(unsafe, size_t new_size) {
 
 template <best::relocatable T, size_t max_inline, best::allocator A>
 void vec<T, max_inline, A>::assign(const contiguous auto& that) {
-  if (best::equal(this, &that)) return;
+  if (best::equal(this, &that)) { return; }
 
   using Range = best::unref<decltype(that)>;
   if constexpr (best::is_vec<Range>) {
@@ -733,55 +718,53 @@ void vec<T, max_inline, A>::splice_within(size_t idx, size_t start,
   insert_uninit(unsafe("we perform copies immediately after this"), idx, count);
 
   unsafe u(
-      "no bounds checks required; has_subarray and insert_uninit verify "
-      "all relevant bounds for us");
+    "no bounds checks required; has_subarray and insert_uninit verify "
+    "all relevant bounds for us");
   if (idx > end) {
     // The spliced-from region is before the insertion point, so we have
     // one loop.
     as_span()
-        .at(u, {.start = idx, .count = count})
-        .emplace_from(as_span().at(u, {.start = start, .end = end}));
+      .at(u, {.start = idx, .count = count})
+      .emplace_from(as_span().at(u, {.start = start, .end = end}));
   } else if (idx < start) {
     // The spliced-from region is after the insertion point. This is the
     // same as above, but we need to offset the slice operation by
     // `that.size()`.
 
     as_span()
-        .at(u, {.start = idx, .count = count})
-        .emplace_from(
-            as_span().at(u, {.start = start + count, .end = end + count}));
+      .at(u, {.start = idx, .count = count})
+      .emplace_from(
+        as_span().at(u, {.start = start + count, .end = end + count}));
   } else {
     // The annoying case. We need to do the copy in two parts.
     size_t before = idx - start;
     size_t after = count - before;
 
     as_span()
-        .at(u, {.start = idx, .count = before})
-        .emplace_from(as_span().at(u, {.start = start, .count = before}));
+      .at(u, {.start = idx, .count = before})
+      .emplace_from(as_span().at(u, {.start = start, .count = before}));
     as_span()
-        .at(u, {.start = idx + before, .count = after})
-        .emplace_from(as_span().at(u, {.start = idx, .count = after}));
+      .at(u, {.start = idx + before, .count = after})
+      .emplace_from(as_span().at(u, {.start = idx, .count = after}));
   }
 }
 
 template <best::relocatable T, size_t max_inline, best::allocator A>
 void vec<T, max_inline, A>::truncate(size_t count) {
-  if (count > size()) return;
+  if (count > size()) { return; }
   resize_uninit(count);
 }
 template <best::relocatable T, size_t max_inline, best::allocator A>
 void vec<T, max_inline, A>::clear() {
   if (!best::destructible<T, trivially>) {
-    for (size_t i = 0; i < size(); ++i) {
-      (data() + i).destroy();
-    }
+    for (size_t i = 0; i < size(); ++i) { (data() + i).destroy(); }
   }
   set_size(unsafe("we just destroyed all elements"), 0);
 }
 
 template <best::relocatable T, size_t max_inline, best::allocator A>
 best::option<T> vec<T, max_inline, A>::pop() {
-  if (is_empty()) return best::none;
+  if (is_empty()) { return best::none; }
   return remove(size() - 1);
 }
 
@@ -801,8 +784,8 @@ void vec<T, max_inline, A>::erase(best::bounds bounds) {
   size_t end = bounds.start + range.size();
   size_t len = size() - end;
   as_span().shift_within(
-      unsafe("shifting elements over the ones we just destroyed"), start, end,
-      len);
+    unsafe("shifting elements over the ones we just destroyed"), start, end,
+    len);
   set_size(unsafe("updating length to exclude the range we just deleted"),
            size() - range.size());
 }
@@ -811,7 +794,7 @@ template <best::relocatable T, size_t max_inline, best::allocator A>
 best::ptr<T> vec<T, max_inline, A>::insert_uninit(unsafe u, size_t start,
                                                   size_t count) {
   (void)as_span()[{.start = start}];  // Trigger a bounds check.
-  if (count == 0) return data() + start;
+  if (count == 0) { return data() + start; }
 
   // TODO(mcyoung): Ideally, this operation should be fused with reserve,
   // since there are cases where we can perform a memmove as-we-go when we
@@ -820,9 +803,7 @@ best::ptr<T> vec<T, max_inline, A>::insert_uninit(unsafe u, size_t start,
 
   /// Relocate elements to create an empty space.
   auto end = start + count;
-  if (start < size()) {
-    as_span().shift_within(u, end, start, size() - start);
-  }
+  if (start < size()) { as_span().shift_within(u, end, start, size() - start); }
   set_size(u, size() + count);
   return data() + start;
 }
@@ -833,8 +814,8 @@ void vec<T, max_inline, A>::resize_uninit(size_t new_size) {
   if (new_size <= capacity()) {
     if (new_size < old_size) {
       as_span()
-          .at(unsafe{"we just did a bounds check (above)"}, {.start = new_size})
-          .destroy();
+        .at(unsafe{"we just did a bounds check (above)"}, {.start = new_size})
+        .destroy();
       set_size(unsafe("elements beyond new_size destroyed above"), new_size);
     }
     return;
@@ -861,9 +842,7 @@ void vec<T, max_inline, A>::spill_to_heap(best::option<size_t> capacity_hint,
   }
 
   // If we don't hint at a capacity, pick 32 as a "good default".
-  if (size() < 32 && !capacity_hint) {
-    new_size = 32;
-  }
+  if (size() < 32 && !capacity_hint) { new_size = 32; }
 
   auto old_layout = best::layout::array<T>(capacity());
   auto new_layout = best::layout::array<T>(new_size);
@@ -880,11 +859,11 @@ void vec<T, max_inline, A>::spill_to_heap(best::option<size_t> capacity_hint,
   // In the general case, we need to allocate new memory, relocate the values,
   // destroy the moved-from values, and free the old buffer if it is on-heap.
   best::ptr<T> new_data =
-      static_cast<best::ptr<T>::pointee*>(alloc_->alloc(new_layout));
+    static_cast<best::ptr<T>::pointee*>(alloc_->alloc(new_layout));
 
   size_t old_size = size();
   new_data.relo(data(), old_size);
-  if (on_heap()) alloc_->dealloc(data(), old_layout);
+  if (on_heap()) { alloc_->dealloc(data(), old_layout); }
 
   // construct_at instead of assignment, since raw_ may contain garbage, so
   // calling its operator= is UB.

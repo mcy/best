@@ -159,7 +159,7 @@ class iter final {
   constexpr /*default*/ size_t count() && {
     BEST_ITER_FWD(count);
     size_t total = 0;
-    while (next().has_value()) ++total;
+    while (next().has_value()) { ++total; }
     return total;
   }
 
@@ -170,9 +170,7 @@ class iter final {
     BEST_ITER_FWD(last);
 
     best::option<item> last;
-    while (auto v = next()) {
-      last = BEST_MOVE(v);
-    }
+    while (auto v = next()) { last = BEST_MOVE(v); }
     return last;
   }
 
@@ -334,7 +332,7 @@ class map final {
 
  private:
   constexpr explicit map(best::iter<Impl> iter, Cb cb)
-      : iter_(BEST_MOVE(iter)), cb_(BEST_FWD(cb)) {}
+    : iter_(BEST_MOVE(iter)), cb_(BEST_FWD(cb)) {}
 
   friend best::iter<Impl>;
   [[no_unique_address]] iter<Impl> iter_;
@@ -352,22 +350,22 @@ constexpr auto iter<Impl>::map(best::callable<void(item&&)> auto&& cb) && {
 template <typename Impl>
 constexpr auto iter<Impl>::inspect(best::callable<void()> auto&& cb) && {
   return best::iter(iter_internal::map{
-      std::move(*this),
-      [cb = BEST_FWD(cb)](auto&& value) -> decltype(auto) {
-        best::call(cb);
-        return BEST_FWD(value);
-      },
+    std::move(*this),
+    [cb = BEST_FWD(cb)](auto&& value) -> decltype(auto) {
+      best::call(cb);
+      return BEST_FWD(value);
+    },
   });
 }
 
 template <typename Impl>
 constexpr auto iter<Impl>::inspect(best::callable<void(item&)> auto&& cb) && {
   return best::iter(iter_internal::map{
-      std::move(*this),
-      [cb = BEST_FWD(cb)](auto&& value) -> decltype(auto) {
-        best::call(cb, value);
-        return item(value);
-      },
+    std::move(*this),
+    [cb = BEST_FWD(cb)](auto&& value) -> decltype(auto) {
+      best::call(cb, value);
+      return item(value);
+    },
   });
 }
 
@@ -386,7 +384,7 @@ class enumerate final {
 
  private:
   constexpr explicit enumerate(best::iter<Impl> iter)
-      : iter_(BEST_MOVE(iter)) {}
+    : iter_(BEST_MOVE(iter)) {}
 
   friend best::iter<Impl>;
   [[no_unique_address]] iter<Impl> iter_;
@@ -406,7 +404,7 @@ template <typename Impl>
 class take final {
  public:
   constexpr best::option<typename iter<Impl>::item> next() {
-    if (count_ == 0) return best::none;
+    if (count_ == 0) { return best::none; }
     --count_;
     return iter_.next();
   }
@@ -418,7 +416,7 @@ class take final {
 
  private:
   constexpr explicit take(best::iter<Impl> iter, size_t n)
-      : iter_(BEST_MOVE(iter)), count_(n) {}
+    : iter_(BEST_MOVE(iter)), count_(n) {}
 
   friend best::iter<Impl>;
   [[no_unique_address]] iter<Impl> iter_;

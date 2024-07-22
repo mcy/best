@@ -39,8 +39,8 @@ best::test Eq = [](auto& t) {
 
 best::test Chain = [](auto& t) {
   t.expect_eq(
-      best::ord::equal->*best::or_cmp([] { return best::ord::greater; }),
-      best::ord::greater);
+    best::ord::equal->*best::or_cmp([] { return best::ord::greater; }),
+    best::ord::greater);
   t.expect_eq(best::ord::less->*best::or_cmp([] { return best::ord::greater; }),
               best::ord::less);
 };

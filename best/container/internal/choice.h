@@ -50,7 +50,7 @@ class tagged {
   template <size_t n, typename... Args>
   constexpr explicit tagged(best::index_t<n>, Args&&... args)
     requires best::constructible<type<n>, Args&&...>
-      : union_(best::index<n>, BEST_FWD(args)...), tag_(n) {}
+    : union_(best::index<n>, BEST_FWD(args)...), tag_(n) {}
 
   constexpr size_t tag() const { return tag_; }
 
@@ -93,19 +93,19 @@ class niched {
   template <typename... Args>
   constexpr explicit niched(best::index_t<swap ^ 0>, Args&&... args)
     requires best::constructible<Empty, trivially, Args&&...>
-      : niched_(ctor_tag(), best::niche{}) {}
+    : niched_(ctor_tag(), best::niche{}) {}
 
   template <typename... Args>
   constexpr explicit niched(best::index_t<swap ^ 1>, Args&&... args)
     requires best::constructible<Niched, Args&&...>
-      : niched_(ctor_tag(), BEST_FWD(args)...) {}
+    : niched_(ctor_tag(), BEST_FWD(args)...) {}
 
   constexpr size_t tag() const {
     return swap ^ !get(unsafe("we're checking for the niche, so we need "
                               "to pull out the non-empty side"),
                        best::index<swap ^ 1>)
-                       .as_ptr()
-                       .is_niche();
+                     .as_ptr()
+                     .is_niche();
   }
 
   template <size_t n>
@@ -142,13 +142,13 @@ tagged<Ts...> which_storage(best::tlist<Ts...>, best::rank<0>);
 
 template <typename A, typename B>
 niched<1, B, A> which_storage(best::tlist<A, B>, best::rank<1>)
-  requires(has_niche<A> && best::is_empty<B> &&
-           best::constructible<B, trivially>);
+  requires (has_niche<A> && best::is_empty<B> &&
+            best::constructible<B, trivially>);
 
 template <typename A, typename B>
 niched<0, A, B> which_storage(best::tlist<A, B>, best::rank<2>)
-  requires(has_niche<B> && best::is_empty<A> &&
-           best::constructible<A, trivially>);
+  requires (has_niche<B> && best::is_empty<A> &&
+            best::constructible<A, trivially>);
 
 template <typename... Ts>
 using storage = decltype(which_storage(types<Ts...>, best::rank<2>{}));
@@ -169,44 +169,36 @@ class impl : public storage<Ts...> {
 
   constexpr impl() = default;
 
-  constexpr impl(const impl&)
-    requires(info.trivial_copy())
+  constexpr impl(const impl&) requires (info.trivial_copy())
   = default;
-  constexpr impl(const impl& that)
-    requires(!info.trivial_copy())
+  constexpr impl(const impl& that) requires (!info.trivial_copy())
   {
     that.index_match([&](auto tag, auto&... value) {
       std::construct_at(this, tag, value...);
     });
   }
 
-  constexpr impl& operator=(const impl&)
-    requires(info.trivial_copy())
+  constexpr impl& operator=(const impl&) requires (info.trivial_copy())
   = default;
-  constexpr impl& operator=(const impl& that)
-    requires(!info.trivial_copy())
+  constexpr impl& operator=(const impl& that) requires (!info.trivial_copy())
   {
     that.index_match(
-        [&](auto tag, auto&... value) { emplace<tag.value>(value...); });
+      [&](auto tag, auto&... value) { emplace<tag.value>(value...); });
     return *this;
   }
 
-  constexpr impl(impl&&)
-    requires(info.trivial_move())
+  constexpr impl(impl&&) requires (info.trivial_move())
   = default;
-  constexpr impl(impl&& that)
-    requires(!info.trivial_move())
+  constexpr impl(impl&& that) requires (!info.trivial_move())
   {
     that.index_match([&](auto tag, auto&... value) {
       std::construct_at(this, tag, BEST_MOVE(value)...);
     });
   }
 
-  constexpr impl& operator=(impl&&)
-    requires(info.trivial_move())
+  constexpr impl& operator=(impl&&) requires (info.trivial_move())
   = default;
-  constexpr impl& operator=(impl&& that)
-    requires(!info.trivial_move())
+  constexpr impl& operator=(impl&& that) requires (!info.trivial_move())
   {
     that.index_match([&](auto tag, auto&... value) {
       emplace<tag.value>(BEST_MOVE(value)...);
@@ -214,11 +206,9 @@ class impl : public storage<Ts...> {
     return *this;
   }
 
-  constexpr ~impl()
-    requires(info.trivial_dtor())
+  constexpr ~impl() requires (info.trivial_dtor())
   = default;
-  constexpr ~impl()
-    requires(!info.trivial_dtor())
+  constexpr ~impl() requires (!info.trivial_dtor())
   {
     match([](auto&... value) { (std::destroy_at(best::addr(value)), ...); });
   }
@@ -229,8 +219,8 @@ class impl : public storage<Ts...> {
       if constexpr (best::is_object<type<which>> &&
                     best::assignable<type<which>, Args&&...>) {
         get(unsafe{"checked tag() before this"}, best::index<which>)
-            .as_ptr()
-            .assign(BEST_FWD(args)...);
+          .as_ptr()
+          .assign(BEST_FWD(args)...);
         return;
       }
     }
@@ -240,33 +230,33 @@ class impl : public storage<Ts...> {
 
   template <size_t n>
   BEST_INLINE_SYNTHETIC constexpr best::as_ref<const type<n>> deref(
-      unsafe u, best::index_t<n> i = {}) const {
+    unsafe u, best::index_t<n> i = {}) const {
     return *get(u, i);
   }
   template <size_t n>
   BEST_INLINE_SYNTHETIC constexpr best::as_ref<type<n>> deref(
-      unsafe u, best::index_t<n> i = {}) {
+    unsafe u, best::index_t<n> i = {}) {
     return *get(u, i);
   }
   template <size_t n>
   BEST_INLINE_SYNTHETIC constexpr best::as_ptr<type<n>> ptr(
-      unsafe u, best::index_t<n> i = {}) const {
+    unsafe u, best::index_t<n> i = {}) const {
     return get(u, i).operator->();
   }
   template <size_t n>
   BEST_INLINE_SYNTHETIC constexpr best::as_ptr<type<n>> ptr(
-      unsafe u, best::index_t<n> i = {}) {
+    unsafe u, best::index_t<n> i = {}) {
     return get(u, i).operator->();
   }
 
   template <size_t n>
   BEST_INLINE_SYNTHETIC constexpr const best::object<type<n>>& object(
-      unsafe u, best::index_t<n> i = {}) const {
+    unsafe u, best::index_t<n> i = {}) const {
     return get(u, i);
   }
   template <size_t n>
   BEST_INLINE_SYNTHETIC constexpr best::object<type<n>>& object(
-      unsafe u, best::index_t<n> i = {}) {
+    unsafe u, best::index_t<n> i = {}) {
     return get(u, i);
   }
 
@@ -289,7 +279,7 @@ class impl : public storage<Ts...> {
 
   template <typename F>
   BEST_INLINE_SYNTHETIC constexpr decltype(auto) index_match(
-      F&& callback) const& {
+    F&& callback) const& {
     return jump_table(make_index_match_arm(*this, BEST_FWD(callback)));
   }
   template <typename F>
@@ -298,7 +288,7 @@ class impl : public storage<Ts...> {
   }
   template <typename F>
   BEST_INLINE_SYNTHETIC constexpr decltype(auto) index_match(
-      F&& callback) const&& {
+    F&& callback) const&& {
     return jump_table(make_index_match_arm(*this, BEST_FWD(callback)));
   }
   template <typename F>
@@ -308,46 +298,43 @@ class impl : public storage<Ts...> {
 
  private:
   template <typename F, size_t... i>
-  constexpr static auto make_jump_table(std::index_sequence<i...>) {
+  static constexpr auto make_jump_table(std::index_sequence<i...>) {
     // TODO(mcyoung): It'd be nice to use common_type here...
     using Output = best::call_result<F, best::index_t<0>>;
 
     return std::array<Output (*)(F&&), sizeof...(Ts)>{
-        {+[](F&& callback) -> Output {
-          return best::call(BEST_FWD(callback), best::index<i>);
-        }...}};
+      {+[](F&& callback) -> Output {
+        return best::call(BEST_FWD(callback), best::index<i>);
+      }...}};
   }
 
   template <typename F>
   static constexpr auto JumpTable =
-      make_jump_table<F>(std::make_index_sequence<sizeof...(Ts)>{});
+    make_jump_table<F>(std::make_index_sequence<sizeof...(Ts)>{});
 
   constexpr decltype(auto) jump_table(auto&& arms) const
-    requires(sizeof...(Ts) > 2)
+    requires (sizeof...(Ts) > 2)
   {
     return JumpTable<decltype(arms)>[tag()](BEST_FWD(arms));
   }
 
   constexpr decltype(auto) jump_table(auto&& arms) const
-    requires(sizeof...(Ts) == 2)
+    requires (sizeof...(Ts) == 2)
   {
     switch (tag()) {
-      case 0:
-        return arms(best::index<0>);
-      case 1:
-        return arms(best::index<1>);
-      default:
-        best::unreachable();
+      case 0: return arms(best::index<0>);
+      case 1: return arms(best::index<1>);
+      default: best::unreachable();
     }
   }
 
   constexpr decltype(auto) jump_table(auto&& arms) const
-    requires(sizeof...(Ts) == 1)
+    requires (sizeof...(Ts) == 1)
   {
     return arms(best::index<0>);
   }
 
-  constexpr static auto make_match_arm(auto&& self, auto&& cb) {
+  static constexpr auto make_match_arm(auto&& self, auto&& cb) {
     return [&]<size_t n>(best::index_t<n> tag) -> decltype(auto) {
       using Type = best::refcopy<type<n>, decltype(self)&&>;
 
@@ -365,14 +352,14 @@ class impl : public storage<Ts...> {
         }
       } else {
         unsafe u(
-            "this function is only called after"
-            "checking tag() via the jump table.");
+          "this function is only called after"
+          "checking tag() via the jump table.");
         return best::call(BEST_FWD(cb), static_cast<Type>(*self.get(u, tag)));
       }
     };
   }
 
-  constexpr static auto make_index_match_arm(auto&& self, auto&& cb) {
+  static constexpr auto make_index_match_arm(auto&& self, auto&& cb) {
     return [&]<size_t n>(best::index_t<n> tag) -> decltype(auto) {
       using Type = best::refcopy<type<n>, decltype(self)&&>;
 
@@ -390,8 +377,8 @@ class impl : public storage<Ts...> {
         }
       } else {
         unsafe u(
-            "this function is only called after"
-            "checking tag() via the jump table.");
+          "this function is only called after"
+          "checking tag() via the jump table.");
         return best::call(BEST_FWD(cb), tag,
                           static_cast<Type>(*self.get(u, tag)));
       }
@@ -408,26 +395,18 @@ Overloaded(Fs&&...) -> Overloaded<Fs...>;
 
 template <size_t n, auto... p>
 inline constexpr auto InvertedPermutation =
-    []() -> container_internal::option<std::array<size_t, n>> {
+  []() -> container_internal::option<std::array<size_t, n>> {
   std::array<size_t, n> inverse;
-  for (auto& elem : inverse) {
-    elem = ~size_t{0};
-  }
+  for (auto& elem : inverse) { elem = ~size_t{0}; }
   std::array perm{p...};
   for (size_t i = 0; i < perm.size(); ++i) {
-    if (perm[i] >= n) {
-      return {};
-    }
+    if (perm[i] >= n) { return {}; }
 
-    if (inverse[perm[i]] != ~size_t{0}) {
-      return {};
-    }
+    if (inverse[perm[i]] != ~size_t{0}) { return {}; }
     inverse[perm[i]] = i;
   }
   for (auto& elem : inverse) {
-    if (elem == ~size_t{0}) {
-      return {};
-    }
+    if (elem == ~size_t{0}) { return {}; }
   }
   return inverse;
 }();

@@ -118,7 +118,7 @@ class textbuf final {
   /// Creates a new, empty string with the given encoding and/or allocator.
   textbuf() : textbuf(alloc{}) {}
   explicit textbuf(alloc alloc, encoding enc = {})
-      : buf_(std::move(alloc)), enc_(std::move(enc)) {}
+    : buf_(std::move(alloc)), enc_(std::move(enc)) {}
 
   /// # `textbuf::textbuf(textbuf)`
   ///
@@ -132,9 +132,9 @@ class textbuf final {
   ///
   /// Creates a new `textbuf` by copying from a corresponding `text`.
   explicit textbuf(best::text<encoding> str)
-      : buf_(alloc{}, str), enc_(str.enc()) {}
+    : buf_(alloc{}, str), enc_(str.enc()) {}
   textbuf(alloc alloc, best::text<encoding> str)
-      : buf_(std::move(alloc), str), enc_(str.enc()) {}
+    : buf_(std::move(alloc), str), enc_(str.enc()) {}
 
   /// # `textbuf::textbuf("...")`
   ///
@@ -142,17 +142,17 @@ class textbuf final {
   /// The array must be a constant, and it must contain validly-e\ncoded data.
   template <size_t n>
   textbuf(const code (&lit)[n]) BEST_IS_VALID_LITERAL(lit, encoding{})
-      : textbuf(unsafe("statically validated"), buf(span(lit, n - 1)),
-                encoding{}) {}
+    : textbuf(unsafe("statically validated"), buf(span(lit, n - 1)),
+              encoding{}) {}
 
   /// # `textbuf::text(unsafe)`
   ///
   /// Creates a new string by wrapping a code buffer or a pretext. It is up to
   /// the caller to ensure the data is well-encoded.
   explicit textbuf(unsafe, buf buf, encoding enc = {})
-      : buf_(std::move(buf)), enc_(std::move(enc)) {}
+    : buf_(std::move(buf)), enc_(std::move(enc)) {}
   explicit textbuf(unsafe, pretext text)
-      : buf_(std::move(text)), enc_(std::move(text.enc())) {}
+    : buf_(std::move(text)), enc_(std::move(text.enc())) {}
 
   /// # `textbuf::from()`
   ///
@@ -185,7 +185,7 @@ class textbuf final {
   static best::option<textbuf> transcode(alloc alloc,
                                          const string_type auto& that) {
     textbuf out(alloc);
-    if (!out.push(that)) return best::none;
+    if (!out.push(that)) { return best::none; }
     return out;
   }
 
@@ -290,7 +290,7 @@ class textbuf final {
   /// If `count > size()`, this function does nothing. Crashes if this would
   /// slice through a character boundary.
   void truncate(size_t count) {
-    if (count > size()) return;
+    if (count > size()) { return; }
     (void)operator[]({.count = count});  // Perform a bounds check.
     buf_.truncate(count);
   }
@@ -364,9 +364,7 @@ best::option<textbuf<E, A>> textbuf<E, A>::from(alloc alloc, pretext t) {
 
 template <typename E, allocator A>
 best::option<textbuf<E, A>> textbuf<E, A>::from(buf data, encoding enc) {
-  if (!rune::validate(data, enc)) {
-    return best::none;
-  }
+  if (!rune::validate(data, enc)) { return best::none; }
 
   return textbuf(best::in_place, std::move(data), std::move(enc));
 }

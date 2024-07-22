@@ -237,7 +237,7 @@ concept is_member_ptr = std::is_member_pointer_v<T>;
 /// Whether this is a function pointer type.
 template <typename T>
 concept is_func_ptr =
-    best::is_ptr<T> && best::is_func<std::remove_pointer_t<T>>;
+  best::is_ptr<T> && best::is_func<std::remove_pointer_t<T>>;
 
 /// # `best::as_ptr<T>`
 ///
@@ -265,15 +265,15 @@ using unptr = std::remove_pointer_t<T>;
 /// respectively.
 template <typename T, typename Target = void>
 concept is_deref =
-    (is_ptr<T> && (is_void<Target> ||
-                   std::is_same_v<Target, best::unqual<best::unptr<T>>>)) ||
-    (is_void<T> && requires(T& r) {
-      operator*(r);
-      r.operator->();
-    }) || requires(const T& cr) {
-      { operator*(cr) } -> std::convertible_to<const Target&>;
-      { cr.operator->() } -> std::convertible_to<const Target*>;
-    };
+  (is_ptr<T> &&
+   (is_void<Target> || std::is_same_v<Target, best::unqual<best::unptr<T>>>)) ||
+  (is_void<T> && requires(T& r) {
+    operator*(r);
+    r.operator->();
+  }) || requires(const T& cr) {
+    { operator*(cr) } -> std::convertible_to<const Target&>;
+    { cr.operator->() } -> std::convertible_to<const Target*>;
+  };
 
 /// # `best::addr()`
 ///

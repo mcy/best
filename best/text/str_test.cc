@@ -117,9 +117,7 @@ best::test Utf8Decode = [](auto& t) {
   t.expect_eq(test.size(), 27);
 
   best::vec<rune> runes;
-  for (rune r : test.runes()) {
-    runes.push(r);
-  }
+  for (rune r : test.runes()) { runes.push(r); }
 
   t.expect_eq(runes,
               best::span<const rune>{'s', 'o', 'l', 'o', 'm', 'o', 'n', U'🧶',
@@ -130,9 +128,7 @@ best::test Utf16Decode = [](auto& t) {
   best::str16 test = u"solomon🧶🐈‍⬛黒猫";
   t.expect_eq(test.size(), 15);
   best::vec<rune> runes;
-  for (rune r : test.runes()) {
-    runes.push(r);
-  }
+  for (rune r : test.runes()) { runes.push(r); }
 
   t.expect_eq(runes,
               best::span<const rune>{'s', 'o', 'l', 'o', 'm', 'o', 'n', U'🧶',

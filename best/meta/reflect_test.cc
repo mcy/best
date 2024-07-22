@@ -45,9 +45,9 @@ struct MyType final {
 
   constexpr friend auto BestReflect(auto& m, MyType*) {
     return m.infer()
-        .with(best::str("foo"))
-        .with(&MyType::y, MyCallback([] { return 42; }))
-        .hide(&MyType::transient);
+      .with(best::str("foo"))
+      .with(&MyType::y, MyCallback([] { return 42; }))
+      .hide(&MyType::transient);
   }
 
   constexpr bool operator==(const MyType&) const = default;
@@ -81,17 +81,13 @@ best::test FindTag = [](auto& t) {
   int found = -1;
   best::reflect<MyType>.each([&](auto field) {
     auto tags = field.tags(best::types<Tag>);
-    if constexpr (!tags.is_empty()) {
-      return found = tags.first().callback();
-    }
+    if constexpr (!tags.is_empty()) { return found = tags.first().callback(); }
   });
   t.expect_eq(found, 42);
 
   best::reflect<MyEnum>.each([&](auto field) {
     auto tags = field.tags(best::types<Tag>);
-    if constexpr (!tags.is_empty()) {
-      return found = tags.first().callback();
-    }
+    if constexpr (!tags.is_empty()) { return found = tags.first().callback(); }
   });
   t.expect_eq(found, 57);
 };
@@ -99,16 +95,14 @@ best::test FindTag = [](auto& t) {
 best::test FindField = [](auto& t) {
   MyType x0{1, 2, 3, "foo", "bar"};
   best::reflect<MyType>.match(
-      "x", [&] {},
-      [&](auto f) {
-        if constexpr (best::integer<typename decltype(f)::type>) {
-          x0->*f = 42;
-        }
-      });
+    "x", [&] {},
+    [&](auto f) {
+      if constexpr (best::integer<typename decltype(f)::type>) { x0->*f = 42; }
+    });
   t.expect_eq(x0, MyType{42, 2, 3, "foo", "bar"});
 
   auto x1 = best::reflect<MyEnum>.match(
-      "C", [&](auto f) { return f.value; }, [&] { return MyEnum(0); });
+    "C", [&](auto f) { return f.value; }, [&] { return MyEnum(0); });
   t.expect_eq(x1, MyEnum::C);
 };
 }  // namespace best::reflect_test

@@ -124,42 +124,42 @@ best::test Splice = [](auto& t) {
   t.expect_eq(x1, best::row{1, 2, nullptr, 4, nullptr});
 
   best::row<int, long, int*, int, int*&> x11 =
-      x0.push(best::bind, x0[best::index<2>]);
+    x0.push(best::bind, x0[best::index<2>]);
   t.expect_eq(x11, best::row{1, 2, nullptr, 4, nullptr});
 
   best::row<int, long, int*, int, long*> x12 =
-      x0.push(best::types<long*>, nullptr);
+    x0.push(best::types<long*>, nullptr);
   t.expect_eq(x12, best::row{1, 2, nullptr, 4, nullptr});
 
   best::row<int, long, int*, int*, int> x2 = x0.insert<3>(x0[best::index<2>]);
   t.expect_eq(x2, best::row{1, 2, nullptr, nullptr, 4});
 
   best::row<int, long, int*, int*&, int> x21 =
-      x0.insert<3>(best::bind, x0[best::index<2>]);
+    x0.insert<3>(best::bind, x0[best::index<2>]);
   t.expect_eq(x21, best::row{1, 2, nullptr, nullptr, 4});
 
   best::row<int, long, int*, long*, int> x22 =
-      x0.insert<3>(best::types<long*>, nullptr);
+    x0.insert<3>(best::types<long*>, nullptr);
   t.expect_eq(x22, best::row{1, 2, nullptr, nullptr, 4});
 
   best::row<int, long, int*, int*> x2o = x0.update<3>(x0[best::index<2>]);
   t.expect_eq(x2o, best::row{1, 2, nullptr, nullptr});
 
   best::row<int, long, int*, int*&> x21o =
-      x0.update<3>(best::bind, x0[best::index<2>]);
+    x0.update<3>(best::bind, x0[best::index<2>]);
   t.expect_eq(x21o, best::row{1, 2, nullptr, nullptr});
 
   best::row<int, long, int*, long*> x22o =
-      x0.update<3>(best::types<long*>, nullptr);
+    x0.update<3>(best::types<long*>, nullptr);
   t.expect_eq(x22o, best::row{1, 2, nullptr, nullptr});
 
   best::row<int, int, long, int*, int, int> x3o =
-      x0.splice<best::bounds{.start = 1, .end = 3}>(x0);
+    x0.splice<best::bounds{.start = 1, .end = 3}>(x0);
   t.expect_eq(x3o, best::row{1, 1, 2, nullptr, 4, 4});
 
   best::row<int, long, long, const int*, unsigned, int> x31 =
-      x0.splice<best::bounds{.start = 1, .end = 3}>(
-          best::types<long, long, const int*, unsigned>, x0);
+    x0.splice<best::bounds{.start = 1, .end = 3}>(
+      best::types<long, long, const int*, unsigned>, x0);
   t.expect_eq(x31, best::row{1, 1, 2, nullptr, 4, 4});
 
   best::row x4{MoveOnly(), 42};

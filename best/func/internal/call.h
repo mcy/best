@@ -33,7 +33,7 @@ struct tag {};
 
 template <typename... Ts, typename Class>
 BEST_INLINE_SYNTHETIC constexpr decltype(auto) call(
-    best::is_func auto Class::*member, auto&& self, auto&&... args)
+  best::is_func auto Class::*member, auto&& self, auto&&... args)
   requires requires {
     requires sizeof...(Ts) == 0;
     (self.*member)(BEST_FWD(args)...);
@@ -43,7 +43,7 @@ BEST_INLINE_SYNTHETIC constexpr decltype(auto) call(
 }
 template <typename... Ts, typename Class>
 BEST_INLINE_SYNTHETIC constexpr decltype(auto) call(
-    best::is_func auto Class::*member, auto* self, auto&&... args)
+  best::is_func auto Class::*member, auto* self, auto&&... args)
   requires requires {
     requires sizeof...(Ts) == 0;
     (self->*member)(BEST_FWD(args)...);
@@ -54,21 +54,19 @@ BEST_INLINE_SYNTHETIC constexpr decltype(auto) call(
 
 template <typename... Ts, typename Class>
 BEST_INLINE_SYNTHETIC constexpr decltype(auto) call(
-    best::is_object auto Class::*member, auto&& self)
-  requires requires {
-    requires sizeof...(Ts) == 0;
-    self.*member;
-  }
+  best::is_object auto Class::*member, auto&& self) requires requires {
+  requires sizeof...(Ts) == 0;
+  self.*member;
+}
 {
   return BEST_FWD(self).*member;
 }
 template <typename... Ts, typename Class>
 BEST_INLINE_SYNTHETIC constexpr decltype(auto) call(
-    best::is_object auto Class::*member, auto* self)
-  requires requires {
-    requires sizeof...(Ts) == 0;
-    self->*member;
-  }
+  best::is_object auto Class::*member, auto* self) requires requires {
+  requires sizeof...(Ts) == 0;
+  self->*member;
+}
 {
   return self->*member;
 }
@@ -112,12 +110,12 @@ constexpr bool can_call(tag<TParams...>, R (*)(Args...))
 {
   return best::is_void<R> ||
          best::convertible<R, decltype(call_internal::call<TParams...>(
-                                  best::lie<F>, best::lie<Args>...))>;
+                                best::lie<F>, best::lie<Args>...))>;
 }
 
 template <typename F, typename... Args>
 auto call_result(tag<Args...>)
-    -> decltype(call_internal::call(best::lie<F>, best::lie<Args>...));
+  -> decltype(call_internal::call(best::lie<F>, best::lie<Args>...));
 template <typename F, best::is_void V>
 auto call_result(tag<V>) -> decltype(call_internal::call(best::lie<F>));
 }  // namespace best::call_internal

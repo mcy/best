@@ -25,9 +25,9 @@
 namespace best::iter_test {
 best::test Map = [](auto& t) {
   best::vec<size_t> ints = best::bounds{.start = 5, .count = 7}
-                               .iter()
-                               .map([](int x) { return x * x; })
-                               .collect();
+                             .iter()
+                             .map([](int x) { return x * x; })
+                             .collect();
   t.expect_eq(ints, {25, 36, 49, 64, 81, 100, 121});
 };
 
@@ -36,9 +36,9 @@ best::test Count = [](auto& t) {
 
   size_t calls = 0;
   t.expect_eq(best::bounds{.start = 5, .count = 7}
-                  .iter()
-                  .inspect([&] { ++calls; })
-                  .count(),
+                .iter()
+                .inspect([&] { ++calls; })
+                .count(),
               7);
   t.expect_eq(calls, 7);
 };

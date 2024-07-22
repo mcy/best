@@ -47,9 +47,8 @@ best::test Utf8Decode = [](auto& t) {
   t.expect_eq(rune::decode(S{0b110'00010, 0b10'110101}), u'µ');
   t.expect_eq(rune::decode(S{0b1110'0111, 0b10'001100, 0b10'101011}), u'猫');
   t.expect_eq(
-      rune::decode(S{0b11110'000, 0b10'011111, 0b10'100111, 0b10'110110},
-                   utf8{}),
-      U'🧶');
+    rune::decode(S{0b11110'000, 0b10'011111, 0b10'100111, 0b10'110110}, utf8{}),
+    U'🧶');
 
   // Over-long encodings are forbidden.
   t.expect_eq(rune::decode(S{0b1100'0000, 0b1000'0000}),
@@ -64,22 +63,18 @@ best::test Utf8Decode = [](auto& t) {
 
   // This is the largest value accepted by utf8 and wtf8.
   t.expect_eq(
-      rune::decode(S{0b1111'0100, 0b1000'1111, 0b1011'1111, 0b1011'1111},
-                   utf8{}),
-      0x10ffff);
+    rune::decode(S{0b1111'0100, 0b1000'1111, 0b1011'1111, 0b1011'1111}, utf8{}),
+    0x10ffff);
   t.expect_eq(
-      rune::decode(S{0b1111'0100, 0b1000'1111, 0b1011'1111, 0b1011'1111},
-                   wtf8{}),
-      0x10ffff);
+    rune::decode(S{0b1111'0100, 0b1000'1111, 0b1011'1111, 0b1011'1111}, wtf8{}),
+    0x10ffff);
 
   t.expect_eq(
-      rune::decode(S{0b1111'0100, 0b1001'0000, 0b1000'0000, 0b1000'0000},
-                   utf8{}),
-      encoding_error::Invalid);
+    rune::decode(S{0b1111'0100, 0b1001'0000, 0b1000'0000, 0b1000'0000}, utf8{}),
+    encoding_error::Invalid);
   t.expect_eq(
-      rune::decode(S{0b1111'0100, 0b1001'0000, 0b1000'0000, 0b1000'0000},
-                   wtf8{}),
-      encoding_error::Invalid);
+    rune::decode(S{0b1111'0100, 0b1001'0000, 0b1000'0000, 0b1000'0000}, wtf8{}),
+    encoding_error::Invalid);
 };
 
 best::test Utf16Encode = [](auto& t) {

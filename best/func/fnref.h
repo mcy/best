@@ -46,10 +46,10 @@ namespace best {
 /// container. It's not forbidden, but it's something to do carefully.
 template <typename Signature>
 class fnref final : best::abominable_internal::tame<Signature>::template apply<
-                        fnref_internal::impl> {
+                      fnref_internal::impl> {
  private:
   using impl_t = best::abominable_internal::tame<Signature>::template apply<
-      fnref_internal::impl>;
+    fnref_internal::impl>;
 
  public:
   /// # `fnref::output`

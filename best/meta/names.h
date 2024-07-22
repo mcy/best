@@ -100,8 +100,8 @@ template <best::is_member_ptr auto pm>
 inline constexpr best::str field_name = best::names_internal::parse<pm>();
 template <best::is_enum auto e>
 inline constexpr best::option<best::str> value_name = BEST_PUSH_GCC_DIAGNOSTIC()
-    BEST_IGNORE_GCC_DIAGNOSTIC("-Wenum-constexpr-conversion")
-        best::names_internal::parse<e>();
+  BEST_IGNORE_GCC_DIAGNOSTIC("-Wenum-constexpr-conversion")
+    best::names_internal::parse<e>();
 BEST_POP_GCC_DIAGNOSTIC()
 }  // namespace best
 
@@ -111,12 +111,12 @@ BEST_POP_GCC_DIAGNOSTIC()
 
 namespace best {
 constexpr type_names::type_names(names_internal::priv, best::str name)
-    : full_name_(name) {
+  : full_name_(name) {
   first_angle_ = full_name_.find('<').value_or(full_name_.size());
 
-  last_colcol_ = first_angle_ - names_internal::remove_namespace(
-                                    full_name_[{.end = first_angle_}])
-                                    .size();
+  last_colcol_ =
+    first_angle_ -
+    names_internal::remove_namespace(full_name_[{.end = first_angle_}]).size();
 }
 
 }  // namespace best

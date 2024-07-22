@@ -48,7 +48,7 @@ template <typename K, typename... Ts, const auto& lut = lookup<K, Ts...>,
           size_t count = lut[0]>
 inline constexpr auto do_lookup() {
   return best::indices<lut[0]>.apply(
-      []<size_t... i> { return best::vals<lut[i + 1]...>; });
+    []<size_t... i> { return best::vals<lut[i + 1]...>; });
 }
 
 template <size_t i, typename T>
@@ -90,7 +90,7 @@ struct impl<I, A, B> {
 };
 
 template <size_t... i, typename... Elems>
-  requires(sizeof...(i) > 2)
+requires (sizeof...(i) > 2)
 struct impl<const best::vlist<i...>, Elems...> : elem<i, Elems>... {
   template <size_t j>
   constexpr const auto& get_impl(best::index_t<j>) const {
@@ -126,20 +126,20 @@ template <typename Out, size_t... i, size_t... j, size_t... k>
 constexpr auto make_slicer(std::index_sequence<i...>, std::index_sequence<j...>,
                            std::index_sequence<k...>) {
   return []<splat<i>... prefix, splat<j>... infix, splat<k>... suffix>(
-             prefix&&..., infix&&... args, suffix&&...) {
+           prefix&&..., infix&&... args, suffix&&...) {
     return Out{BEST_FWD(args)...};
   };
 }
 template <best::bounds b, typename... Ts,
           auto count = b.try_compute_count(sizeof...(Ts))>
-  requires(count.has_value())
+requires (count.has_value())
 constexpr auto slice(auto&& row) {
   using Out = decltype(row.types.template at<b>().template apply<best::row>());
   return BEST_FWD(row).apply([](auto&&... args) {
     return make_slicer<Out>(
-        std::make_index_sequence<b.start>{}, std::make_index_sequence<*count>{},
-        std::make_index_sequence<sizeof...(args) - (b.start + *count)>{})(
-        BEST_FWD(args)...);
+      std::make_index_sequence<b.start>{}, std::make_index_sequence<*count>{},
+      std::make_index_sequence<sizeof...(args) - (b.start + *count)>{})(
+      BEST_FWD(args)...);
   });
 }
 
@@ -150,23 +150,22 @@ constexpr auto make_splicer(std::index_sequence<i...>,
                             std::index_sequence<j...>,
                             std::index_sequence<k...>, auto&&... args) {
   return [&]<splat<i>... prefix, splat<j>... infix, splat<k>... suffix>(
-             prefix&&... pre, infix&&..., suffix&&... suf) {
+           prefix&&... pre, infix&&..., suffix&&... suf) {
     return Out{BEST_FWD(pre)..., BEST_FWD(args)..., BEST_FWD(suf)...};
   };
 }
 template <best::bounds b, typename... Ts,
           auto count = b.try_compute_count(sizeof...(Ts))>
-  requires(count.has_value())
+requires (count.has_value())
 constexpr auto splice(auto&& row, auto those_types, auto&& those) {
   using Out = decltype(row.types.template splice<b>(those_types)
-                           .template apply<best::row>());
+                         .template apply<best::row>());
   return BEST_FWD(row).apply([&](auto&&... args) {
     return BEST_FWD(those).apply([&](auto&&... insert) {
       return make_splicer<Out>(
-          std::make_index_sequence<b.start>{},
-          std::make_index_sequence<*count>{},
-          std::make_index_sequence<sizeof...(args) - (b.start + *count)>{},
-          BEST_FWD(insert)...)(BEST_FWD(args)...);
+        std::make_index_sequence<b.start>{}, std::make_index_sequence<*count>{},
+        std::make_index_sequence<sizeof...(args) - (b.start + *count)>{},
+        BEST_FWD(insert)...)(BEST_FWD(args)...);
     });
   });
 }
@@ -174,29 +173,29 @@ constexpr auto splice(auto&& row, auto those_types, auto&& those) {
 // See tlist_internal::gather_impl() and tlist_internal::scatter_impl().
 template <size_t... i>
 constexpr auto gather(auto&& row)
-  requires((i < best::as_auto<decltype(row)>::size()) && ...)
+  requires ((i < best::as_auto<decltype(row)>::size()) && ...)
 {
   using Out =
-      decltype(row.types.template gather<i...>().template apply<best::row>());
+    decltype(row.types.template gather<i...>().template apply<best::row>());
   return Out{BEST_FWD(row)[best::index<i>]...};
 }
 template <size_t... i>
 constexpr auto scatter(auto&& row, auto those_types, auto&& those)
-  requires((i < best::as_auto<decltype(row)>::size()) && ...) &&
-          (sizeof...(i) <= best::as_auto<decltype(those)>::size()) &&
-          (sizeof...(i) <= best::as_auto<decltype(those_types)>::size()) &&
-          (best::as_auto<decltype(those_types)>::size() <=
-           best::as_auto<decltype(those)>::size())
+  requires ((i < best::as_auto<decltype(row)>::size()) && ...) &&
+           (sizeof...(i) <= best::as_auto<decltype(those)>::size()) &&
+           (sizeof...(i) <= best::as_auto<decltype(those_types)>::size()) &&
+           (best::as_auto<decltype(those_types)>::size() <=
+            best::as_auto<decltype(those)>::size())
 {
   using Out =
-      decltype(row.types
-                   .template scatter<i...>(
-                       those_types.template at<bounds{.count = sizeof...(i)}>())
-                   .template apply<best::row>());
+    decltype(row.types
+               .template scatter<i...>(
+                 those_types.template at<bounds{.count = sizeof...(i)}>())
+               .template apply<best::row>());
   return row.indices.apply([&]<typename... J>() {
     constexpr auto lut = [&] {
       std::array<size_t, best::as_auto<decltype(row)>::size()> lut{
-          (J::value - J::value)...};
+        (J::value - J::value)...};
       size_t n = 1;
       ((i < lut.size() ? lut[i] = n++ : 0), ...);
       return lut;
@@ -218,8 +217,8 @@ constexpr auto join(auto&&... those) {
 
     return row<typename fast_nth<lut[i * 2], decltype(those.types)...>  //
                ::template type<lut[i * 2 + 1]>...>{
-        BEST_MOVE(rowrow)[best::index<lut[i * 2]>]  //
-            .get(best::index<lut[i * 2 + 1]>)...};
+      BEST_MOVE(rowrow)[best::index<lut[i * 2]>]  //
+        .get(best::index<lut[i * 2 + 1]>)...};
   }(best::indices<(0 + ... + best::as_auto<decltype(those)>::size())>);
 }
 }  // namespace best::row_internal

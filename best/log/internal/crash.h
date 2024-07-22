@@ -28,9 +28,9 @@
 namespace best::crash_internal {
 /// Implementation of `best::wtf()`.
 [[noreturn]] void die(
-    best::location loc,
-    best::fnref<void(char*, size_t, best::fnref<void(const char*, size_t)>)>
-        write_message);
+  best::location loc,
+  best::fnref<void(char*, size_t, best::fnref<void(const char*, size_t)>)>
+    write_message);
 
 /// Internal shim for crashing without depending on the logging headers.
 [[noreturn]] void crash(best::track_location<const char*> fmt, ...);

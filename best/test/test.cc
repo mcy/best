@@ -35,17 +35,17 @@ best::str symbol_name(const void* ptr, best::location loc) {
   if (::dladdr(ptr, &di)) {
     if (di.dli_sname == nullptr) {
       best::eprintln(
-          "fatal: could not parse symbol name for test at {:?}\nyou may need "
-          "to pass `-rdynamic` as part of your link options\n",
-          loc);
+        "fatal: could not parse symbol name for test at {:?}\nyou may need "
+        "to pass `-rdynamic` as part of your link options\n",
+        loc);
       std::exit(128);
     }
     return *best::str::from_nul(di.dli_sname);
   } else {
     best::eprintln(
-        "fatal: could not parse symbol name for test at {:?}\nit might not be "
-        "a global variable?",
-        loc);
+      "fatal: could not parse symbol name for test at {:?}\nit might not be "
+      "a global variable?",
+      loc);
     std::exit(128);
   }
 }
@@ -63,9 +63,7 @@ void test::init() {
 bool test::run_all(const flags& flags) {
   best::eprint("{}testing:", Bold);
 
-  for (auto arg : best::app::argv()) {
-    best::eprint(" {}", arg);
-  }
+  for (auto arg : best::app::argv()) { best::eprint(" {}", arg); }
 
   best::eprintln();
   best::eprintln("executing {} test(s)\n", all_tests.size());
@@ -74,13 +72,13 @@ bool test::run_all(const flags& flags) {
   best::vec<best::test*> failures;
   for (auto* test : all_tests) {
     for (const auto& skip : flags.skip) {
-      if (test->name().contains(skip)) goto skip;
+      if (test->name().contains(skip)) { goto skip; }
     }
     if (!flags.filters.is_empty()) {
       auto found = flags.filters->contains(
-          [&](const auto& f) { return test->name().contains(f); });
+        [&](const auto& f) { return test->name().contains(f); });
 
-      if (!found) goto skip;
+      if (!found) { goto skip; }
     }
 
     best::eprintln("{}[ TEST: {} ]{}", Bold, test->name(), Reset);
@@ -98,14 +96,15 @@ bool test::run_all(const flags& flags) {
   best::eprintln("{}[ RESULTS ]{}", Bold, Reset);
   if (!successes.is_empty()) {
     best::eprintln("{}passed {} test(s){}", Bold, successes.size(), Reset);
-    for (auto* test : successes) best::eprintln(" * {}", test->name());
+    for (auto* test : successes) { best::eprintln(" * {}", test->name()); }
   }
 
   if (!failures.is_empty()) {
     best::eprintln("{}{}failed {} test(s){}", Bold, Red, failures.size(),
                    Reset);
-    for (auto* test : failures)
+    for (auto* test : failures) {
       best::eprintln("{} * {}{}", Red, test->name(), Reset);
+    }
   }
 
   return failures.is_empty();

@@ -61,10 +61,10 @@ class vdesc;  // Enum value descriptor.
 // CTAD deduction guides for the descriptors.
 template <typename S, best::is_row Items, best::is_row Tags>
 tdesc(best::tlist<S>, Items, Tags)
-    -> tdesc<S, best::abridge<Items>, best::abridge<Tags>>;
+  -> tdesc<S, best::abridge<Items>, best::abridge<Tags>>;
 template <auto p, typename S, typename Get, best::is_row Tags>
 fdesc(best::vlist<p>, best::tlist<S>, Get, Tags)
-    -> fdesc<p, S, Get, best::abridge<Tags>>;
+  -> fdesc<p, S, Get, best::abridge<Tags>>;
 template <auto e, best::is_row Tags>
 vdesc(best::vlist<e>, Tags) -> vdesc<e, best::abridge<Tags>>;
 
@@ -76,7 +76,7 @@ enum kind { Field, Value, Type };
 template <typename Info, typename For>
 struct validator {
   static constexpr bool value =
-      Info::Kind == Type && best::same<For, typename Info::type>;
+    Info::Kind == Type && best::same<For, typename Info::type>;
 };
 template <typename Info, typename For>
 concept valid_reflection = validator<best::as_auto<Info>, For>::value;
@@ -132,7 +132,7 @@ inline constexpr struct any_t {
   constexpr any_t(any_t&&) = delete;
 
   template <typename T>
-    requires(!best::same<any_t, T>)
+  requires (!best::same<any_t, T>)
   operator T() const;
 } any;
 template <size_t>
@@ -169,14 +169,14 @@ template <size_t n>
 constexpr decltype(auto) bind(auto&& val) {
   return best::indices<n>.apply([&](auto... i) -> decltype(auto) {
     return reflect_internal::bind(
-        BEST_FWD(val),
-        [&](best::dependent<discard, decltype(i)>..., auto&& the_one,
-            auto&&... rest) -> decltype(auto) {
-          // Structured bindings' type does not preserve value category
-          // correctly, so we need to adjust its type to match the value
-          // category of `val`.
-          return best::refcopy<decltype(the_one), decltype(val)>(the_one);
-        });
+      BEST_FWD(val),
+      [&](best::dependent<discard, decltype(i)>..., auto&& the_one,
+          auto&&... rest) -> decltype(auto) {
+        // Structured bindings' type does not preserve value category
+        // correctly, so we need to adjust its type to match the value
+        // category of `val`.
+        return best::refcopy<decltype(the_one), decltype(val)>(the_one);
+      });
   });
 }
 
@@ -194,7 +194,7 @@ class fdesc final {
   inline static constexpr auto Kind = Field;
 
   constexpr fdesc(best::vlist<p>, best::tlist<S>, Get get, Tags tags)
-      : get_(get), tags_(tags) {}
+    : get_(get), tags_(tags) {}
 
   // Adds tags to this field.
   constexpr auto add(auto... tags) const {
@@ -252,12 +252,12 @@ class tdesc final {
   using Tags = best::unabridge<Tags_>;
 
   constexpr tdesc(best::tlist<T>, Items items, Tags tags)
-      : items_(items), tags_(tags) {}
+    : items_(items), tags_(tags) {}
 
   template <auto x, typename... Rest>
   constexpr auto operator+(lifted<x, Rest...> args) const {
     return args.args.apply(
-        [&](auto... tags) { return this->template add<x>(tags...); });
+      [&](auto... tags) { return this->template add<x>(tags...); });
   }
   template <auto x, typename... Rest>
   constexpr auto operator+(lifted<x, hide>) const {
@@ -274,7 +274,7 @@ class tdesc final {
   template <best::is_member_ptr auto pm>
   constexpr auto find() const {
     return items_.select_indices(
-        best::types<fkey<eyepatch(best::addr(materialize<T>().*pm))>>);
+      best::types<fkey<eyepatch(best::addr(materialize<T>().*pm))>>);
   }
 
   // Adds a field or updates it by appending tags
@@ -283,22 +283,19 @@ class tdesc final {
     auto found = find<pm>();
     if constexpr (found.is_empty()) {
       return reflect_internal::tdesc(
+        best::types<T>,
+        items_.push(fdesc(
+          best::vals<eyepatch(best::addr(materialize<T>().*pm))>,
           best::types<T>,
-          items_.push(fdesc(
-              best::vals<eyepatch(best::addr(materialize<T>().*pm))>,
-              best::types<T>,
-              [](auto&& value) -> decltype(auto) {
-                return BEST_FWD(value).*pm;
-              },
-              best::row(tags...))),
-          tags_);
+          [](auto&& value) -> decltype(auto) { return BEST_FWD(value).*pm; },
+          best::row(tags...))),
+        tags_);
     } else {
       return reflect_internal::tdesc(
-          best::types<T>,
-          items_.update(
-              items_[best::index<found.template value<0>>].add(tags...),
-              best::index<found.template value<0>>),
-          tags_);
+        best::types<T>,
+        items_.update(items_[best::index<found.template value<0>>].add(tags...),
+                      best::index<found.template value<0>>),
+        tags_);
     }
   }
 
@@ -314,15 +311,14 @@ class tdesc final {
     auto found = find<e>();
     if constexpr (found.is_empty()) {
       return reflect_internal::tdesc(
-          best::types<T>, items_.push(vdesc(best::vals<e>, best::row(tags...))),
-          tags_);
+        best::types<T>, items_.push(vdesc(best::vals<e>, best::row(tags...))),
+        tags_);
     } else {
       return reflect_internal::tdesc(
-          best::types<T>,
-          items_.update(
-              items_[best::index<found.template value<0>>].add(tags...),
-              best::index<found.template value<0>>),
-          tags_);
+        best::types<T>,
+        items_.update(items_[best::index<found.template value<0>>].add(tags...),
+                      best::index<found.template value<0>>),
+        tags_);
     }
   }
 
@@ -331,44 +327,42 @@ class tdesc final {
   constexpr auto hide() const {
     auto found = find<x>();
     return reflect_internal::tdesc(
-        best::types<T>, items_.remove(best::index<found.template value<0>>),
-        tags_);
+      best::types<T>, items_.remove(best::index<found.template value<0>>),
+      tags_);
   }
 
   // Infers the default reflection descriptor for a struct.
-  static constexpr auto infer_struct()
-    requires best::is_struct<T>
+  static constexpr auto infer_struct() requires best::is_struct<T>
   {
     auto fields = best::indices<total_fields<T>>.apply([&]<size_t... i> {
       return best::row{fdesc(
-          best::vals<eyepatch(
-              best::addr(reflect_internal::bind<i>(materialize<T>())))>,
-          best::types<T>,
-          [](auto&& v) -> decltype(auto) {
-            return reflect_internal::bind<i>(BEST_FWD(v));
-          },
-          best::row())...};
+        best::vals<eyepatch(
+          best::addr(reflect_internal::bind<i>(materialize<T>())))>,
+        best::types<T>,
+        [](auto&& v) -> decltype(auto) {
+          return reflect_internal::bind<i>(BEST_FWD(v));
+        },
+        best::row())...};
     });
     return reflect_internal::tdesc(best::types<T>, fields, best::row());
   }
 
   // Infers the default reflection descriptor for an enum.
   template <size_t start, size_t count>
-  static constexpr auto infer_enum()
-    requires best::is_enum<T>
+  static constexpr auto infer_enum() requires best::is_enum<T>
   {
     BEST_PUSH_GCC_DIAGNOSTIC()
     BEST_IGNORE_GCC_DIAGNOSTIC("-Wenum-constexpr-conversion")
     constexpr auto ok = best::indices<count>.apply([]<size_t... i> {
       constexpr size_t ok_count =
-          (0 + ... + best::value_name<T(start + i)>.has_value());
+        (0 + ... + best::value_name<T(start + i)>.has_value());
 
       std::array<T, ok_count> ok = {};
       size_t idx = 0;
 
       ((best::value_name<T(start + i)>.has_value()
-            ? void(ok[idx++] = T(start + i))
-            : void()),
+          ? void(ok[idx++] = T(start + i))
+          : void()),
        ...);
       return ok;
     });
@@ -387,7 +381,7 @@ class tdesc final {
 struct reify {
   template <typename T>
   static constexpr mirror<best::abridge<tdesc<T>>, best::abridge<best::row<>>>
-      empty{{{}, {}, {}}, {}};
+    empty{{{}, {}, {}}, {}};
 
   template <typename T>
   static constexpr auto ftadle = BestReflect(empty<T>, (T*){});
@@ -412,16 +406,15 @@ struct reify {
     // variable as a stepladder for moving constexpr values out of the () world
     // and into the <> world.
     return m.with_.indices.apply([]<size_t... i> {
-      return (
-          m.info_ + ... +
-          reify::template lift<m.with_[best::index<i>].first()>(
-              m.with_[best::index<i>][best::vals<best::bounds{.start = 1}>]));
+      return (m.info_ + ... +
+              reify::template lift<m.with_[best::index<i>].first()>(
+                m.with_[best::index<i>][best::vals<best::bounds{.start = 1}>]));
     });
   }();
 };
 
 template <typename T>
-  requires requires { BestReflect(reify::empty<T>, (T*){}); }
+requires requires { BestReflect(reify::empty<T>, (T*){}); }
 inline constexpr auto desc = reify::apply<T>;
 };  // namespace best::reflect_internal
 

@@ -112,7 +112,7 @@ inline constexpr bool is_debug() {
 /// Like `BEST_ENABLE_IF()`, but merely requires `expr_` to be constexpr.
 #define BEST_ENABLE_IF_CONSTEXPR(expr_) \
   __attribute__((                       \
-      enable_if(__builtin_constant_p(expr_), "expected a constexpr value")))
+    enable_if(__builtin_constant_p(expr_), "expected a constexpr value")))
 
 #else
 #define BEST_HAS_ENABLE_IF 0

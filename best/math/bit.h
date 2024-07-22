@@ -87,7 +87,7 @@ BEST_INLINE_ALWAYS constexpr uint32_t trailing_ones(integer auto x) {
 template <integer Int>
 BEST_INLINE_ALWAYS constexpr Int shift_left(Int x, uint32_t shamt) {
   auto mask = bits_of<Int> - 1;
-  if (shamt != (shamt & mask)) return 0;
+  if (shamt != (shamt & mask)) { return 0; }
 
   return best::to_unsigned(x) << shamt;
 }
@@ -103,7 +103,7 @@ BEST_INLINE_ALWAYS constexpr Int shift_left(Int x, uint32_t shamt) {
 template <integer Int>
 BEST_INLINE_ALWAYS constexpr Int shift_right(Int x, uint32_t shamt) {
   auto mask = bits_of<Int> - 1;
-  if (shamt != (shamt & mask)) return 0;
+  if (shamt != (shamt & mask)) { return 0; }
 
   return best::to_unsigned(x) >> shamt;
 }
@@ -119,7 +119,7 @@ BEST_INLINE_ALWAYS constexpr Int shift_right(Int x, uint32_t shamt) {
 template <integer Int>
 BEST_INLINE_ALWAYS constexpr Int shift_sign(Int x, uint32_t shamt) {
   auto mask = bits_of<Int> - 1;
-  if (shamt != (shamt & mask)) return -(x < 0);
+  if (shamt != (shamt & mask)) { return -(x < 0); }
 
   return best::to_signed(x) >> shamt;
 }
@@ -153,7 +153,7 @@ BEST_INLINE_ALWAYS constexpr bool is_pow2(unsigned_int auto x) {
 /// Unlike `best::next_pow2()`, this function cannot overflow.
 template <unsigned_int Int>
 BEST_INLINE_ALWAYS constexpr Int next_pow2_minus1(Int x) {
-  if (x == 0) return 0;
+  if (x == 0) { return 0; }
   return best::shift_right(best::max_of<Int>, best::leading_zeros(x));
 }
 
@@ -187,7 +187,7 @@ BEST_INLINE_ALWAYS constexpr Int next_pow2(Int x) {
 /// inclusive. `best::bits_for(0) == 0`.
 template <unsigned_int Int>
 BEST_INLINE_ALWAYS constexpr uint32_t bits_for(Int x) {
-  if (x == 0) return 0;
+  if (x == 0) { return 0; }
   return best::trailing_zeros(best::wrapping_next_pow2(x));
 }
 }  // namespace best

@@ -39,50 +39,49 @@ namespace best {
 struct utf16 final {
   using code = char16_t;
   static constexpr best::encoding_about About{
-      .max_codes_per_rune = 2,
-      .is_self_syncing = true,
-      .is_universal = true,
+    .max_codes_per_rune = 2,
+    .is_self_syncing = true,
+    .is_universal = true,
   };
 
   static constexpr bool is_boundary(best::span<const char16_t> input,
                                     size_t idx) {
     return input.size() == idx ||
            input.at(idx)
-               .then([](char16_t c) {
-                 return rune::from_int_allow_surrogates(c);
-               })
-               .has_value([](rune r) { return !r.is_low_surrogate(); });
+             .then(
+               [](char16_t c) { return rune::from_int_allow_surrogates(c); })
+             .has_value([](rune r) { return !r.is_low_surrogate(); });
   }
 
   static constexpr best::result<void, encoding_error> encode(
-      best::span<char16_t>* output, rune rune) {
+    best::span<char16_t>* output, rune rune) {
     auto size =
-        best::utf_internal::encode16(output->data(), output->size(), rune);
-    if (size < 0) return encoding_error(~size);
+      best::utf_internal::encode16(output->data(), output->size(), rune);
+    if (size < 0) { return encoding_error(~size); }
 
     *output = (*output)[{.start = size}];
     return best::ok();
   }
 
   static constexpr best::result<rune, encoding_error> decode(
-      best::span<const char16_t>* input) {
+    best::span<const char16_t>* input) {
     auto words = best::utf_internal::decode16_size(*input);
-    if (words < 0) return encoding_error(~words);
+    if (words < 0) { return encoding_error(~words); }
 
     auto code = best::utf_internal::decode16(input->data(), words);
-    if (code < 0) return encoding_error(~code);
+    if (code < 0) { return encoding_error(~code); }
 
     *input = (*input)[{.start = words}];
-    if (auto r = rune::from_int(code)) return *r;
+    if (auto r = rune::from_int(code)) { return *r; }
     return encoding_error::Invalid;
   }
 
   static constexpr best::result<rune, encoding_error> undecode(
-      best::span<const char16_t>* input) {
+    best::span<const char16_t>* input) {
     auto code = best::utf_internal::undecode16(input);
-    if (code < 0) return encoding_error(~code);
+    if (code < 0) { return encoding_error(~code); }
 
-    if (auto r = rune::from_int(code)) return *r;
+    if (auto r = rune::from_int(code)) { return *r; }
     return encoding_error::Invalid;
   }
 
@@ -90,7 +89,7 @@ struct utf16 final {
 };
 
 constexpr const utf16& BestEncoding(
-    auto, const utf_internal::is_std_string<char16_t> auto&) {
+  auto, const utf_internal::is_std_string<char16_t> auto&) {
   return best::val<utf16{}>::value;
 }
 template <size_t n>

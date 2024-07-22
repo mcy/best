@@ -39,13 +39,12 @@ struct info_t {
 };
 template <typename... Ts>
 inline constexpr info_t info = {
-    ((std::is_void_v<Ts> ||
-      std::is_trivially_default_constructible_v<Ts>)&&...),
-    ((std::is_void_v<Ts> || std::is_trivially_copyable_v<Ts>)&&...),
-    ((std::is_void_v<Ts> || (std::is_trivially_move_constructible_v<Ts> &&
-                             std::is_trivially_move_assignable_v<Ts>)) &&
-     ...),
-    ((std::is_void_v<Ts> || std::is_trivially_destructible_v<Ts>)&&...),
+  ((std::is_void_v<Ts> || std::is_trivially_default_constructible_v<Ts>)&&...),
+  ((std::is_void_v<Ts> || std::is_trivially_copyable_v<Ts>)&&...),
+  ((std::is_void_v<Ts> || (std::is_trivially_move_constructible_v<Ts> &&
+                           std::is_trivially_move_assignable_v<Ts>)) &&
+   ...),
+  ((std::is_void_v<Ts> || std::is_trivially_destructible_v<Ts>)&&...),
 };
 
 // A raw union.
@@ -81,7 +80,7 @@ union BEST_RELOCATABLE impl<info, H> {
   BEST_IGNORE_GCC_DIAGNOSTIC("-Wc++11-narrowing")
   template <typename... Args>
   constexpr explicit impl(best::index_t<0>, Args&&... args)
-      : h_(best::in_place, BEST_FWD(args)...) {}
+    : h_(best::in_place, BEST_FWD(args)...) {}
   BEST_POP_GCC_DIAGNOSTIC()
 
   constexpr const auto& get(best::index_t<0>) const { return h_; }
@@ -102,10 +101,10 @@ union BEST_RELOCATABLE impl<info, H, T> {
   BEST_IGNORE_GCC_DIAGNOSTIC("-Wc++11-narrowing")
   template <typename... Args>
   constexpr explicit impl(best::index_t<0>, Args&&... args)
-      : h_(best::in_place, BEST_FWD(args)...) {}
+    : h_(best::in_place, BEST_FWD(args)...) {}
   template <typename... Args>
   constexpr explicit impl(best::index_t<1>, Args&&... args)
-      : t_(best::in_place, BEST_FWD(args)...) {}
+    : t_(best::in_place, BEST_FWD(args)...) {}
   BEST_POP_GCC_DIAGNOSTIC()
 
   constexpr const auto& get(best::index_t<0>) const { return h_; }
@@ -129,15 +128,15 @@ union BEST_RELOCATABLE impl<info, H, H2, T...> {
   BEST_IGNORE_GCC_DIAGNOSTIC("-Wc++11-narrowing")
   template <typename... Args>
   constexpr explicit impl(best::index_t<0>, Args&&... args)
-      : h_(best::in_place, BEST_FWD(args)...) {}
+    : h_(best::in_place, BEST_FWD(args)...) {}
   template <typename... Args>
   constexpr explicit impl(best::index_t<1>, Args&&... args)
-      : h2_(best::in_place, BEST_FWD(args)...) {}
+    : h2_(best::in_place, BEST_FWD(args)...) {}
   BEST_POP_GCC_DIAGNOSTIC()
 
   template <size_t n, typename... Args>
   constexpr explicit impl(best::index_t<n>, Args&&... args)
-      : t_(best::index<n - 2>, BEST_FWD(args)...) {}
+    : t_(best::index<n - 2>, BEST_FWD(args)...) {}
 
   constexpr const auto& get(best::index_t<0>) const { return h_; }
   constexpr auto& get(best::index_t<0>) { return h_; }

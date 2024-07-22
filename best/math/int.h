@@ -112,9 +112,9 @@ BEST_INLINE_ALWAYS constexpr std::strong_ordering int_cmp(integer auto x,
 /// The maximum value for a particular integer type.
 template <integer Int>
 inline constexpr Int max_of =
-    // If Int is unsigned, this is 0x11...11.
-    // If Int is signed, this is 0x01...11.
-    to_unsigned<Int>(-1) >> signed_int<Int>;
+  // If Int is unsigned, this is 0x11...11.
+  // If Int is signed, this is 0x01...11.
+  to_unsigned<Int>(-1) >> signed_int<Int>;
 
 /// # `best::min_of<T>`
 ///
@@ -137,7 +137,7 @@ BEST_INLINE_ALWAYS constexpr bool int_fits(integer auto x) {
 /// not be exact.
 template <integer Int>
 BEST_INLINE_ALWAYS constexpr best::option<Int> checked_cast(integer auto x) {
-  if (!best::int_fits<Int>(x)) return {};
+  if (!best::int_fits<Int>(x)) { return {}; }
   return x;
 }
 
@@ -155,7 +155,7 @@ using common_int = decltype(best::int_internal::common<Ints...>());
 /// Computes the minimum from a collection of signed or unsigned integers.
 template <unsigned_int... Ints>
 BEST_INLINE_ALWAYS constexpr best::common_int<Ints...> min(Ints... args)
-  requires(sizeof...(args) > 0)
+  requires (sizeof...(args) > 0)
 {
   BEST_PUSH_GCC_DIAGNOSTIC()
   BEST_IGNORE_GCC_DIAGNOSTIC("-Wunused-value")
@@ -166,7 +166,7 @@ BEST_INLINE_ALWAYS constexpr best::common_int<Ints...> min(Ints... args)
 }
 template <signed_int... Ints>
 BEST_INLINE_ALWAYS constexpr best::common_int<Ints...> min(Ints... args)
-  requires(sizeof...(args) > 0)
+  requires (sizeof...(args) > 0)
 {
   BEST_PUSH_GCC_DIAGNOSTIC()
   BEST_IGNORE_GCC_DIAGNOSTIC("-Wunused-value")
@@ -181,7 +181,7 @@ BEST_INLINE_ALWAYS constexpr best::common_int<Ints...> min(Ints... args)
 /// Computes the maximum from a collection of signed or unsigned integers.
 template <unsigned_int... Ints>
 BEST_INLINE_ALWAYS constexpr best::common_int<Ints...> max(Ints... args)
-  requires(sizeof...(args) > 0)
+  requires (sizeof...(args) > 0)
 {
   BEST_PUSH_GCC_DIAGNOSTIC()
   BEST_IGNORE_GCC_DIAGNOSTIC("-Wunused-value")
@@ -192,7 +192,7 @@ BEST_INLINE_ALWAYS constexpr best::common_int<Ints...> max(Ints... args)
 }
 template <signed_int... Ints>
 BEST_INLINE_ALWAYS constexpr best::common_int<Ints...> max(Ints... args)
-  requires(sizeof...(args) > 0)
+  requires (sizeof...(args) > 0)
 {
   BEST_PUSH_GCC_DIAGNOSTIC()
   BEST_IGNORE_GCC_DIAGNOSTIC("-Wunused-value")
@@ -207,12 +207,13 @@ BEST_INLINE_ALWAYS constexpr best::common_int<Ints...> max(Ints... args)
 /// Computes the smallest unsigned integer type that can represent `n`.
 template <uint64_t n>
 using smallest_uint_t = best::select<  //
-    best::int_fits<uint8_t>(n), uint8_t,
+  best::int_fits<uint8_t>(n), uint8_t,
+  best::select<  //
+    best::int_fits<uint16_t>(n), uint16_t,
     best::select<  //
-        best::int_fits<uint16_t>(n), uint16_t,
-        best::select<                               //
-            best::int_fits<uint32_t>(n), uint32_t,  //
-            uint64_t>>>;
+      best::int_fits<uint32_t>(n),
+      uint32_t,  //
+      uint64_t>>>;
 }  // namespace best
 
 #endif  // BEST_MATH_INT_H_

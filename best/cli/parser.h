@@ -53,8 +53,8 @@ const cli& cli_for() {
 /// is passed as a separate argument.
 template <typename Flags>
 best::result<Flags, best::cli::error> parse_flags(
-    best::pretext<best::wtf8> exe,
-    best::span<const best::pretext<best::wtf8>> argv) {
+  best::pretext<best::wtf8> exe,
+  best::span<const best::pretext<best::wtf8>> argv) {
   Flags flags;
   BEST_GUARD(best::cli_for<Flags>().parse(&flags, exe, argv));
   return flags;
@@ -74,15 +74,13 @@ cli cli::build() {
                 "found two or more best::cli_apps on flags struct");
 
   const cli::app* app = nullptr;
-  if constexpr (!tags.is_empty()) {
-    app = &tags.first();
-  }
+  if constexpr (!tags.is_empty()) { app = &tags.first(); }
 
   best::cli cli(app);
 
   // Then, type-erase all the entries.
   best::reflect<Flags>.each(
-      [&](auto field) { cli.type_erase_field<downcast>(field); });
+    [&](auto field) { cli.type_erase_field<downcast>(field); });
 
   // Having that, draw the rest of the frickin' owl.
   cli.init();
@@ -113,18 +111,18 @@ void cli::type_erase_field(auto f) {
   static constexpr auto poses = field.tags(best::types<positional>);
 
   static_assert(
-      (flags.size() + subs.size() + groups.size() + poses.size()) <= 1,
-      "cannot have more than one of best::cli_flag, best::cli_subcommand, or "
-      "best::cli_group attached to a field");
+    (flags.size() + subs.size() + groups.size() + poses.size()) <= 1,
+    "cannot have more than one of best::cli_flag, best::cli_subcommand, or "
+    "best::cli_group attached to a field");
 
   static constexpr auto Downcast = [](void* args) -> auto& {
     return downcast(args)->*Field{};
   };
 
   cli::about about{
-      .strukt = &best::type_names::of<Flags>,
-      .type = &best::type_names::of<Arg>,
-      .field = field.name(),
+    .strukt = &best::type_names::of<Flags>,
+    .type = &best::type_names::of<Arg>,
+    .field = field.name(),
   };
 
   if constexpr (!flags.is_empty()) {
@@ -134,13 +132,13 @@ void cli::type_erase_field(auto f) {
     }
 
     best::str name = flag.name;
-    if (name.is_empty()) name = about.field;
+    if (name.is_empty()) { name = about.field; }
     about.names.push(best::strbuf(name), flag.vis);
   } else if constexpr (!subs.is_empty()) {
     constexpr const cli::subcommand& sub = subs.first();
 
     best::str name = sub.name;
-    if (name.is_empty()) name = about.field;
+    if (name.is_empty()) { name = about.field; }
     about.names.push(best::strbuf(name), sub.vis);
   } else if constexpr (!groups.is_empty()) {
     constexpr const cli::group& group = groups.first();
@@ -164,17 +162,16 @@ void cli::type_erase_field(auto f) {
 
     constexpr const best::cli::flag& flag = flags.first();
     add(
-        std::move(about), flag, argv_query::of<Arg>,
-        +[](context& ctx,
-            best::pretext<wtf8> argv) -> best::result<void, error> {
-          auto result = BestFromArgv(argv, Downcast(ctx.args));
-          if (result) return best::ok();
+      std::move(about), flag, argv_query::of<Arg>,
+      +[](context& ctx, best::pretext<wtf8> argv) -> best::result<void, error> {
+        auto result = BestFromArgv(argv, Downcast(ctx.args));
+        if (result) { return best::ok(); }
 
-          return best::err(
-              best::format("{}: fatal: could not parse argument for {}: {}",
-                           ctx.exe, ctx.token, *result.err()),
-              /*is_fatal=*/true);
-        });
+        return best::err(
+          best::format("{}: fatal: could not parse argument for {}: {}",
+                       ctx.exe, ctx.token, *result.err()),
+          /*is_fatal=*/true);
+      });
   } else if constexpr (!subs.is_empty()) {
     constexpr const best::cli::subcommand& sub = subs.first();
     add(std::move(about), sub, global_for<Arg, Downcast>);
@@ -186,22 +183,18 @@ void cli::type_erase_field(auto f) {
                   "positional type must implement BestFromArgv()");
 
     const best::cli::positional* pos = &DefaultTag;
-    if constexpr (!poses.is_empty()) {
-      pos = &poses.first();
-    }
+    if constexpr (!poses.is_empty()) { pos = &poses.first(); }
 
     add(
-        std::move(about), *pos, argv_query::of<Arg>,
-        +[](context& ctx,
-            best::pretext<wtf8> argv) -> best::result<void, error> {
-          auto result = BestFromArgv(argv, Downcast(ctx.args));
-          if (result) return best::ok();
+      std::move(about), *pos, argv_query::of<Arg>,
+      +[](context& ctx, best::pretext<wtf8> argv) -> best::result<void, error> {
+        auto result = BestFromArgv(argv, Downcast(ctx.args));
+        if (result) { return best::ok(); }
 
-          return best::err(
-              best::format("{}: fatal: could not parse argument: {}", ctx.exe,
-                           ctx.token, *result.err()),
-              /*is_fatal=*/true);
-        });
+        return best::err(best::format("{}: fatal: could not parse argument: {}",
+                                      ctx.exe, ctx.token, *result.err()),
+                         /*is_fatal=*/true);
+      });
   }
 }
 // FromArgv implementations for common types.
@@ -277,7 +270,7 @@ result<void, best::strbuf> BestFromArgv(auto raw, best::textbuf<E, A>& arg)
 
 template <best::is_from_argv T>
 auto BestFromArgv(auto raw, best::option<T>& arg)
-    -> decltype(BestFromArgv(raw, arg.emplace())) {
+  -> decltype(BestFromArgv(raw, arg.emplace())) {
   return BestFromArgv(raw, arg.emplace());
 }
 template <best::is_from_argv T>
@@ -287,7 +280,7 @@ constexpr auto BestFromArgvQuery(auto& query, best::option<T>*) {
 
 template <best::is_from_argv T, size_t n, best::allocator A>
 auto BestFromArgv(auto raw, best::vec<T, n, A>& arg)
-    -> decltype(BestFromArgv(raw, arg.push())) {
+  -> decltype(BestFromArgv(raw, arg.push())) {
   return BestFromArgv(raw, arg.push());
 }
 template <best::is_from_argv T, size_t n, best::allocator A>

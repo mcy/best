@@ -111,8 +111,8 @@ namespace best {
 /// Whether a type can be formatted.
 template <typename T>
 concept formattable =
-    best::is_void<T> ||
-    requires(best::formatter& fmt, const T& value) { BestFmt(fmt, value); };
+  best::is_void<T> ||
+  requires(best::formatter& fmt, const T& value) { BestFmt(fmt, value); };
 
 /// # `best::format_spec`
 ///
@@ -216,7 +216,7 @@ inline constexpr format_spec format_spec::Default{.debug = true};
 /// was constructed.
 template <typename... Args>
 using format_template = best::format_internal::templ<  //
-    format_spec, best::dependent<Args, Args...>...>;
+  format_spec, best::dependent<Args, Args...>...>;
 
 /// # `best::formatter`
 ///
@@ -375,8 +375,8 @@ class formatter::block final {
 /// append it to an existing string.
 template <best::formattable... Args>
 [[nodiscard(
-    "best::format() returns a brand new string if not given a best::strbuf& to "
-    "write to")]] best::strbuf
+  "best::format() returns a brand new string if not given a best::strbuf& to "
+  "write to")]] best::strbuf
 format(best::format_template<Args...> templ = "", const Args&... args);
 template <best::formattable... Args>
 void format(best::strbuf& out, best::format_template<Args...> templ,
@@ -434,7 +434,7 @@ void formatter::write(const best::string_type auto& string) {
 
     size_t watermark = 0;
     for (auto [idx, r] : string.rune_indices()) {
-      if (r != '\n') continue;
+      if (r != '\n') { continue; }
       if (idx != watermark + 1 && idx > 0) {
         update_indent();
         out_->push_lossy(string[{.start = watermark, .end = idx - 1}]);
@@ -469,7 +469,7 @@ decltype(auto) make_formattable(const auto& value) {
     return value;
   } else {
     return format_internal::unprintable{
-        reinterpret_cast<const char*>(best::addr(value)), sizeof(value)};
+      reinterpret_cast<const char*>(best::addr(value)), sizeof(value)};
   }
 }
 
@@ -486,21 +486,21 @@ struct formatter::vptr final {
 template <best::formattable... Args>
 void formatter::format(best::format_template<Args...> fmt, const Args&... arg) {
   vptr vtable[] = {{
-      best::addr(arg),
-      vptr::erased<Args>,
+    best::addr(arg),
+    vptr::erased<Args>,
   }...};
   format_impl(fmt.as_str(), vtable);
 }
 
 formatter::block& formatter::block::entry(const best::formattable auto& value) {
-  if (!fmt_) return *this;
+  if (!fmt_) { return *this; }
   separator();
   fmt_->format(value);
   return *this;
 }
 formatter::block& formatter::block::entry(const best::format_spec& spec,
                                           const best::formattable auto& value) {
-  if (!fmt_) return *this;
+  if (!fmt_) { return *this; }
   separator();
   fmt_->format(spec, value);
   return *this;
@@ -508,7 +508,7 @@ formatter::block& formatter::block::entry(const best::format_spec& spec,
 
 formatter::block& formatter::block::field(best::str name,
                                           const best::formattable auto& value) {
-  if (!fmt_) return *this;
+  if (!fmt_) { return *this; }
   separator();
   fmt_->format(format_spec{}, name);
   fmt_->write(": ");
@@ -518,7 +518,7 @@ formatter::block& formatter::block::field(best::str name,
 formatter::block& formatter::block::field(best::str name,
                                           const best::format_spec& v_spec,
                                           const best::formattable auto& value) {
-  if (!fmt_) return *this;
+  if (!fmt_) { return *this; }
   separator();
   fmt_->format(format_spec{}, name);
   fmt_->write(": ");
@@ -528,7 +528,7 @@ formatter::block& formatter::block::field(best::str name,
 
 formatter::block& formatter::block::pair(const best::formattable auto& key,
                                          const best::formattable auto& value) {
-  if (!fmt_) return *this;
+  if (!fmt_) { return *this; }
   separator();
   fmt_->format(key);
   fmt_->write(": ");
@@ -539,7 +539,7 @@ formatter::block& formatter::block::pair(const best::format_spec& k_spec,
                                          const best::formattable auto& key,
                                          const best::format_spec& v_spec,
                                          const best::formattable auto& value) {
-  if (!fmt_) return *this;
+  if (!fmt_) { return *this; }
   separator();
   fmt_->format(k_spec, key);
   fmt_->write(": ");

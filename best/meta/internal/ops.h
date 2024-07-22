@@ -31,7 +31,7 @@ struct tag {};
 #define BEST_OP_FOLD_CASE_(op_, ...)                                     \
   template <typename op>                                                 \
   BEST_INLINE_SYNTHETIC constexpr auto run(tag<op::op_>, auto&&... args) \
-      -> decltype((... __VA_ARGS__ BEST_FWD(args))) {                    \
+    -> decltype((... __VA_ARGS__ BEST_FWD(args))) {                      \
     return (... __VA_ARGS__ BEST_FWD(args));                             \
   }
 BEST_OP_FOLD_CASE_(Add, +)
@@ -74,7 +74,7 @@ BEST_OP_FOLD_CASE_(ShrAssign, >>=)
 #define BEST_OP_2_CASE_(op_, ...)                                            \
   template <typename op>                                                     \
   BEST_INLINE_SYNTHETIC constexpr auto run(tag<op::op_>, auto&& a, auto&& b) \
-      -> decltype(BEST_FWD(a) __VA_ARGS__ BEST_FWD(b)) {                     \
+    -> decltype(BEST_FWD(a) __VA_ARGS__ BEST_FWD(b)) {                       \
     return BEST_FWD(a) __VA_ARGS__ BEST_FWD(b);                              \
   }
 
@@ -85,7 +85,7 @@ BEST_OP_2_CASE_(Spaceship, <=>)
 #define BEST_OP_1_CASE_(op_, ...)                                  \
   template <typename op>                                           \
   BEST_INLINE_SYNTHETIC constexpr auto run(tag<op::op_>, auto&& a) \
-      -> decltype(__VA_ARGS__ BEST_FWD(a)) {                       \
+    -> decltype(__VA_ARGS__ BEST_FWD(a)) {                         \
     return __VA_ARGS__ BEST_FWD(a);                                \
   }
 
@@ -103,7 +103,7 @@ BEST_OP_1_CASE_(PreDec, --)
 #define BEST_OP_POST_CASE_(op_, ...)                               \
   template <typename op>                                           \
   BEST_INLINE_SYNTHETIC constexpr auto run(tag<op::op_>, auto&& a) \
-      -> decltype(BEST_FWD(a) __VA_ARGS__) {                       \
+    -> decltype(BEST_FWD(a) __VA_ARGS__) {                         \
     return BEST_FWD(a) __VA_ARGS__;                                \
   }
 
@@ -113,7 +113,7 @@ BEST_OP_POST_CASE_(PostDec, --)
 
 template <typename op>
 BEST_INLINE_SYNTHETIC constexpr auto run(tag<op::Arrow>, auto&& a)
-    -> decltype(BEST_FWD(a).operator->()) {
+  -> decltype(BEST_FWD(a).operator->()) {
   return BEST_FWD(a).operator->();
 }
 template <typename op>
@@ -124,14 +124,14 @@ constexpr auto run(tag<op::Arrow>, auto* a) {
 template <typename op>
 BEST_INLINE_SYNTHETIC constexpr auto run(tag<op::Call>, auto&& func,
                                          auto&&... args)
-    -> decltype(BEST_FWD(func)(BEST_FWD(args)...)) {
+  -> decltype(BEST_FWD(func)(BEST_FWD(args)...)) {
   return BEST_FWD(func)(BEST_FWD(args)...);
 }
 
 template <typename op>
 BEST_INLINE_SYNTHETIC constexpr auto run(tag<op::Index>, auto&& func,
                                          auto&& arg)
-    -> decltype(BEST_FWD(func)[BEST_FWD(arg)]) {
+  -> decltype(BEST_FWD(func)[BEST_FWD(arg)]) {
   return BEST_FWD(func)[BEST_FWD(arg)];
 }
 }  // namespace best::ops_internal
