@@ -65,7 +65,7 @@ struct args final {
   template <best::constructible<Args...> T>
   constexpr operator T() && {
     return std::move(row).apply(
-        [](auto&&... args) { return T(BEST_FWD(args)...); });
+      [](auto&&... args) { return T(BEST_FWD(args)...); });
   }
 
   friend void BestFmt(auto& fmt, const args& args)
@@ -74,7 +74,7 @@ struct args final {
     fmt.format(args.row);
   }
 
-  friend constexpr void BestFmtQuery(auto& query, args*) {
+  constexpr friend void BestFmtQuery(auto& query, args*) {
     query = query.template of<best::row<Args...>>;
   }
 };
@@ -126,7 +126,7 @@ args(Args&&...) -> args<Args&&...>;
 /// - `best::row` is trivial when all of its elements are trivial.
 template <typename... Elems>
 class row final
-    : row_internal::impl<decltype(best::indices<sizeof...(Elems)>), Elems...> {
+  : row_internal::impl<decltype(best::indices<sizeof...(Elems)>), Elems...> {
  public:
   /// # `row::types`
   ///
@@ -160,7 +160,7 @@ class row final
   /// such that `U::BestRowKey` is `T`.
   template <typename T>
   static constexpr bool selectable =
-      row_internal::lookup<T>.template count<T>() > 0;
+    row_internal::lookup<T>.template count<T>() > 0;
 
  private:
   using impl = row_internal::impl<decltype(indices), Elems...>;
@@ -185,30 +185,29 @@ class row final
   /// Constructs a row by initializing each element from the corresponding
   /// argument.
   constexpr row(auto&&... args)
-    requires(best::constructible<Elems, decltype(args)> && ...) &&
-            (!best::same<decltype(args), best::as_rref<Elems>> || ...)
-      : impl{{best::object<Elems>(best::in_place, BEST_FWD(args))}...} {}
-  constexpr row(devoid<Elems>&&... args)
-    requires(sizeof...(args) > 0)
-      : impl{{best::object<Elems>(best::in_place, BEST_FWD(args))}...} {}
+    requires (best::constructible<Elems, decltype(args)> && ...) &&
+             (!best::same<decltype(args), best::as_rref<Elems>> || ...)
+    : impl{{best::object<Elems>(best::in_place, BEST_FWD(args))}...} {}
+  constexpr row(devoid<Elems>&&... args) requires (sizeof...(args) > 0)
+    : impl{{best::object<Elems>(best::in_place, BEST_FWD(args))}...} {}
 
   constexpr row(best::bind_t, auto&&... args)
-    requires(best::constructible<Elems, decltype(args)> && ...) &&
-            (!best::same<decltype(args), best::as_rref<Elems>> || ...)
-      : impl{{best::object<Elems>(best::in_place, BEST_FWD(args))}...} {}
+    requires (best::constructible<Elems, decltype(args)> && ...) &&
+             (!best::same<decltype(args), best::as_rref<Elems>> || ...)
+    : impl{{best::object<Elems>(best::in_place, BEST_FWD(args))}...} {}
   constexpr row(best::bind_t, devoid<Elems>&&... args)
-    requires(sizeof...(args) > 0)
-      : impl{{best::object<Elems>(best::in_place, BEST_FWD(args))}...} {}
+    requires (sizeof...(args) > 0)
+    : impl{{best::object<Elems>(best::in_place, BEST_FWD(args))}...} {}
 
   /// # `row::size()`
   ///
   /// Returns the number of elements in this row.
-  constexpr static size_t size() { return types.size(); }
+  static constexpr size_t size() { return types.size(); }
 
   /// # `row::is_empty()`
   ///
   /// Returns whether this is the empty row `best::row<>`.
-  constexpr static bool is_empty() { return types.size() == 0; }
+  static constexpr bool is_empty() { return types.size() == 0; }
 
   /// # `row::as_ref()`
   ///
@@ -506,7 +505,7 @@ class row final
   }
 
   template <typename Q>
-  friend constexpr void BestFmtQuery(Q& query, row*) {
+  constexpr friend void BestFmtQuery(Q& query, row*) {
     query.supports_width = (query.template of<Elems>.supports_width || ...);
     query.supports_prec = (query.template of<Elems>.supports_prec || ...);
     query.uses_method = [](auto r) {
@@ -517,23 +516,21 @@ class row final
   // Comparisons.
   template <typename... Us>
   constexpr bool operator==(const row<Us...>& that) const
-    requires(best::equatable<Elems, Us> && ...)
+    requires (best::equatable<Elems, Us> && ...)
   {
     return indices.apply(
-        [&](auto... i) { return (... && (get(i) == that.get(i))); });
+      [&](auto... i) { return (... && (get(i) == that.get(i))); });
   }
 
   template <typename... Us>
   constexpr auto operator<=>(const choice<Us...>& that) const
-    requires(best::comparable<Elems, Us> && ...)
+    requires (best::comparable<Elems, Us> && ...)
   {
     using Output = best::common_ord<best::order_type<Elems, Us>...>;
     Output result = Output::equivalent;
 
     return indices.each([&](auto i) {
-      if (result == 0) {
-        result = get(i) <=> that.get(i);
-      }
+      if (result == 0) { result = get(i) <=> that.get(i); }
     });
 
     return result;
@@ -555,28 +552,28 @@ template <typename... A>
 constexpr auto row<A...>::as_args() const& {
   return apply([](auto&&... args) {
     return best::args<decltype(args)...>{
-        row<decltype(args)...>(BEST_FWD(args)...)};
+      row<decltype(args)...>(BEST_FWD(args)...)};
   });
 }
 template <typename... A>
 constexpr auto row<A...>::as_args() & {
   return apply([](auto&&... args) {
     return best::args<decltype(args)...>{
-        row<decltype(args)...>(BEST_FWD(args)...)};
+      row<decltype(args)...>(BEST_FWD(args)...)};
   });
 }
 template <typename... A>
 constexpr auto row<A...>::as_args() const&& {
   return BEST_MOVE(*this).apply([](auto&&... args) {
     return best::args<decltype(args)...>{
-        row<decltype(args)...>(BEST_FWD(args)...)};
+      row<decltype(args)...>(BEST_FWD(args)...)};
   });
 }
 template <typename... A>
 constexpr auto row<A...>::as_args() && {
   return BEST_MOVE(*this).apply([](auto&&... args) {
     return best::args<decltype(args)...>{
-        row<decltype(args)...>(BEST_FWD(args)...)};
+      row<decltype(args)...>(BEST_FWD(args)...)};
   });
 }
 
@@ -589,7 +586,7 @@ constexpr best::row<best::as_ref<const A>...> row<A...>::as_ref() const& {
 template <typename... A>
 constexpr best::row<best::as_ref<A>...> row<A...>::as_ref() & {
   apply(
-      [](auto&&... args) { best::row<best::as_ref<A>...>(BEST_FWD(args)...); });
+    [](auto&&... args) { best::row<best::as_ref<A>...>(BEST_FWD(args)...); });
 }
 template <typename... A>
 constexpr best::row<best::as_rref<const A>...> row<A...>::as_ref() const&& {
@@ -599,15 +596,14 @@ constexpr best::row<best::as_rref<const A>...> row<A...>::as_ref() const&& {
 }
 template <typename... A>
 constexpr best::row<best::as_rref<A>...> row<A...>::as_ref() && {
-  BEST_MOVE(*this).apply([](auto&&... args) {
-    best::row<best::as_rref<A>...>(BEST_FWD(args)...);
-  });
+  BEST_MOVE(*this).apply(
+    [](auto&&... args) { best::row<best::as_rref<A>...>(BEST_FWD(args)...); });
 }
 
 template <typename... A>
 template <size_t n>
 constexpr row<A...>::cref<n> row<A...>::operator[](
-    best::index_t<n> idx) const& {
+  best::index_t<n> idx) const& {
   return *this->get_impl(idx);
 }
 template <typename... A>
@@ -618,7 +614,7 @@ constexpr row<A...>::ref<n> row<A...>::operator[](best::index_t<n> idx) & {
 template <typename... A>
 template <size_t n>
 constexpr row<A...>::crref<n> row<A...>::operator[](
-    best::index_t<n> idx) const&& {
+  best::index_t<n> idx) const&& {
   return *BEST_MOVE(this->get_impl(idx));
 }
 template <typename... A>
@@ -697,7 +693,7 @@ row<A...>::object(best::index_t<n> i) const& {
 template <typename... A>
 template <size_t n>
 constexpr best::object<typename row<A...>::template type<n>>& row<A...>::object(
-    best::index_t<n> i) & {
+  best::index_t<n> i) & {
   return this->get_impl(i);
 }
 template <typename... A>
@@ -812,74 +808,68 @@ constexpr auto row<A...>::select_indices(best::tlist<T> idx) {
 
 // XXX: This code tickles a clang-format bug.
 template <typename... A>
-constexpr decltype(auto) row<A...>::first() const&
-  requires(!types.is_empty())
+constexpr decltype(auto) row<A...>::first() const& requires (!types.is_empty())
 {
   return at(index<0>);
 }
 template <typename... A>
-    constexpr decltype(auto) row<A...>::first() &
-    requires(!types.is_empty()) {
-      return at(index<0>);
-    } template <typename... A>
-    constexpr decltype(auto) row<A...>::first() const&&
-      requires(!types.is_empty())
+  constexpr decltype(auto) row<A...>::first() &
+  requires(!types.is_empty()) { return at(index<0>); } template <typename... A>
+  constexpr decltype(auto) row<A...>::first() const&& requires (
+    !types.is_empty())
 {
   return BEST_MOVE(*this).at(index<0>);
 }
 template <typename... A>
-    constexpr decltype(auto) row<A...>::first() &&
-    requires(!types.is_empty()) {
-      return BEST_MOVE(*this).at(index<0>);
-    } template <typename... A>
-    constexpr decltype(auto) row<A...>::second() const&
-      requires(types.size() >= 2)
+  constexpr decltype(auto) row<A...>::first() &&
+  requires(!types.is_empty()) {
+    return BEST_MOVE(*this).at(index<0>);
+  } template <typename... A>
+  constexpr decltype(auto) row<A...>::second() const& requires (types.size() >=
+                                                                2)
 {
   return at(index<1>);
 }
 template <typename... A>
-    constexpr decltype(auto) row<A...>::second() &
-    requires(types.size() >= 2) {
-      return at(index<1>);
-    } template <typename... A>
-    constexpr decltype(auto) row<A...>::second() const&&
-      requires(types.size() >= 2)
+  constexpr decltype(auto) row<A...>::second() &
+  requires(types.size() >= 2) { return at(index<1>); } template <typename... A>
+  constexpr decltype(auto) row<A...>::second() const&& requires (types.size() >=
+                                                                 2)
 {
   return BEST_MOVE(*this).at(index<1>);
 }
 template <typename... A>
-    constexpr decltype(auto) row<A...>::second() &&
-    requires(types.size() >= 2) {
-      return BEST_MOVE(*this).at(index<1>);
-    } template <typename... A>
-    constexpr decltype(auto) row<A...>::last() const&
-      requires(!types.is_empty())
+  constexpr decltype(auto) row<A...>::second() &&
+  requires(types.size() >= 2) {
+    return BEST_MOVE(*this).at(index<1>);
+  } template <typename... A>
+  constexpr decltype(auto) row<A...>::last() const& requires (!types.is_empty())
 {
   return at(index<types.size() - 1>);
 }
 template <typename... A>
-    constexpr decltype(auto) row<A...>::last() &
-    requires(!types.is_empty()) {
-      return at(index<types.size() - 1>);
-    } template <typename... A>
-    constexpr decltype(auto) row<A...>::last() const&&
-      requires(!types.is_empty())
+  constexpr decltype(auto) row<A...>::last() &
+  requires(!types.is_empty()) {
+    return at(index<types.size() - 1>);
+  } template <typename... A>
+  constexpr decltype(auto) row<A...>::last() const&& requires (
+    !types.is_empty())
 {
   return BEST_MOVE(*this).at(index<types.size() - 1>);
 }
 template <typename... A>
-    constexpr decltype(auto) row<A...>::last() &&
-    requires(!types.is_empty()) {
-      return BEST_MOVE(*this).at(index<types.size() - 1>);
-    }
+  constexpr decltype(auto) row<A...>::last() &&
+  requires(!types.is_empty()) {
+    return BEST_MOVE(*this).at(index<types.size() - 1>);
+  }
 #define BEST_ROW_MUST_USE(func_)                              \
   [[nodiscard("best::row::" #func_                            \
               "() does not mutate its argument; instead, it " \
               "returns a new best::row")]]
 
-    template <typename... A>
-    BEST_ROW_MUST_USE(push)
-    constexpr auto row<A...>::push(auto&& that) const& {
+  template <typename... A>
+  BEST_ROW_MUST_USE(push)
+  constexpr auto row<A...>::push(auto&& that) const& {
   return splice(best::types<best::as_auto<decltype(that)>>,
                 best::row(best::bind, BEST_FWD(that)),
                 best::vals<bounds{.start = size()}>);
@@ -1392,12 +1382,12 @@ constexpr auto row<A...>::scatter(best::tlist<Ts...> those_types,
 template <typename... A>
 constexpr decltype(auto) row<A...>::apply(auto&& f) const& {
   return this->apply_impl(
-      [&](auto&&... p) { return best::call(BEST_FWD(f), p.or_empty()...); });
+    [&](auto&&... p) { return best::call(BEST_FWD(f), p.or_empty()...); });
 }
 template <typename... A>
 constexpr decltype(auto) row<A...>::apply(auto&& f) & {
   return this->apply_impl(
-      [&](auto&&... p) { return best::call(BEST_FWD(f), p.or_empty()...); });
+    [&](auto&&... p) { return best::call(BEST_FWD(f), p.or_empty()...); });
 }
 template <typename... A>
 constexpr decltype(auto) row<A...>::apply(auto&& f) const&& {
@@ -1415,12 +1405,12 @@ constexpr decltype(auto) row<A...>::apply(auto&& f) && {
 template <typename... A>
 constexpr void row<A...>::each(auto&& f) const& {
   return this->apply_impl(
-      [&](auto&&... p) { (row_internal::object_call(BEST_FWD(f), p), ...); });
+    [&](auto&&... p) { (row_internal::object_call(BEST_FWD(f), p), ...); });
 }
 template <typename... A>
 constexpr void row<A...>::each(auto&& f) & {
   return this->apply_impl(
-      [&](auto&&... p) { (row_internal::object_call(BEST_FWD(f), p), ...); });
+    [&](auto&&... p) { (row_internal::object_call(BEST_FWD(f), p), ...); });
 }
 template <typename... A>
 constexpr void row<A...>::each(auto&& f) const&& {

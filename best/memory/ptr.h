@@ -54,7 +54,7 @@ using pointee_for = best::select<best::is_object<T> || best::is_void<T>, T,
 /// Whether a `best::ptr<U>` is implicitly convertible into a `best::ptr<T>`.
 template <typename T, typename U>
 concept ptr_convertible_to =
-    best::convertible<best::pointee_for<U>*, best::pointee_for<T>*>;
+  best::convertible<best::pointee_for<U>*, best::pointee_for<T>*>;
 
 /// # `best::ptr<T>`
 ///
@@ -121,11 +121,10 @@ class ptr final {
   /// necessary.
   template <ptr_convertible_to<T> U>
   constexpr ptr(ptr<U> ptr)
-      : BEST_PTR_(
-            // NOTE: This const cast won't cast away `const` if this constructor
-            // is called via implicit conversion, unless T is a void type.
-            const_cast<best::unqual<typename best::ptr<U>::pointee>*>(
-                ptr.raw())) {}
+    : BEST_PTR_(
+        // NOTE: This const cast won't cast away `const` if this constructor
+        // is called via implicit conversion, unless T is a void type.
+        const_cast<best::unqual<typename best::ptr<U>::pointee>*>(ptr.raw())) {}
 
   /// # `ptr::is_niche()`
   ///
@@ -347,7 +346,7 @@ class ptr final {
     requires best::constructible<T, best::as_ref<const U>>
   {
     copy_impl<how{.kind = how::Copy, .overlapping = true, .assign = true}>(
-        that, count);
+      that, count);
   }
   template <typename U>
   BEST_INLINE_ALWAYS constexpr void move_assign_overlapping(ptr<U> that,
@@ -355,13 +354,13 @@ class ptr final {
     requires best::constructible<T, best::as_rref<U>>
   {
     copy_impl<how{.kind = how::Move, .overlapping = true, .assign = true}>(
-        that, count);
+      that, count);
   }
 
   friend void BestFmt(auto& fmt, ptr value) {
     fmt.format("{:#x}", value.to_addr());
   }
-  friend constexpr void BestFmtQuery(auto& query, ptr*) {
+  constexpr friend void BestFmtQuery(auto& query, ptr*) {
     query.requires_debug = false;
     query.uses_method = [](auto r) { return r == 'p'; };
   }
@@ -373,7 +372,7 @@ class ptr final {
   friend class vptr;
 
   BEST_INLINE_ALWAYS constexpr void check() const {
-    if (!best::is_debug() || std::is_constant_evaluated()) return;
+    if (!best::is_debug() || std::is_constant_evaluated()) { return; }
     if (*this == nullptr) {
       best::crash_internal::crash("dereferenced a null `best::ptr`");
     }
@@ -539,7 +538,7 @@ class vptr final {
   constexpr vptr(unsafe, U* ptr, const best::vtable* vt) : ptr_(ptr), vt_(vt) {}
   template <ptr_convertible_to<T> U>
   constexpr vptr(unsafe, ptr<U> ptr, const best::vtable* vt)
-      : ptr_(ptr), vt_(vt) {}
+    : ptr_(ptr), vt_(vt) {}
 
   /// # `vptr::raw()`, `vptr::thin()`
   ///
@@ -598,8 +597,7 @@ class vptr final {
   ///
   /// Destroys the pointed to object in place. This will call the complete
   /// object destructor.
-  BEST_INLINE_SYNTHETIC void destroy() const
-    requires best::destructible<T>;
+  BEST_INLINE_SYNTHETIC void destroy() const requires best::destructible<T>;
 
   /// # `ptr::is_copyable()`
   ///
@@ -617,7 +615,7 @@ class vptr final {
   friend void BestFmt(auto& fmt, vptr value) {
     fmt.format("{:#x}/{:#x}", value.to_addr(), value.vtable());
   }
-  friend constexpr void BestFmtQuery(auto& query, vptr*) {
+  constexpr friend void BestFmtQuery(auto& query, vptr*) {
     query.requires_debug = false;
     query.uses_method = [](auto r) { return r == 'p'; };
   }
@@ -685,7 +683,7 @@ BEST_INLINE_SYNTHETIC constexpr ptr<T>::ref ptr<T>::operator*() const {
 }
 template <typename T>
 BEST_INLINE_SYNTHETIC constexpr auto ptr<T>::operator->() const
-    -> best::as_ptr<ref> {
+  -> best::as_ptr<ref> {
   check();
   if constexpr (best::is_object<T> || best::is_void<T>) {
     return raw();
@@ -696,7 +694,7 @@ BEST_INLINE_SYNTHETIC constexpr auto ptr<T>::operator->() const
 
 template <typename T>
 constexpr ptr<T> ptr<T>::operator+(ptrdiff_t idx) const {
-  if (idx == 0) return *this;
+  if (idx == 0) { return *this; }
   check();
   if constexpr (best::is_void<T>) {
     return *this;
@@ -743,8 +741,8 @@ constexpr ptr<T> ptr<T>::operator--(int) {
 template <typename T>
 vptr<T> vptr<T>::operator+(ptrdiff_t idx) const {
   return {
-      thin().scaled_offset(idx, layout().size()),
-      vtable(),
+    thin().scaled_offset(idx, layout().size()),
+    vtable(),
   };
 }
 template <typename T>
@@ -808,8 +806,7 @@ BEST_INLINE_SYNTHETIC constexpr void ptr<T>::construct(Args&&... args) const
 template <typename T>
 template <typename... Args>
 BEST_INLINE_SYNTHETIC constexpr void ptr<T>::construct(
-    best::args<Args...> args) const
-  requires best::constructible<T, Args...>
+  best::args<Args...> args) const requires best::constructible<T, Args...>
 {
   args.row.apply([&](auto&&... args) { construct(BEST_FWD(args)...); });
 }
@@ -846,8 +843,7 @@ BEST_INLINE_SYNTHETIC constexpr void ptr<T>::assign(Args&&... args) const
 template <typename T>
 template <typename... Args>
 BEST_INLINE_SYNTHETIC constexpr void ptr<T>::assign(
-    best::args<Args...> args) const
-  requires best::assignable<T, Args...>
+  best::args<Args...> args) const requires best::assignable<T, Args...>
 {
   args.row.apply([&](auto&&... args) { assign(BEST_FWD(args)...); });
 }
@@ -857,9 +853,7 @@ BEST_INLINE_SYNTHETIC constexpr void ptr<T>::destroy() const
   requires best::destructible<T>
 {
   check();
-  if constexpr (best::is_object<T>) {
-    raw()->~T();
-  }
+  if constexpr (best::is_object<T>) { raw()->~T(); }
   if (!std::is_constant_evaluated() && best::is_debug()) {
     BEST_PUSH_GCC_DIAGNOSTIC()
     BEST_IGNORE_GCC_DIAGNOSTIC("-Wdynamic-class-memaccess")
@@ -883,7 +877,7 @@ template <typename T>
 template <ptr<T>::how how, typename U>
 BEST_INLINE_SYNTHETIC constexpr void ptr<T>::copy_impl(ptr<U> that,
                                                        size_t count) const {
-  if (count == 0) return;
+  if (count == 0) { return; }
   check();
   that.check();
   if constexpr (how.template can_memcpy<U>()) {
@@ -920,9 +914,7 @@ BEST_INLINE_SYNTHETIC constexpr void ptr<T>::copy_impl(ptr<U> that,
       (*this + i).construct(BEST_MOVE(that[i]));
     }
 
-    if constexpr (how.kind == how::Relo) {
-      (that + i).destroy();
-    }
+    if constexpr (how.kind == how::Relo) { (that + i).destroy(); }
   }
 }
 
@@ -932,7 +924,7 @@ BEST_INLINE_ALWAYS constexpr void ptr<T>::relo_overlapping(ptr<T> that,
   auto dst = *this;
   auto src = that;
 
-  if (dst == src) return;
+  if (dst == src) { return; }
 
   // We need to handle the following cases.
   //
@@ -1006,7 +998,7 @@ template <typename T>
 BEST_INLINE_SYNTHETIC void vptr<T>::copy_to(void* to) const {
   if (!is_copyable()) {
     best::crash_internal::crash(
-        "attempted to copy non-copyable type through a vptr at %p", raw());
+      "attempted to copy non-copyable type through a vptr at %p", raw());
   }
   vtable()->copy_(to, raw());
 }

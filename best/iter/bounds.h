@@ -197,17 +197,15 @@ struct int_range final {
     /// fine-grained control so this looks like syntax the user would ordinarily
     /// write.
     fmt.write('{');
-    if (bounds.start != 0) {
-      fmt.format(".start = {}", bounds.start);
-    }
+    if (bounds.start != 0) { fmt.format(".start = {}", bounds.start); }
     if (bounds.end) {
-      if (bounds.start != 0) fmt.write(", ");
+      if (bounds.start != 0) { fmt.write(", "); }
       fmt.format(".end = {}", *bounds.end);
     } else if (bounds.including_end) {
-      if (bounds.start != 0) fmt.write(", ");
+      if (bounds.start != 0) { fmt.write(", "); }
       fmt.format(".including_end = {}", *bounds.including_end);
     } else if (bounds.count) {
-      if (bounds.start != 0) fmt.write(", ");
+      if (bounds.start != 0) { fmt.write(", "); }
       fmt.format(".count = {}", *bounds.count);
     }
     fmt.write('}');
@@ -232,7 +230,7 @@ struct int_range final {
         return ret;
       }
 
-      if (count_ == 0) return {};
+      if (count_ == 0) { return {}; }
       count_ = (best::overflow(count_) - 1).wrap();
 
       auto ret = start_;
@@ -259,7 +257,7 @@ struct int_range final {
   constexpr int_range normalize(opt_t max_size) const;
 
   static constexpr Int Max =
-      std::make_unsigned_t<Int>(-1) >> std::is_signed_v<Int>;
+    std::make_unsigned_t<Int>(-1) >> std::is_signed_v<Int>;
   static constexpr Int Min = ~Max;
 };
 template <typename Int>
@@ -282,16 +280,16 @@ constexpr auto int_range<Int>::iter() const {
   if (start == Min && ((including_end && *including_end == Max) ||
                        (!including_end && !end && !count))) {
     return best::iter(
-        iter_impl{.start_ = Min, .count_ = Int(-1), .plus_one_ = true});
+      iter_impl{.start_ = Min, .count_ = Int(-1), .plus_one_ = true});
   }
 
   return best::iter(
-      iter_impl{.start_ = start, .count_ = *normalize(Max).count});
+    iter_impl{.start_ = start, .count_ = *normalize(Max).count});
 }
 
 template <typename Int>
 constexpr int_range<Int> int_range<Int>::wrapping_normalize(
-    Int max_size) const {
+  Int max_size) const {
   if (end) {
     return {.start = start, .count = (best::overflow(*end) - start).wrap()};
   }
@@ -303,32 +301,24 @@ constexpr int_range<Int> int_range<Int>::wrapping_normalize(
             .count = (best::overflow(*including_end) - start + 1).wrap()};
   }
 
-  if (count) {
-    return {.start = start, .count = count};
-  }
+  if (count) { return {.start = start, .count = count}; }
 
   return {.start = start, .count = (best::overflow(max_size) - start).wrap()};
 }
 
 template <typename Int>
 constexpr int_range<Int> int_range<Int>::normalize(opt_t max_size) const {
-  if (max_size && start > *max_size) {
-    return {.start = start};
-  }
+  if (max_size && start > *max_size) { return {.start = start}; }
 
   if (end) {
-    if (start > *end) {
-      return {.start = start};
-    }
+    if (start > *end) { return {.start = start}; }
     return {.start = start, .count = (best::overflow(*end) - start).wrap()};
   }
 
   if (including_end) {
     // NOTE: in the case that start = max and including_end = max, this
     // correctly produces a one-element range that yields `max`.
-    if (start > *including_end) {
-      return {.start = start};
-    }
+    if (start > *including_end) { return {.start = start}; }
     return {.start = start,
             .count = (best::overflow(*including_end) - start + 1).wrap()};
   }
@@ -340,9 +330,7 @@ constexpr int_range<Int> int_range<Int>::normalize(opt_t max_size) const {
     return {.start = start, .count = count};
   }
 
-  if (!max_size) {
-    return {.start = start, .count = Max - start};
-  }
+  if (!max_size) { return {.start = start, .count = Max - start}; }
 
   return {.start = start, .count = (best::overflow(*max_size) - start).wrap()};
 }
@@ -352,26 +340,21 @@ constexpr size_t int_range<Int>::compute_count(size_t max_size,
                                                best::location loc) const
   requires std::is_same_v<size_t, Int>
 {
-  if (auto result = try_compute_count(max_size)) {
-    return *result;
-  }
+  if (auto result = try_compute_count(max_size)) { return *result; }
   bounds_internal::crash(*this, max_size, loc);
 }
 
 template <typename Int>
 constexpr int_range<Int>::opt_t int_range<Int>::try_compute_count(
-    opt_t max_size) const
-  requires std::is_same_v<size_t, Int>
+  opt_t max_size) const requires std::is_same_v<size_t, Int>
 {
-  if (!max_size && !end && !including_end && !count) {
-    return {};
-  }
+  if (!max_size && !end && !including_end && !count) { return {}; }
 
   auto count = normalize(max_size).count;
-  if (!max_size) return count;
+  if (!max_size) { return count; }
 
   auto [end, of] = (best::overflow(start) + *count);
-  if (of || end > *max_size) return {};
+  if (of || end > *max_size) { return {}; }
   return count;
 }
 

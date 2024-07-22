@@ -43,38 +43,38 @@ class impl {
 
   constexpr impl(const auto& fn)
     requires best::callable<decltype(fn), R(Args...)> &&
-                 (!no_captures<decltype(fn)>)
-      : ptr_(best::addr(fn)),
-        lambda_(+[](const void* captures, Args... args) -> R {
-          if constexpr (best::is_void<R>) {
-            best::call(
-                *reinterpret_cast<const best::unref<decltype(fn)>*>(captures),
-                BEST_FWD(args)...);
-          } else {
-            return best::call(
-                *reinterpret_cast<const best::unref<decltype(fn)>*>(captures),
-                BEST_FWD(args)...);
-          }
-        }) {}
+               (!no_captures<decltype(fn)>)
+    : ptr_(best::addr(fn)),
+      lambda_(+[](const void* captures, Args... args) -> R {
+        if constexpr (best::is_void<R>) {
+          best::call(
+            *reinterpret_cast<const best::unref<decltype(fn)>*>(captures),
+            BEST_FWD(args)...);
+        } else {
+          return best::call(
+            *reinterpret_cast<const best::unref<decltype(fn)>*>(captures),
+            BEST_FWD(args)...);
+        }
+      }) {}
 
   constexpr impl(best::callable<R(Args...)> auto&& fn)
-    requires(!best::is_const_func<Func>) && (!no_captures<decltype(fn)>)
-      : ptr_(best::addr(fn)),
-        lambda_(+[](const void* captures, Args... args) -> R {
-          if constexpr (best::is_void<R>) {
-            best::call(*reinterpret_cast<best::unref<decltype(fn)>*>(
-                           const_cast<void*>(captures)),
-                       BEST_FWD(args)...);
-          } else {
-            return best::call(*reinterpret_cast<best::unref<decltype(fn)>*>(
-                                  const_cast<void*>(captures)),
-                              BEST_FWD(args)...);
-          }
-        }) {}
+    requires (!best::is_const_func<Func>) && (!no_captures<decltype(fn)>)
+    : ptr_(best::addr(fn)),
+      lambda_(+[](const void* captures, Args... args) -> R {
+        if constexpr (best::is_void<R>) {
+          best::call(*reinterpret_cast<best::unref<decltype(fn)>*>(
+                       const_cast<void*>(captures)),
+                     BEST_FWD(args)...);
+        } else {
+          return best::call(*reinterpret_cast<best::unref<decltype(fn)>*>(
+                              const_cast<void*>(captures)),
+                            BEST_FWD(args)...);
+        }
+      }) {}
 
   constexpr impl(best::callable<R(Args...)> auto&& fn)
     requires no_captures<decltype(fn)>
-      : impl(+fn) {}
+    : impl(+fn) {}
 
   constexpr R operator()(Args... args) const {
     if (ptr_) {

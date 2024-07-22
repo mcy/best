@@ -78,8 +78,8 @@ using dependent = traits_internal::dependent<T, Deps...>::type;
 template <traits_internal::nonvoid T>
 T&& lie = [] {
   static_assert(
-      sizeof(T) == 0,
-      "attempted to tell a best::lie: this value cannot be materialized");
+    sizeof(T) == 0,
+    "attempted to tell a best::lie: this value cannot be materialized");
 }();
 
 /// # `best::select<...>`

@@ -95,21 +95,21 @@ struct cli::impl {
 
   best::option<const entry&> find_flag(best::pretext<wtf8> tok) const {
     return sorted_flags.as_span()
-        .bisect(tok, &entry::key)
-        .ok()
-        .map([&](size_t idx) -> auto&& { return sorted_flags[idx]; });
+      .bisect(tok, &entry::key)
+      .ok()
+      .map([&](size_t idx) -> auto&& { return sorted_flags[idx]; });
   }
 
   best::option<const entry&> find_sub(best::pretext<wtf8> tok) const {
     return sorted_subs.as_span()
-        .bisect(tok, &entry::key)
-        .ok()
-        .map([&](size_t idx) -> auto&& { return sorted_subs[idx]; });
+      .bisect(tok, &entry::key)
+      .ok()
+      .map([&](size_t idx) -> auto&& { return sorted_subs[idx]; });
   }
 };
 
 cli::cli(best::option<const app&> app)
-    : impl_(new impl{.app = app.value_or()}) {}
+  : impl_(new impl{.app = app.value_or()}) {}
 
 cli::cli(cli&&) = default;
 cli& cli::operator=(cli&&) = default;
@@ -144,7 +144,7 @@ void normalize(best::strbuf& name, const auto& about) {
   // Normalize all underscores to dashes. This does not violate UTF-8-ness.
   for (size_t i = 0; i < name.size(); ++i) {
     char& c = name.data()[i];
-    if (c == '_') c = '-';
+    if (c == '_') { c = '-'; }
   }
 }
 }  // namespace
@@ -158,7 +158,7 @@ void cli::add(about about, const subcommand& tag, cli& child) {
   child.impl_->parent = &*impl_;
   child.impl_->parent_sub = &tag;
   child.impl_->parent_sub_name =
-      tag.name.is_empty() ? best::strbuf(about.field) : best::strbuf(tag.name);
+    tag.name.is_empty() ? best::strbuf(about.field) : best::strbuf(tag.name);
 
   impl_->subs.push(std::move(about), &tag, &child);
 }
@@ -184,7 +184,7 @@ void cli::init() {
     auto has_letter = f.tag->letter != '\0';
     for (auto [name_idx, pair] : f.about.names.iter().enumerate()) {
       auto& [name, vis] = pair;
-      if (vis == Delete) continue;
+      if (vis == Delete) { continue; }
 
       normalize(name, f.about);
       if (name == "help" || name == "help-hidden" || name == "version") {
@@ -193,18 +193,18 @@ void cli::init() {
       }
 
       impl_->sorted_flags.push(impl::entry{
-          .key = name,
-          .idx = idx,
-          .is_letter = name_idx == 0 && has_letter,
-          .is_alias = name_idx > size_t(has_letter),
-          .vis = vis,
+        .key = name,
+        .idx = idx,
+        .is_letter = name_idx == 0 && has_letter,
+        .is_alias = name_idx > size_t(has_letter),
+        .vis = vis,
       });
     }
   }
 
   for (auto [idx, s] : impl_->subs.iter().enumerate()) {
     for (auto& [name, vis] : s.about.names) {
-      if (vis == Delete) continue;
+      if (vis == Delete) { continue; }
       normalize(name, s.about);
 
       impl_->sorted_subs.push(impl::entry{.key = name, .idx = idx, .vis = vis});
@@ -231,24 +231,16 @@ void cli::init() {
 
     // Update the visibilities of the copied entries.
     auto update = [&](about& about) {
-      for (auto& [x, vis] : about.names) {
-        vis = merge(vis, g->tag->vis);
-      }
+      for (auto& [x, vis] : about.names) { vis = merge(vis, g->tag->vis); }
     };
-    for (auto& f : impl_->flags[{.start = flag_offset}]) {
-      update(f.about);
-    }
-    for (auto& s : impl_->subs[{.start = sub_offset}]) {
-      update(s.about);
-    }
-    for (auto& g : impl_->groups[{.start = group_offset}]) {
-      update(g.about);
-    }
+    for (auto& f : impl_->flags[{.start = flag_offset}]) { update(f.about); }
+    for (auto& s : impl_->subs[{.start = sub_offset}]) { update(s.about); }
+    for (auto& g : impl_->groups[{.start = group_offset}]) { update(g.about); }
 
     auto has_letter = g->tag->letter != '\0';
     for (auto [name_idx, pair] : g->about.names.iter().enumerate()) {
       auto& [name, vis] = pair;
-      if (vis == Delete) continue;
+      if (vis == Delete) { continue; }
 
       bool is_flatten = !has_letter && name.is_empty();
       bool is_letter = !is_flatten && name_idx == 0 && has_letter;
@@ -256,16 +248,16 @@ void cli::init() {
         normalize(name, g->about);
         if (name == "help" || name == "help-hidden" || name == "version") {
           best::wtf(
-              "field {}::{}'s name ({:?}) is reserved and may not be used",
-              g->about.strukt->path(), g->about.field, name);
+            "field {}::{}'s name ({:?}) is reserved and may not be used",
+            g->about.strukt->path(), g->about.field, name);
         }
 
         impl_->sorted_flags.push(impl::entry{
-            .key = name,
-            .idx = idx,
-            .is_group = true,
-            .is_letter = is_letter,
-            .is_alias = name_idx > size_t(has_letter),
+          .key = name,
+          .idx = idx,
+          .is_group = true,
+          .is_letter = is_letter,
+          .is_alias = name_idx > size_t(has_letter),
         });
 
         // Letter names for groups are parsed in a different way that does not
@@ -275,7 +267,7 @@ void cli::init() {
 
       auto copy_vis = merge(vis, is_flatten ? Public : Hidden);
       for (auto entry : g->child->impl_->sorted_flags) {
-        if (is_flatten && entry.magic != entry.Ordinary) continue;
+        if (is_flatten && entry.magic != entry.Ordinary) { continue; }
 
         if (entry.magic == entry.Ordinary) {
           entry.idx += entry.is_group ? group_offset : flag_offset;
@@ -313,7 +305,7 @@ void cli::init() {
 
   // Pull out all of the required flags.
   for (const auto& f : impl_->flags) {
-    if (f.get_count() != Required) continue;
+    if (f.get_count() != Required) { continue; }
     auto name = f.tag->letter != '\0' ? f.about.names[1].first()
                                       : f.about.names[0].first();
 
@@ -322,23 +314,23 @@ void cli::init() {
 
   // Add magic flags.
   impl_->sorted_flags.push(impl::entry{
-      .key = {"help"},
-      .idx = -1,
-      .vis = Public,
-      .magic = impl::entry::Help,
+    .key = {"help"},
+    .idx = -1,
+    .vis = Public,
+    .magic = impl::entry::Help,
   });
   impl_->sorted_flags.push(impl::entry{
-      .key = {"h"},
-      .idx = -1,
-      .is_letter = true,
-      .vis = Public,
-      .magic = impl::entry::Help,
+    .key = {"h"},
+    .idx = -1,
+    .is_letter = true,
+    .vis = Public,
+    .magic = impl::entry::Help,
   });
   impl_->sorted_flags.push(impl::entry{
-      .key = {"help-hidden"},
-      .idx = -1,
-      .vis = Hidden,
-      .magic = impl::entry::HelpHidden,
+    .key = {"help-hidden"},
+    .idx = -1,
+    .vis = Hidden,
+    .magic = impl::entry::HelpHidden,
   });
 
   // Now, sort the flags so we can bisect through them later.
@@ -370,15 +362,15 @@ void cli::init() {
 }
 
 best::result<void, cli::error> cli::parse(
-    void* args, best::pretext<wtf8> exe,
-    best::span<const best::pretext<wtf8>> argv) const {
+  void* args, best::pretext<wtf8> exe,
+  best::span<const best::pretext<wtf8>> argv) const {
   context ctx = {
-      .exe = exe.split('/').last().value_or(),
-      .root = this,
-      .sub = this,
-      .cur = this,
-      .next_positional = 0,
-      .args = args,
+    .exe = exe.split('/').last().value_or(),
+    .root = this,
+    .sub = this,
+    .cur = this,
+    .next_positional = 0,
+    .args = args,
   };
 
   bool done_with_flags = false;
@@ -416,7 +408,7 @@ best::result<void, cli::error> cli::parse(
       }
 
       auto push_group = [&](size_t idx, bool update_arg =
-                                            true) -> best::result<void, error> {
+                                          true) -> best::result<void, error> {
         // We need to parse a flag from the next argument, of the form e.g.
         // -C opt-level=3.
 
@@ -424,17 +416,17 @@ best::result<void, cli::error> cli::parse(
           // This type of flag cannot use a = argument.
           if (arg) {
             return best::err(
-                best::format("{0}: fatal: unexpected argument after {1}",
-                             ctx.exe, token),
-                /*is_fatal=*/true);
+              best::format("{0}: fatal: unexpected argument after {1}", ctx.exe,
+                           token),
+              /*is_fatal=*/true);
           }
 
           auto next_arg = iter.next();
           if (!next_arg) {
             return best::err(
-                best::format("{0}: fatal: expected sub-flag after {1}", ctx.exe,
-                             token),
-                /*is_fatal=*/true);
+              best::format("{0}: fatal: expected sub-flag after {1}", ctx.exe,
+                           token),
+              /*is_fatal=*/true);
           }
 
           // Update flag and arg.
@@ -451,10 +443,9 @@ best::result<void, cli::error> cli::parse(
       };
 
       auto interpret_magic =
-          [&](const impl::entry& e) -> best::result<void, error> {
+        [&](const impl::entry& e) -> best::result<void, error> {
         switch (e.magic) {
-          case impl::entry::Ordinary:
-            return best::ok();
+          case impl::entry::Ordinary: return best::ok();
           case impl::entry::Help:
             return best::err(ctx.cur->usage(ctx.exe, false),
                              /*is_fatal=*/false);
@@ -474,28 +465,28 @@ best::result<void, cli::error> cli::parse(
           auto tok = best::format("-{}", r);
           auto e = ctx.cur->impl_->find_flag(tok[{.start = 1}]);
 
-          if (!e || !e->is_letter) break;
+          if (!e || !e->is_letter) { break; }
           if (e->is_group) {
             // This is a nesting of the form -Copt-level. Unlike the case below,
             // we do not need to update flag/arg if there remain runes to be
             // consumed.
             bool update = runes->rest().is_empty();
             BEST_GUARD(push_group(e->idx, update));
-            if (!update) flag = runes->rest();
+            if (!update) { flag = runes->rest(); }
             continue;
           }
           BEST_GUARD(interpret_magic(*e));
 
           const auto& f = ctx.cur->impl_->flags[e->idx];
-          if (f.query->wants_arg) break;
+          if (f.query->wants_arg) { break; }
           ctx.token = tok;
 
           auto [it, inserted] = seen.insert(f.tag);
           if (!inserted && f.get_count() != Repeated) {
             return best::err(
-                best::format("{0}: fatal: flag {1} appeared more than once",
-                             ctx.exe, tok),
-                /*is_fatal=*/true);
+              best::format("{0}: fatal: flag {1} appeared more than once",
+                           ctx.exe, tok),
+              /*is_fatal=*/true);
           }
 
           // Need to be careful here: we might have a !want_arg flag that
@@ -511,7 +502,7 @@ best::result<void, cli::error> cli::parse(
           flag = runes->rest();
         }
 
-        if (flag.is_empty()) goto again;
+        if (flag.is_empty()) { goto again; }
       }
 
       ctx.token = *next;
@@ -533,28 +524,28 @@ best::result<void, cli::error> cli::parse(
           const auto& f = ctx.cur->impl_->flags[e->idx];
 
           best::str dash = "-";
-          if (!is_letter) dash = "--";
+          if (!is_letter) { dash = "--"; }
           auto tok = best::format("{}{}", dash, flag);
           ctx.token = tok;
 
           auto [it, inserted] = seen.insert(f.tag);
           if (!inserted && f.get_count() != Repeated) {
             best::str dash = "-";
-            if (!is_letter) dash = "--";
+            if (!is_letter) { dash = "--"; }
 
             return best::err(
-                best::format("{0}: fatal: flag {1} appeared more than once",
-                             ctx.exe, tok),
-                /*is_fatal=*/true);
+              best::format("{0}: fatal: flag {1} appeared more than once",
+                           ctx.exe, tok),
+              /*is_fatal=*/true);
           }
 
           if (!arg && f.query->wants_arg) {
             arg = iter.next();
             if (!arg) {
               return best::err(
-                  best::format("{0}: fatal: expected argument after {1}",
-                               ctx.exe, token),
-                  /*is_fatal=*/true);
+                best::format("{0}: fatal: expected argument after {1}", ctx.exe,
+                             token),
+                /*is_fatal=*/true);
             }
           }
 
@@ -564,11 +555,11 @@ best::result<void, cli::error> cli::parse(
 
         // Looks like a bad flag. Users need to pass `--`.
         return best::err(
-            best::format("{0}: fatal: unknown flag {1:?}\n"
-                         "{0}: you can use `--` if you meant to pass "
-                         "this as a positional argument",
-                         ctx.exe, token),
-            /*is_fatal=*/true);
+          best::format("{0}: fatal: unknown flag {1:?}\n"
+                       "{0}: you can use `--` if you meant to pass "
+                       "this as a positional argument",
+                       ctx.exe, token),
+          /*is_fatal=*/true);
       }
     }
 
@@ -581,9 +572,7 @@ best::result<void, cli::error> cli::parse(
     // If not, this is definitely a positional.
     if (auto p = ctx.cur->impl_->args.at(ctx.next_positional)) {
       BEST_GUARD(p->parse(ctx, *next));
-      if (p->get_count() != Repeated) {
-        ++ctx.next_positional;
-      }
+      if (p->get_count() != Repeated) { ++ctx.next_positional; }
       goto again;
     }
 
@@ -597,8 +586,8 @@ best::result<void, cli::error> cli::parse(
   for (const auto& [req, name] : impl_->required) {
     if (!seen.contains(req)) {
       return best::err(
-          best::format("{0}: fatal: missing flag --{1}", ctx.exe, name),
-          /*is_fatal=*/true);
+        best::format("{0}: fatal: missing flag --{1}", ctx.exe, name),
+        /*is_fatal=*/true);
     }
   }
 
@@ -616,7 +605,7 @@ size_t width_of(best::str s) {
 best::strbuf cli::usage(best::pretext<wtf8> exe, bool hidden) const {
   best::strbuf out;
   auto indent = [&](size_t n) {
-    for (size_t i = 0; i < n; ++i) out.push(" ");
+    for (size_t i = 0; i < n; ++i) { out.push(" "); }
   };
 
   auto indent_dots = [&](size_t n) {
@@ -648,38 +637,30 @@ best::strbuf cli::usage(best::pretext<wtf8> exe, bool hidden) const {
   best::format(out, "Usage: {}", exe);
   if (!parents.is_empty()) {
     parents->reverse();
-    for (auto sub : parents) {
-      best::format(out, " {}", sub);
-    }
+    for (auto sub : parents) { best::format(out, " {}", sub); }
   }
 
   // We also need to dig our way out of any groups we're in.
   auto* cmd = impl_.get();
-  while (cmd->parent_group) cmd = cmd->parent;
+  while (cmd->parent_group) { cmd = cmd->parent; }
 
   // Append all of the letters, but only if we're inside of a subcommand, not a
   // group.
-  if (impl_->parent_group != nullptr) {
-    out.push(" [SUBOPTION]");
-  }
+  if (impl_->parent_group != nullptr) { out.push(" [SUBOPTION]"); }
 
   bool needs_dash = true;
   for (const auto& e : cmd->sorted_flags) {
-    if (!e.is_letter || e.is_copy || !visible(e.vis, hidden)) continue;
-    if (std::exchange(needs_dash, false)) {
-      out.push(" -");
-    }
+    if (!e.is_letter || e.is_copy || !visible(e.vis, hidden)) { continue; }
+    if (std::exchange(needs_dash, false)) { out.push(" -"); }
     out.push(e.key);
   }
 
-  if (!cmd->sorted_flags.is_empty()) {
-    out.push(" [OPTIONS]");
-  }
+  if (!cmd->sorted_flags.is_empty()) { out.push(" [OPTIONS]"); }
 
   // Append all of the subcommands.
   bool first = true;
   for (const auto& s : cmd->sorted_subs) {
-    if (s.is_alias) continue;
+    if (s.is_alias) { continue; }
     if (std::exchange(first, false)) {
       out.push(" [");
     } else {
@@ -687,35 +668,21 @@ best::strbuf cli::usage(best::pretext<wtf8> exe, bool hidden) const {
     }
     out.push(s.key);
   }
-  if (!first) {
-    out.push("]");
-  }
+  if (!first) { out.push("]"); }
 
   // Append all of the arguments.
   for (auto [idx, p] : cmd->args.iter().enumerate()) {
     if (best::str name = p.tag->name; !name.is_empty()) {
       switch (p.get_count()) {
-        case Optional:
-          best::format(out, " [{}]", name);
-          break;
-        case Required:
-          best::format(out, " <{}>", name);
-          break;
-        case Repeated:
-          best::format(out, " [{}]...", name);
-          break;
+        case Optional: best::format(out, " [{}]", name); break;
+        case Required: best::format(out, " <{}>", name); break;
+        case Repeated: best::format(out, " [{}]...", name); break;
       }
     } else {
       switch (p.get_count()) {
-        case Optional:
-          best::format(out, " [ARG{}]", idx + 1);
-          break;
-        case Required:
-          best::format(out, " <ARG{}>", idx + 1);
-          break;
-        case Repeated:
-          best::format(out, " [ARG{}]...", idx + 1);
-          break;
+        case Optional: best::format(out, " [ARG{}]", idx + 1); break;
+        case Required: best::format(out, " <ARG{}>", idx + 1); break;
+        case Repeated: best::format(out, " [ARG{}]...", idx + 1); break;
       }
     }
   }
@@ -735,9 +702,7 @@ best::strbuf cli::usage(best::pretext<wtf8> exe, bool hidden) const {
   } else {
     out.push(app.about);
   }
-  if (start < out.size()) {
-    out.push("\n\n");
-  }
+  if (start < out.size()) { out.push("\n\n"); }
 
   // This is how wide the column for a flag to be in-line with its
   // help is.
@@ -746,11 +711,9 @@ best::strbuf cli::usage(best::pretext<wtf8> exe, bool hidden) const {
   // Next, print all of the subcommands.
   first = true;
   for (const auto& e : impl_->sorted_subs) {
-    if (!visible(e.vis, hidden) || e.is_alias) continue;
+    if (!visible(e.vis, hidden) || e.is_alias) { continue; }
 
-    if (std::exchange(first, false)) {
-      out.push("# Subcommands\n");
-    }
+    if (std::exchange(first, false)) { out.push("# Subcommands\n"); }
 
     indent(6);
     out.push(e.key);
@@ -764,12 +727,12 @@ best::strbuf cli::usage(best::pretext<wtf8> exe, bool hidden) const {
 
     bool first = true;
     for (auto line : impl_->subs[e.idx].tag->help.split("\n")) {
-      if (!std::exchange(first, false)) indent(Width + 2);
+      if (!std::exchange(first, false)) { indent(Width + 2); }
       out.push(line);
       out.push("\n");
     }
   }
-  if (!first) out.push('\n');
+  if (!first) { out.push('\n'); }
 
   out.push("# Flags\n");
 
@@ -792,12 +755,12 @@ best::strbuf cli::usage(best::pretext<wtf8> exe, bool hidden) const {
 
       if (f.query->wants_arg) {
         arg = f.tag->arg;
-        if (arg.is_empty()) arg = "ARG";
+        if (arg.is_empty()) { arg = "ARG"; }
       }
     }
 
-    if (!visible(e.vis, hidden)) return;
-    if (help.is_empty()) help = "<undocumented>";
+    if (!visible(e.vis, hidden)) { return; }
+    if (help.is_empty()) { help = "<undocumented>"; }
 
     size_t start = out.size();
     out.push("  ");
@@ -809,7 +772,7 @@ best::strbuf cli::usage(best::pretext<wtf8> exe, bool hidden) const {
     }
 
     best::str prefix = e.key[{
-        .end = e.key.size() - e.key->split('.').last()->size(),
+      .end = e.key.size() - e.key->split('.').last()->size(),
     }];
     // Chop off everything past the last `.` to make the prefix.
 
@@ -817,7 +780,7 @@ best::strbuf cli::usage(best::pretext<wtf8> exe, bool hidden) const {
     auto helps = help.split("\n");
     bool first = true;
     for (auto [name, vis] : names) {
-      if (!visible(vis, hidden)) continue;
+      if (!visible(vis, hidden)) { continue; }
 
       bool is_first = std::exchange(first, false);
       if (!is_first) {
@@ -836,7 +799,7 @@ best::strbuf cli::usage(best::pretext<wtf8> exe, bool hidden) const {
         out.push(arg);
       }
 
-      if (needs_comma) out.push(',');
+      if (needs_comma) { out.push(','); }
 
       auto help = helps.next();
 
@@ -879,10 +842,10 @@ best::strbuf cli::usage(best::pretext<wtf8> exe, bool hidden) const {
     bool has_letter = f.tag->letter != '\0';
 
     // Undocumented flags are implicitly hidden.
-    if (f.tag->help == "" && !hidden) continue;
+    if (f.tag->help == "" && !hidden) { continue; }
 
     // This makes us prefer to alphabetize by letter when possible.
-    if (has_letter && !e.is_letter) continue;
+    if (has_letter && !e.is_letter) { continue; }
     print_flag(e);
   }
 
@@ -901,9 +864,9 @@ best::strbuf cli::usage(best::pretext<wtf8> exe, bool hidden) const {
     }
 
     // This makes us prefer to alphabetize by name.
-    if ((has_letter || !e.is_group) && e.is_letter) continue;
+    if ((has_letter || !e.is_group) && e.is_letter) { continue; }
 
-    if (std::exchange(first, false)) out.push("\n");
+    if (std::exchange(first, false)) { out.push("\n"); }
     print_flag(e);
   }
 
@@ -928,15 +891,13 @@ best::strbuf cli::usage(best::pretext<wtf8> exe, bool hidden) const {
       best::format(out, "Version: {} v{}\n",
                    app.name.is_empty() ? exe : app.name, app.version);
     }
-    if (!app.url.is_empty()) best::format(out, "Website: <{}>\n", app.url);
+    if (!app.url.is_empty()) { best::format(out, "Website: <{}>\n", app.url); }
   }
 
   if (!app.authors.is_empty()) {
     out.push("\n");
     out.push("(c) ");
-    if (app.copyright_year) {
-      best::format(out, "{} ", *app.copyright_year);
-    }
+    if (app.copyright_year) { best::format(out, "{} ", *app.copyright_year); }
     out.push(app.authors);
     if (!app.license.is_empty()) {
       best::format(out, ", licensed {}\n", app.license);

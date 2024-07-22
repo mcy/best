@@ -32,7 +32,7 @@
 namespace best::layout_internal {
 template <typename T>
 using to_object = best::devoid<
-    best::select<best::is_object<T> || best::is_void<T>, T, best::as_ptr<T>>>;
+  best::select<best::is_object<T> || best::is_void<T>, T, best::as_ptr<T>>>;
 
 /// Computes the alignment of a struct/union with the given member types.
 ///
@@ -44,7 +44,7 @@ template <typename... Types>
 inline constexpr size_t align_of = [] {
   size_t align = 1;
   best::types<to_object<Types>...>.each(
-      [&]<typename T> { align = (align > alignof(T) ? align : alignof(T)); });
+    [&]<typename T> { align = (align > alignof(T) ? align : alignof(T)); });
   return align;
 }();
 
@@ -54,15 +54,13 @@ inline constexpr size_t align_of = [] {
 /// a size of 1.
 template <typename... Types>
 inline constexpr size_t size_of = [] {
-  if (sizeof...(Types) == 0) return size_t{1};
+  if (sizeof...(Types) == 0) { return size_t{1}; }
 
   size_t size = 0, align = 1;
 
   auto align_to = [&size](size_t align) {
     auto remainder = size % align;
-    if (remainder != 0) {
-      size += align - remainder;
-    }
+    if (remainder != 0) { size += align - remainder; }
   };
 
   best::types<to_object<Types>...>.each([&]<typename T> {
@@ -82,14 +80,12 @@ inline constexpr size_t size_of = [] {
 /// a size of 1.
 template <typename... Types>
 inline constexpr size_t size_of_union = [] {
-  if (sizeof...(Types) == 0) return size_t{1};
+  if (sizeof...(Types) == 0) { return size_t{1}; }
 
   size_t size = 0, align = 1;
   auto align_to = [&](size_t align) {
     auto remainder = size % align;
-    if (remainder != 0) {
-      size += align - remainder;
-    }
+    if (remainder != 0) { size += align - remainder; }
   };
 
   best::types<to_object<Types>...>.each([&]<typename T> {

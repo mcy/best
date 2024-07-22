@@ -37,8 +37,7 @@ constexpr void span<T, n>::sort() const
 }
 template <best::is_object T, best::option<best::dependent<size_t, T>> n>
 constexpr void span<T, n>::sort(
-    best::callable<void(const T&)> auto&& get_key) const
-  requires(!is_const)
+  best::callable<void(const T&)> auto&& get_key) const requires (!is_const)
 {
   std::sort(data().raw(), data().raw() + size(), [&](auto& a, auto& b) {
     return best::call(BEST_FWD(get_key), a) < best::call(BEST_FWD(get_key), b);
@@ -46,8 +45,8 @@ constexpr void span<T, n>::sort(
 }
 template <best::is_object T, best::option<best::dependent<size_t, T>> n>
 constexpr void span<T, n>::sort(
-    best::callable<best::partial_ord(const T&, const T&)> auto&& get_key) const
-  requires(!is_const)
+  best::callable<best::partial_ord(const T&, const T&)> auto&& get_key) const
+  requires (!is_const)
 {
   std::sort(data().raw(), data().raw() + size(), [&](auto& a, auto& b) {
     return best::call(BEST_FWD(get_key), a, b) < 0;
@@ -61,8 +60,7 @@ constexpr void span<T, n>::stable_sort() const
 }
 template <best::is_object T, best::option<best::dependent<size_t, T>> n>
 constexpr void span<T, n>::stable_sort(
-    best::callable<void(const T&)> auto&& get_key) const
-  requires(!is_const)
+  best::callable<void(const T&)> auto&& get_key) const requires (!is_const)
 {
   std::stable_sort(data().raw(), data().raw() + size(), [&](auto& a, auto& b) {
     return best::call(BEST_FWD(get_key), a) < best::call(BEST_FWD(get_key), b);
@@ -70,8 +68,8 @@ constexpr void span<T, n>::stable_sort(
 }
 template <best::is_object T, best::option<best::dependent<size_t, T>> n>
 constexpr void span<T, n>::stable_sort(
-    best::callable<best::partial_ord(const T&, const T&)> auto&& get_key) const
-  requires(!is_const)
+  best::callable<best::partial_ord(const T&, const T&)> auto&& get_key) const
+  requires (!is_const)
 {
   std::stable_sort(data().raw(), data().raw() + size(), [&](auto& a, auto& b) {
     return best::call(BEST_FWD(get_key), a, b) < 0;

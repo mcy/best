@@ -83,12 +83,12 @@ concept testable = best::converts_to<T, bool> && requires(T cond) {
 /// types to be void, and does not require either to be self-comparable.
 template <typename T, typename U = T>
 concept equatable =
-    (best::is_void<T> && best::is_void<U>) || requires(const T& a, const U& b) {
-      { a == b } -> best::testable;
-      { b == a } -> best::testable;
-      { a != b } -> best::testable;
-      { b != a } -> best::testable;
-    };
+  (best::is_void<T> && best::is_void<U>) || requires(const T& a, const U& b) {
+    { a == b } -> best::testable;
+    { b == a } -> best::testable;
+    { a != b } -> best::testable;
+    { b != a } -> best::testable;
+  };
 
 /// # `best::comparable`
 ///
@@ -98,11 +98,11 @@ concept equatable =
 /// types to be void, and does not require either to be self-comparable.
 template <typename T, typename U = T>
 concept comparable =
-    (best::is_void<T> && best::is_void<U>) || requires(const T& a, const U& b) {
-      requires best::equatable<T, U>;
-      { a <=> b } -> best::converts_to<decltype(a <=> b)>;
-      { b <=> a } -> best::converts_to<decltype(b <=> a)>;
-    };
+  (best::is_void<T> && best::is_void<U>) || requires(const T& a, const U& b) {
+    requires best::equatable<T, U>;
+    { a <=> b } -> best::converts_to<decltype(a <=> b)>;
+    { b <=> a } -> best::converts_to<decltype(b <=> a)>;
+  };
 
 /// # `best::order_type<T, U>`
 ///

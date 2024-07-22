@@ -50,7 +50,7 @@ constexpr best::result<Int, best::atoi_error> atoi(const string_type auto &str,
 /// on a prefix, such as `0x`, `0b`, `0o`, or `0`.
 template <best::integer Int>
 constexpr best::result<Int, best::atoi_error> atoi_with_prefix(
-    const string_type auto &str);
+  const string_type auto &str);
 
 /// # `best::atoi_with_sign()`
 ///
@@ -58,7 +58,7 @@ constexpr best::result<Int, best::atoi_error> atoi_with_prefix(
 /// argument.
 template <best::integer Int>
 constexpr best::result<Int, best::atoi_error> atoi_with_sign(
-    const string_type auto &str, bool is_negative, uint32_t radix) {
+  const string_type auto &str, bool is_negative, uint32_t radix) {
   if constexpr (best::is_pretext<decltype(str)>) {
     // Adapted slightly from the implementation found in Rust's
     // from_str_radix().
@@ -70,7 +70,7 @@ constexpr best::result<Int, best::atoi_error> atoi_with_sign(
     auto runes = str.runes();
     auto next = runes.next();
 
-    if (!next) return best::atoi_error{};
+    if (!next) { return best::atoi_error{}; }
 
     // We make an approximation that the number of digits provided by `str` is
     // no larger than its length in code units. The greatest information density
@@ -80,9 +80,9 @@ constexpr best::result<Int, best::atoi_error> atoi_with_sign(
     // e.g. `80` will overflow `int8_t`.
     size_t total_codes = best::size(str);
     size_t maximum_codes_without_overflow =
-        sizeof(Int) * 2 - best::signed_int<Int>;
+      sizeof(Int) * 2 - best::signed_int<Int>;
     size_t cannot_overflow =
-        radix <= 16 && total_codes <= maximum_codes_without_overflow;
+      radix <= 16 && total_codes <= maximum_codes_without_overflow;
 
 #define BEST_ATOI_LOOP_(result_, op_)                             \
   do {                                                            \
@@ -136,7 +136,7 @@ constexpr best::result<Int, best::atoi_error> atoi(const string_type auto &str_,
 
     auto str = str_;
     bool neg = str.consume_prefix('-');
-    if (!neg) str.consume_prefix('+');
+    if (!neg) { str.consume_prefix('+'); }
 
     return best::atoi_with_sign<Int>(str, neg, radix);
   } else {
@@ -146,13 +146,13 @@ constexpr best::result<Int, best::atoi_error> atoi(const string_type auto &str_,
 
 template <best::integer Int>
 constexpr best::result<Int, best::atoi_error> atoi_with_prefix(
-    const string_type auto &str_) {
+  const string_type auto &str_) {
   if constexpr (best::is_pretext<decltype(str_)>) {
     auto str = str_;
     bool neg = str.consume_prefix('-');
-    if (!neg) str.consume_prefix('+');
+    if (!neg) { str.consume_prefix('+'); }
 
-    if (str == "0") return 0;
+    if (str == "0") { return 0; }
 
     int radix = 10;
     if (str.consume_prefix("0x")) {

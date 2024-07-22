@@ -274,7 +274,7 @@ class cli final {
     ///
     /// Constructs a new error.
     explicit error(best::strbuf message, bool is_fatal)
-        : message_(BEST_MOVE(message)), is_fatal_(is_fatal) {}
+      : message_(BEST_MOVE(message)), is_fatal_(is_fatal) {}
 
     /// # `error::message()`
     ///
@@ -295,8 +295,8 @@ class cli final {
 
     friend void BestFmt(auto& fmt, const error& e) {
       fmt.record("cli::error")
-          .field("message", e.message())
-          .field("is_fatal", e.is_fatal());
+        .field("message", e.message())
+        .field("is_fatal", e.is_fatal());
     }
 
    private:
@@ -355,16 +355,16 @@ class cli final {
 
   /// Executes a parse operation.
   best::result<void, error> parse(
-      void* flags, best::pretext<wtf8> exe,
-      best::span<const best::pretext<wtf8>> argv) const;
+    void* flags, best::pretext<wtf8> exe,
+    best::span<const best::pretext<wtf8>> argv) const;
 
   template <typename Flags>
   friend const cli& cli_for();
 
   template <typename Flags>
   friend best::result<Flags, error> parse_flags(
-      best::pretext<best::wtf8> exe,
-      best::span<const best::pretext<best::wtf8>> argv);
+    best::pretext<best::wtf8> exe,
+    best::span<const best::pretext<best::wtf8>> argv);
 
   struct impl;
   std::unique_ptr<impl> impl_;

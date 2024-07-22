@@ -97,8 +97,8 @@ best::test Iter = [](auto& t) {
   t.expect_eq(b.iter().last(), 11);
 
   b = {
-      .start = best::max_of<size_t> - 1,
-      .including_end = best::max_of<size_t>,
+    .start = best::max_of<size_t> - 1,
+    .including_end = best::max_of<size_t>,
   };
   t.expect_eq(best::vec(b.iter()),
               {best::max_of<size_t> - 1, best::max_of<size_t>});

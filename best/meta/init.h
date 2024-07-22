@@ -102,56 +102,56 @@ concept converts_to = convertible<To, From>;
 /// Whether `T` is move-constructible.
 template <typename T, typename... Args>
 concept move_constructible =
-    init_internal::only_trivial<Args...> &&  //
-    best::convertible<T, Args..., T> &&
-    best::convertible<T, Args..., std::add_rvalue_reference_t<T>>;
+  init_internal::only_trivial<Args...> &&  //
+  best::convertible<T, Args..., T> &&
+  best::convertible<T, Args..., std::add_rvalue_reference_t<T>>;
 
 /// # `best::copy_constructible`
 ///
 /// Whether T is copy-constructible.
 template <typename T, typename... Args>
 concept copy_constructible =
-    init_internal::only_trivial<Args...> &&  //
-    best::move_constructible<T, Args...> &&
-    best::convertible<T, Args..., std::add_const_t<T>> &&
-    best::convertible<T, Args...,
-                      std::add_lvalue_reference_t<std::add_const_t<T>>>;
+  init_internal::only_trivial<Args...> &&  //
+  best::move_constructible<T, Args...> &&
+  best::convertible<T, Args..., std::add_const_t<T>> &&
+  best::convertible<T, Args...,
+                    std::add_lvalue_reference_t<std::add_const_t<T>>>;
 
 /// # `best::move_assignable`
 ///
 /// Whether T is move-assignable.
 template <typename T, typename... Args>
 concept move_assignable =
-    init_internal::only_trivial<Args...> &&  //
-    best::assignable<T, Args..., T> &&
-    best::assignable<T, Args..., std::add_rvalue_reference_t<T>>;
+  init_internal::only_trivial<Args...> &&  //
+  best::assignable<T, Args..., T> &&
+  best::assignable<T, Args..., std::add_rvalue_reference_t<T>>;
 
 /// # `best::copy_assignable`
 ///
 /// Whether T is copy-assignable.
 template <typename T, typename... Args>
 concept copy_assignable =
-    init_internal::only_trivial<Args...> &&  //
-    best::move_assignable<T, Args...> &&
-    best::assignable<T, Args..., std::add_const_t<T>> &&
-    best::assignable<T, Args...,
-                     std::add_lvalue_reference_t<std::add_const_t<T>>>;
+  init_internal::only_trivial<Args...> &&  //
+  best::move_assignable<T, Args...> &&
+  best::assignable<T, Args..., std::add_const_t<T>> &&
+  best::assignable<T, Args...,
+                   std::add_lvalue_reference_t<std::add_const_t<T>>>;
 
 /// # `best::moveable`
 ///
 /// Whether T is moveable.
 template <typename T, typename... Args>
 concept moveable =
-    init_internal::only_trivial<Args...> &&  //
-    best::move_constructible<T, Args...> && best::move_assignable<T, Args...>;
+  init_internal::only_trivial<Args...> &&  //
+  best::move_constructible<T, Args...> && best::move_assignable<T, Args...>;
 
 /// # `best::copyable`
 ///
 /// Whether T is copyable.
 template <typename T, typename... Args>
 concept copyable =
-    init_internal::only_trivial<Args...> &&  //
-    best::copy_constructible<T, Args...> && best::copy_assignable<T, Args...>;
+  init_internal::only_trivial<Args...> &&  //
+  best::copy_constructible<T, Args...> && best::copy_assignable<T, Args...>;
 
 /// # `best::relocatable`
 ///
@@ -165,11 +165,11 @@ concept copyable =
 /// To make a non-trivially-moveable type trivially relocatable, use the
 /// `BEST_RELOCATABLE` macro.
 template <typename T, typename... Args>
-concept relocatable = init_internal::only_trivial<Args...> &&  //
-                      (!std::is_object_v<T> ||                 //
-                       (init_internal::is_trivial<Args...>
-                            ? init_internal::trivially_relocatable<T>
-                            : moveable<T>));
+concept relocatable =
+  init_internal::only_trivial<Args...> &&  //
+  (!std::is_object_v<T> ||                 //
+   (init_internal::is_trivial<Args...> ? init_internal::trivially_relocatable<T>
+                                       : moveable<T>));
 /// # `best::destructible`
 ///
 /// Whether T can be destroyed.
@@ -180,10 +180,10 @@ concept relocatable = init_internal::only_trivial<Args...> &&  //
 /// For all other types, this is vacuously true.
 template <typename T, typename... Args>
 concept destructible =
-    init_internal::only_trivial<Args...> &&  //
-    (!std::is_object_v<T> ||
-     (init_internal::is_trivial<Args...> ? std::is_trivially_destructible_v<T>
-                                         : std::is_destructible_v<T>));
+  init_internal::only_trivial<Args...> &&  //
+  (!std::is_object_v<T> ||
+   (init_internal::is_trivial<Args...> ? std::is_trivially_destructible_v<T>
+                                       : std::is_destructible_v<T>));
 
 /// A callback that constructs a `T`.
 ///

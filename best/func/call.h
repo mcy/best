@@ -61,8 +61,8 @@ BEST_INLINE_SYNTHETIC constexpr decltype(auto) call_devoid(auto &&...args)
 }
 template <auto... vs>
 BEST_INLINE_SYNTHETIC constexpr decltype(auto) call_devoid(auto &&...args)
-  requires(sizeof...(vs) > 0) &&
-          requires { best::call<vs...>(BEST_FWD(args)...); }
+  requires (sizeof...(vs) > 0) &&
+           requires { best::call<vs...>(BEST_FWD(args)...); }
 {
   using Out = decltype(best::call<vs...>(BEST_FWD(args)...));
   if constexpr (best::is_void<Out>) {
@@ -95,8 +95,8 @@ BEST_INLINE_SYNTHETIC constexpr decltype(auto) call_devoid(auto &&...args)
 /// Arguments after the function signature are explicit template parameters for
 /// `operator()`.
 template <typename F, typename Signature, typename... Ts>
-concept callable = call_internal::can_call<F>(call_internal::tag<Ts...>{},
-                                              (Signature *)nullptr);
+concept callable =
+  call_internal::can_call<F>(call_internal::tag<Ts...>{}, (Signature *)nullptr);
 
 /// # `best::call_result`.
 ///
@@ -107,7 +107,7 @@ concept callable = call_internal::can_call<F>(call_internal::tag<Ts...>{},
 /// arguments.
 template <typename F, typename... Args>
 using call_result =
-    decltype(call_internal::call_result<F>(call_internal::tag<Args...>{}));
+  decltype(call_internal::call_result<F>(call_internal::tag<Args...>{}));
 
 }  // namespace best
 

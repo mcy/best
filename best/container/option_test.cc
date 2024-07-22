@@ -305,7 +305,7 @@ best::test AndThen = [](auto& t) {
   best::option<int> x2 = 42;
 
   auto f = [](int x) -> best::option<double> {
-    if (x == 0) return best::none;
+    if (x == 0) { return best::none; }
     return 1.0 / x;
   };
 

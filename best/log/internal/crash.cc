@@ -36,9 +36,9 @@ inline constexpr char Red[] = "\N{ESCAPE}[31m";
 }  // namespace
 
 [[noreturn]] void die(
-    best::location loc,
-    best::fnref<void(char*, size_t, best::fnref<void(const char*, size_t)>)>
-        write_message) {
+  best::location loc,
+  best::fnref<void(char*, size_t, best::fnref<void(const char*, size_t)>)>
+    write_message) {
   // TODO: Make this function non-reentrant.
 
   static char buf[512];

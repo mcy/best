@@ -98,18 +98,18 @@ best::test TopLevelFlags = [](auto& t) {
 
   expect_ok(t, {"--name", "solomon", "--addr=cambridge"},
             {
-                .name = "solomon",
-                .addr = "cambridge",
+              .name = "solomon",
+              .addr = "cambridge",
             });
   expect_ok(t, {"--my-name", "solomon", "--my-address=cambridge"},
             {
-                .name = "solomon",
-                .addr = "cambridge",
+              .name = "solomon",
+              .addr = "cambridge",
             });
   expect_ok(t, {"--my-name", "🧶🐈‍⬛", "--my-address==="},
             {
-                .name = "🧶🐈‍⬛",
-                .addr = "==",
+              .name = "🧶🐈‍⬛",
+              .addr = "==",
             });
 
   expect_ok(t, {"-a"}, {.flag1 = true});
@@ -141,19 +141,17 @@ best::test TopLevelFlags = [](auto& t) {
   expect_ok(t, {"--flag2=0x0"}, {.flag2 = false});
   expect_ok(t, {"--flag2=0b00"}, {.flag2 = false});
 
-  expect_ok(t,
-            {"-x", "5", "--why", "6", "-z=7",
-             "--a-flag-with-a-freakishly-long-name=8"},
-            {
-                .flattened = {.eks = 5,
-                              .why = 6,
-                              .zed = 7,
-                              .a_flag_with_a_freakishly_long_name = 8},
-            });
+  expect_ok(
+    t,
+    {"-x", "5", "--why", "6", "-z=7", "--a-flag-with-a-freakishly-long-name=8"},
+    {
+      .flattened =
+        {.eks = 5, .why = 6, .zed = 7, .a_flag_with_a_freakishly_long_name = 8},
+    });
   expect_fail(
-      t, {"--flattened.eks"},
-      "cli_test: fatal: unknown flag \"--flattened.eks\"\ncli_test: you can "
-      "use `--` if you meant to pass this as a positional argument");
+    t, {"--flattened.eks"},
+    "cli_test: fatal: unknown flag \"--flattened.eks\"\ncli_test: you can "
+    "use `--` if you meant to pass this as a positional argument");
 };
 
 best::test Group = [](auto& t) {
@@ -192,7 +190,7 @@ best::test Sub = [](auto& t) {
 
 best::test Help = [](auto& t) {
   best::str usage =
-      R"help(Usage: cli_test -Xabcdfhxyz [OPTIONS] [sub|sub2|sub3] [ARG1] [ARG2]...
+    R"help(Usage: cli_test -Xabcdfhxyz [OPTIONS] [sub|sub2|sub3] [ARG1] [ARG2]...
 this is a test binary for playing with all of
 best::cli's features
 
@@ -231,7 +229,7 @@ Website: <https://mcyoung.xyz>
 (c) 2024 mcyoung, licensed Apache-2.0
 )help";
   best::str hidden =
-      R"help(Usage: cli_test -Xabcdfhxyz [OPTIONS] [sub|sub2|sub3] [ARG1] [ARG2]...
+    R"help(Usage: cli_test -Xabcdfhxyz [OPTIONS] [sub|sub2|sub3] [ARG1] [ARG2]...
 this is a test binary for playing with all of
 best::cli's features
 
@@ -283,7 +281,7 @@ Website: <https://mcyoung.xyz>
 )help";
 
   best::str group =
-      R"help(Usage: cli_test -X [SUBOPTION] -Xabcdfhxyz [OPTIONS] [sub|sub2|sub3] [ARG1] [ARG2]...
+    R"help(Usage: cli_test -X [SUBOPTION] -Xabcdfhxyz [OPTIONS] [sub|sub2|sub3] [ARG1] [ARG2]...
 extra options behind the -X flag
 
 # Flags
@@ -302,7 +300,7 @@ Website: <https://mcyoung.xyz>
 )help";
 
   best::str group_hidden =
-      R"help(Usage: cli_test -X [SUBOPTION] -Xabcdfhxyz [OPTIONS] [sub|sub2|sub3] [ARG1] [ARG2]...
+    R"help(Usage: cli_test -X [SUBOPTION] -Xabcdfhxyz [OPTIONS] [sub|sub2|sub3] [ARG1] [ARG2]...
 extra options behind the -X flag
 
 # Flags
@@ -322,7 +320,7 @@ Website: <https://mcyoung.xyz>
 )help";
 
   best::str sub =
-      R"help(Usage: cli_test sub -hs [OPTIONS] [ARG1]
+    R"help(Usage: cli_test sub -hs [OPTIONS] [ARG1]
 longer help for the subcommand
 with multiple lines
 
@@ -338,7 +336,7 @@ Website: <https://mcyoung.xyz>
 )help";
 
   best::str sub_hidden =
-      R"help(Usage: cli_test sub -hs [OPTIONS] [ARG1]
+    R"help(Usage: cli_test sub -hs [OPTIONS] [ARG1]
 longer help for the subcommand
 with multiple lines
 

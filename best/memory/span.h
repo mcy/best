@@ -48,8 +48,7 @@ namespace best {
 /// # `best::data()`
 ///
 /// Returns the data pointer of a contiguous range.
-constexpr auto data(auto&& range)
-  requires requires { range.data(); }
+constexpr auto data(auto&& range) requires requires { range.data(); }
 {
   return BEST_FWD(range).data();
 }
@@ -65,8 +64,7 @@ constexpr const T* data(const std::initializer_list<T>& il) {
 /// # `best::size()`
 ///
 /// Returns the size of a contiguous range.
-constexpr size_t size(const auto& range)
-  requires requires { range.size(); }
+constexpr size_t size(const auto& range) requires requires { range.size(); }
 {
   return range.size();
 }
@@ -108,7 +106,7 @@ using data_type = best::unref<decltype(*best::data(best::lie<R>))>;
 /// applied to this type, or best::none.
 template <best::contiguous T>
 inline constexpr best::option<size_t> static_size =
-    BestStaticSize(best::types<T>, best::as_ptr<T>{});
+  BestStaticSize(best::types<T>, best::as_ptr<T>{});
 
 /// # `best::static_contiguous`
 ///
@@ -121,7 +119,7 @@ concept static_contiguous = static_size<T>.has_value();
 /// Represents whether T is best::span<U, n> for some U, n.
 template <typename T>
 concept is_span =
-    best::same<best::as_auto<T>, best::span<data_type<T>, static_size<T>>>;
+  best::same<best::as_auto<T>, best::span<data_type<T>, static_size<T>>>;
 
 /// # `best::from_nul`
 ///
@@ -142,7 +140,7 @@ constexpr best::span<T> from_nul(T* ptr) {
 /// default turns out to be very annoying.
 template <best::contiguous R>
 constexpr best::span<best::data_type<R>, best::static_size<R>> from_static(
-    R&& range) {
+  R&& range) {
   return {BEST_FWD(range)};
 }
 
@@ -227,8 +225,7 @@ class span final {
   /// Constructs a new empty span.
   ///
   /// This span's data pointer is always null.
-  constexpr span()
-    requires is_dynamic || (n == 0)
+  constexpr span() requires is_dynamic || (n == 0)
   = default;
 
   /// # `span::span(span)`
@@ -246,7 +243,7 @@ class span final {
   /// If this span has a statically-known size, this constructor will crash if
   /// len is not that size.
   constexpr explicit(is_static)
-      span(best::ptr<T> data, size_t size, best::location loc = best::here);
+    span(best::ptr<T> data, size_t size, best::location loc = best::here);
 
   /// # `span::span(range)`
   ///
@@ -257,12 +254,12 @@ class span final {
   /// this constructor can crash, it is explicit.
   template <best::contiguous R>
   constexpr explicit(is_static && n != static_size<R>)
-      span(R&& range, best::location loc = best::here)
-    requires best::qualifies_to<best::unref<best::data_type<R>>, T> &&
-             (is_dynamic ||                       //
-              best::static_size<R>.is_empty() ||  //
-              best::static_size<span> == best::static_size<R>)
-      : span(best::data(range), best::size(range), loc) {}
+    span(R&& range, best::location loc = best::here)
+      requires best::qualifies_to<best::unref<best::data_type<R>>, T> &&
+               (is_dynamic ||                       //
+                best::static_size<R>.is_empty() ||  //
+                best::static_size<span> == best::static_size<R>)
+    : span(best::data(range), best::size(range), loc) {}
 
   /// # `span::span{...}`
   ///
@@ -272,10 +269,10 @@ class span final {
   ///
   /// If this would construct a fixed-size span, and the list being constructed
   /// from has a different length, this constructor will crash.
-  constexpr explicit(is_static) span(std::initializer_list<value_type> il,
-                                     best::location loc = best::here)
-    requires is_const
-      : span(best::data(il), best::size(il), loc) {}
+  constexpr explicit(is_static)
+    span(std::initializer_list<value_type> il, best::location loc = best::here)
+      requires is_const
+    : span(best::data(il), best::size(il), loc) {}
 
   /// # `span::from_nul()`
   ///
@@ -286,12 +283,12 @@ class span final {
   ///
   /// If this is a fixed-with span, this will perform the usual fatal bounds
   /// check upon construction.
-  constexpr static span from_nul(T* data);
+  static constexpr span from_nul(T* data);
 
  private:
   template <size_t m>
   static constexpr best::option<size_t> minus =
-      n ? best::option(best::saturating_sub(*n, m)) : best::none;
+    n ? best::option(best::saturating_sub(*n, m)) : best::none;
 
  public:
   /// # `span::data()`
@@ -302,13 +299,11 @@ class span final {
   /// # `span::size()`
   ///
   /// Returns the size (length) of this span.
-  constexpr static size_t size()
-    requires is_static
+  static constexpr size_t size() requires is_static
   {
     return *n;
   }
-  constexpr size_t size() const
-    requires is_dynamic
+  constexpr size_t size() const requires is_dynamic
   {
     return size_;
   }
@@ -339,34 +334,33 @@ class span final {
   /// Returns the first, or first `m`, elements of this span, and the remaining
   /// elements, or `best::none` if there are not enough elements.
   constexpr auto split_first() const
-      -> best::option<best::row<T&, span<T, minus<1>>>>;
+    -> best::option<best::row<T&, span<T, minus<1>>>>;
   template <size_t m>
   constexpr auto split_first(best::index_t<m> = {}) const
-      -> best::option<best::row<span<T, m>, span<T, minus<m>>>>;
+    -> best::option<best::row<span<T, m>, span<T, minus<m>>>>;
 
   /// # `span::split_last()`
   ///
   /// Returns the last, or last `m`, elements of this span, and the remaining
   /// elements, or `best::none` if there are not enough elements.
   constexpr auto split_last() const
-      -> best::option<best::row<T&, span<T, minus<1>>>>;
+    -> best::option<best::row<T&, span<T, minus<1>>>>;
   template <size_t m>
   constexpr auto split_last(best::index_t<m> = {}) const
-      -> best::option<best::row<span<T, m>, span<T, minus<m>>>>;
+    -> best::option<best::row<span<T, m>, span<T, minus<m>>>>;
 
   /// # `span::take_first()`
   ///
   /// Splits this span at `m`; returns the prefix, and updates this to be the
   /// rest. If `m > size()`, returns best::none and leaves this span untouched
-  constexpr best::option<best::span<T>> take_first(size_t m)
-    requires is_dynamic;
+  constexpr best::option<best::span<T>> take_first(size_t m) requires is_dynamic
+  ;
 
   /// # `span::take_last()`
   ///
   /// Splits this span at `m`; returns the suffix, and updates this to be the
   /// rest. If `m > size()`, returns best::none.
-  constexpr best::option<best::span<T>> take_last(size_t m)
-    requires is_dynamic;
+  constexpr best::option<best::span<T>> take_last(size_t m) requires is_dynamic;
 
   /// # `span[idx]`
   ///
@@ -394,7 +388,7 @@ class span final {
   /// and `this->is_static`, produces a compile time error; otherwise crashes.
   template <best::bounds range>
   constexpr auto operator[](best::vlist<range>) const
-    requires(range.try_compute_count(best::static_size<span>).has_value());
+    requires (range.try_compute_count(best::static_size<span>).has_value());
 
   /// # `span::at(idx)`
   ///
@@ -439,13 +433,12 @@ class span final {
   ///
   /// Swaps the elements at indices `a` and `b`.
   constexpr void swap(size_t a, size_t b, best::location loc = best::here) const
-    requires(!is_const);
+    requires (!is_const);
 
   /// # `span::reverse()`
   ///
   /// Reverses the order of the elements in this span, in-place.
-  constexpr void reverse() const
-    requires(!is_const);
+  constexpr void reverse() const requires (!is_const);
 
   /// # `span::split_at()`
   ///
@@ -472,7 +465,7 @@ class span final {
   constexpr best::option<size_t> find(const R& needle) const
     requires best::equatable<T, best::data_type<R>> && (!best::equatable<T, R>);
   constexpr best::option<size_t> find(
-      best::callable<void(const T&)> auto&& pred) const;
+    best::callable<void(const T&)> auto&& pred) const;
 
   /// # `span::contains()`
   ///
@@ -494,13 +487,13 @@ class span final {
   /// A pattern for a separator may be as in `span::find()`.
   template <best::equatable<T> U = T>
   constexpr best::option<best::row<span<T>, span<T>>> split_once(
-      const U& needle) const;
+    const U& needle) const;
   template <best::contiguous R = best::span<const T>>
   constexpr best::option<best::row<span<T>, span<T>>> split_once(
-      const R& needle) const
+    const R& needle) const
     requires best::equatable<T, best::data_type<R>> && (!best::equatable<T, R>);
   constexpr best::option<best::row<span<T>, span<T>>> split_once(
-      best::callable<void(const T&)> auto&& pred) const;
+    best::callable<void(const T&)> auto&& pred) const;
 
   /// # `span::split()`.
   ///
@@ -541,21 +534,19 @@ class span final {
   /// returns the rest; otherwise returns `best::none`.
   template <best::equatable<T> U = const T>
   constexpr best::option<best::span<T>> strip_prefix(
-      best::span<U> prefix) const;
+    best::span<U> prefix) const;
   template <best::equatable<T> U = const T>
   constexpr best::option<best::span<T>> strip_suffix(
-      best::span<U> suffix) const;
+    best::span<U> suffix) const;
 
   /// # `span::consume_prefix()`, `span::consume_suffix()`
   ///
   /// Like `strip_prefix()`/`strip_suffix()`, but returns a bool and updates the
   /// span in-place.
   template <best::equatable<T> U = const T>
-  constexpr bool consume_prefix(best::span<U> prefix)
-    requires is_dynamic;
+  constexpr bool consume_prefix(best::span<U> prefix) requires is_dynamic;
   template <best::equatable<T> U = const T>
-  constexpr bool consume_suffix(best::span<U> suffix)
-    requires is_dynamic;
+  constexpr bool consume_suffix(best::span<U> suffix) requires is_dynamic;
 
   /// # `span::sort()`
   ///
@@ -571,26 +562,25 @@ class span final {
   /// pull in a completely unacceptable amount of stuff, the implementations of
   /// these functions live in `//best/memory/span_sort.h`, which must be
   /// included separately.
-  constexpr void sort() const
-    requires best::comparable<T> && (!is_const);
+  constexpr void sort() const requires best::comparable<T> && (!is_const);
   constexpr void sort(best::callable<void(const T&)> auto&&) const
-    requires(!is_const);
+    requires (!is_const);
   constexpr void sort(
-      best::callable<best::partial_ord(const T&, const T&)> auto&&) const
-    requires(!is_const);
+    best::callable<best::partial_ord(const T&, const T&)> auto&&) const
+    requires (!is_const);
 
   /// # `span::stable_sort()`
   ///
   /// Identical to `sort()`, but uses a stable sort which guarantees that equal
   /// items are not reordered past each other. This usually means the algorithm
   /// is slower.
-  constexpr void stable_sort() const
-    requires best::comparable<T> && (!is_const);
+  constexpr void stable_sort() const requires best::comparable<T> && (!is_const)
+  ;
   constexpr void stable_sort(best::callable<void(const T&)> auto&&) const
-    requires(!is_const);
+    requires (!is_const);
   constexpr void stable_sort(
-      best::callable<best::partial_ord(const T&, const T&)> auto&&) const
-    requires(!is_const);
+    best::callable<best::partial_ord(const T&, const T&)> auto&&) const
+    requires (!is_const);
 
   /// # `span::bisect()`
   ///
@@ -606,11 +596,11 @@ class span final {
   /// If the value is found, its index is returned in `best::ok()`. If not,
   /// a `best::err()` containing where it should be inserted is returned.
   constexpr best::result<size_t, size_t> bisect(
-      const best::comparable<T> auto& sought) const;
+    const best::comparable<T> auto& sought) const;
   constexpr best::result<size_t, size_t> bisect(
-      const auto& sought, best::callable<void(const T&)> auto&&) const;
+    const auto& sought, best::callable<void(const T&)> auto&&) const;
   constexpr best::result<size_t, size_t> bisect(
-      best::callable<best::partial_ord(const T&)> auto&&) const;
+    best::callable<best::partial_ord(const T&)> auto&&) const;
 
   /// # `span::copy_from()`, `span::emplace_from()`
   ///
@@ -621,11 +611,9 @@ class span final {
   /// `emplace_from()` additionally assumes the destination is uninitialized, so
   /// it will call a constructor rather than assignment.
   template <typename U = const T>
-  constexpr void copy_from(best::span<U> src) const
-    requires(!is_const);
+  constexpr void copy_from(best::span<U> src) const requires (!is_const);
   template <typename U = const T>
-  constexpr void emplace_from(best::span<U> src) const
-    requires(!is_const);
+  constexpr void emplace_from(best::span<U> src) const requires (!is_const);
 
   // TODO(mcyoung): Various other iterators, including:
   // struct chunk_iter, struct window_iter, struct ptr_iter.
@@ -634,8 +622,7 @@ class span final {
   ///
   /// Destroys the elements of this span, in-place. This does not affect
   /// whatever the underlying storage for the span is.
-  constexpr void destroy() const
-    requires(!is_const);
+  constexpr void destroy() const requires (!is_const);
 
   /// # `vec::shift_within()`
   ///
@@ -646,13 +633,13 @@ class span final {
   /// *and* that the source range is initialized, except where they overlap.
   constexpr void shift_within(unsafe u, size_t dst, size_t src,
                               size_t count) const
-    requires(!is_const) && is_static
+    requires (!is_const) && is_static
   {
     as_dynamic(*this).shift_within(u, dst, src, count);
   }
   constexpr void shift_within(unsafe, size_t dst, size_t src,
                               size_t count) const
-    requires(!is_const) && is_dynamic;
+    requires (!is_const) && is_dynamic;
 
   /// # `span::has_subarray`
   ///
@@ -697,7 +684,7 @@ class span final {
  private:
   best::ptr<T> data_ = nullptr;
   [[no_unique_address]] best::select<n.has_value(), best::empty, size_t>
-      size_{};
+    size_{};
 };
 
 /// # `best::span::iter_impl`
@@ -723,7 +710,7 @@ class span<T, n>::iter_impl final {
   constexpr iter_impl(T* ptr, size_t idx) : start_(ptr), end_(ptr + idx) {}
 
   constexpr best::option<T&> next() {
-    if (start_ == end_) return best::none;
+    if (start_ == end_) { return best::none; }
     return best::option<T&>(*start_++);
   }
 
@@ -734,7 +721,7 @@ class span<T, n>::iter_impl final {
   constexpr size_t count() && { return end_ - start_; }
 
   constexpr best::option<T&> last() && {
-    if (start_ == end_) return best::none;
+    if (start_ == end_) { return best::none; }
     return end_[-1];
   }
 
@@ -762,10 +749,10 @@ class span<T, n>::split_impl final {
   friend best::iter<split_impl&>;
 
   constexpr explicit split_impl(auto&& pat, best::span<T> span)
-      : pat_(best::in_place, BEST_FWD(pat)), span_(span) {}
+    : pat_(best::in_place, BEST_FWD(pat)), span_(span) {}
 
   constexpr best::option<best::span<T>> next() {
-    if (done_) return best::none;
+    if (done_) { return best::none; }
     if (auto found = span_.split_once(*pat_)) {
       span_ = found->second();
       return found->first();
@@ -777,7 +764,7 @@ class span<T, n>::split_impl final {
   }
 
   constexpr best::size_hint size_hint() const {
-    if (done_) return {0, 0};
+    if (done_) { return {0, 0}; }
     return {1, span_.size() + 1};
   }
 
@@ -819,7 +806,7 @@ inline constexpr size_t BestStaticSize(auto, std::array<T, n>*) {
 
 template <best::is_object T, best::option<best::dependent<size_t, T>> n>
 constexpr span<T, n>::span(best::ptr<T> data, size_t size, best::location loc)
-    : data_(data) {
+  : data_(data) {
   if constexpr (is_static) {
     best::bounds bounds_check = {.start = this->size(), .count = 0};
     bounds_check.compute_count(this->size(), loc);
@@ -835,7 +822,7 @@ constexpr best::option<T&> span<T, n>::first() const {
 template <best::is_object T, best::option<best::dependent<size_t, T>> n>
 template <size_t m>
 constexpr best::option<best::span<T, m>> span<T, n>::first(
-    best::index_t<m>) const {
+  best::index_t<m>) const {
   return at({.end = m}).map(best::ctor<best::span<T, m>>);
 }
 template <best::is_object T, best::option<best::dependent<size_t, T>> n>
@@ -845,20 +832,20 @@ constexpr best::option<T&> span<T, n>::last() const {
 template <best::is_object T, best::option<best::dependent<size_t, T>> n>
 template <size_t m>
 constexpr best::option<best::span<T, m>> span<T, n>::last(
-    best::index_t<m>) const {
+  best::index_t<m>) const {
   return at({.start = size() - m}).map(best::ctor<best::span<T, m>>);
 }
 
 template <best::is_object T, best::option<best::dependent<size_t, T>> n>
 constexpr auto span<T, n>::split_first() const
-    -> best::option<best::row<T&, span<T, minus<1>>>> {
-  if (is_empty()) return best::none;
+  -> best::option<best::row<T&, span<T, minus<1>>>> {
+  if (is_empty()) { return best::none; }
   return {{*data(), span<T, minus<1>>(data() + 1, size() - 1)}};
 }
 template <best::is_object T, best::option<best::dependent<size_t, T>> n>
 template <size_t m>
 constexpr auto span<T, n>::split_first(best::index_t<m>) const
-    -> best::option<best::row<span<T, m>, span<T, minus<m>>>> {
+  -> best::option<best::row<span<T, m>, span<T, minus<m>>>> {
   return at({.end = m}).map(best::ctor<span<T, m>>).map([&](auto ch) {
     return best::row{ch, span<T, minus<m>>(operator[]({.start = m}))};
   });
@@ -866,33 +853,32 @@ constexpr auto span<T, n>::split_first(best::index_t<m>) const
 
 template <best::is_object T, best::option<best::dependent<size_t, T>> n>
 constexpr auto span<T, n>::split_last() const
-    -> best::option<best::row<T&, span<T, minus<1>>>> {
-  if (is_empty()) return best::none;
+  -> best::option<best::row<T&, span<T, minus<1>>>> {
+  if (is_empty()) { return best::none; }
   return {{data()[size() - 1], span<T, minus<1>>(data(), size() - 1)}};
 }
 template <best::is_object T, best::option<best::dependent<size_t, T>> n>
 template <size_t m>
 constexpr auto span<T, n>::split_last(best::index_t<m>) const
-    -> best::option<best::row<span<T, m>, span<T, minus<m>>>> {
+  -> best::option<best::row<span<T, m>, span<T, minus<m>>>> {
   return at({.start = size() - m})
-      .map(best::ctor<span<T, m>>)
-      .map([&](auto ch) {
-        return best::row{ch,
-                         span<T, minus<m>>(operator[]({.end = size() - m}))};
-      });
+    .map(best::ctor<span<T, m>>)
+    .map([&](auto ch) {
+      return best::row{ch, span<T, minus<m>>(operator[]({.end = size() - m}))};
+    });
 }
 
 template <best::is_object T, best::option<best::dependent<size_t, T>> n>
 constexpr span<T, n> span<T, n>::from_nul(T* data) {
-  if (data == nullptr) return {data, 0};
+  if (data == nullptr) { return {data, 0}; }
 
   if constexpr (best::bytes_internal::constexpr_byte_comparable<T>) {
     if (BEST_CONSTEXPR_MEMCMP_ || !std::is_constant_evaluated()) {
       size_t len =
 #if BEST_CONSTEXPR_MEMCMP_
-          __builtin_strlen(data);
+        __builtin_strlen(data);
 #else
-          bytes_internal::strlen(data);
+        bytes_internal::strlen(data);
 #endif
       return {data, len};
     }
@@ -908,7 +894,7 @@ template <best::is_object T, best::option<best::dependent<size_t, T>> n>
 constexpr best::option<best::span<T>> span<T, n>::take_first(size_t m)
   requires is_dynamic
 {
-  if (m > size()) return best::none;
+  if (m > size()) { return best::none; }
   auto [prefix, rest] = *split_at(m);
   *this = rest;
   return prefix;
@@ -918,7 +904,7 @@ template <best::is_object T, best::option<best::dependent<size_t, T>> n>
 constexpr best::option<best::span<T>> span<T, n>::take_last(size_t m)
   requires is_dynamic
 {
-  if (m > size()) return best::none;
+  if (m > size()) { return best::none; }
   auto [rest, suffix] = *split_at(size() - m);
   *this = rest;
   return suffix;
@@ -942,7 +928,7 @@ constexpr T& span<T, n>::operator[](best::index_t<idx>) const
 
 template <best::is_object T, best::option<best::dependent<size_t, T>> n>
 constexpr best::span<T> span<T, n>::operator[](
-    best::bounds::with_location range) const {
+  best::bounds::with_location range) const {
   auto count = range.compute_count(size());
   return as_dynamic{data() + range.start, count};
 }
@@ -950,7 +936,7 @@ constexpr best::span<T> span<T, n>::operator[](
 template <best::is_object T, best::option<best::dependent<size_t, T>> n>
 template <best::bounds range>
 constexpr auto span<T, n>::operator[](best::vlist<range>) const
-  requires(range.try_compute_count(best::static_size<span>).has_value())
+  requires (range.try_compute_count(best::static_size<span>).has_value())
 {
   constexpr auto count = range.try_compute_count(best::static_size<span>);
   return with_extent<count>(data() + range.start, *count);
@@ -958,9 +944,7 @@ constexpr auto span<T, n>::operator[](best::vlist<range>) const
 
 template <best::is_object T, best::option<best::dependent<size_t, T>> n>
 constexpr best::option<T&> span<T, n>::at(size_t idx) const {
-  if (idx < size()) {
-    return data()[idx];
-  }
+  if (idx < size()) { return data()[idx]; }
   return best::none;
 }
 
@@ -988,24 +972,21 @@ constexpr best::span<T> span<T, n>::at(unsafe, best::bounds range) const {
 
 template <best::is_object T, best::option<best::dependent<size_t, T>> n>
 constexpr void span<T, n>::swap(size_t a, size_t b, best::location loc) const
-  requires(!is_const)
+  requires (!is_const)
 {
   using ::std::swap;
   swap(operator[]({a, loc}), operator[]({b, loc}));
 }
 
 template <best::is_object T, best::option<best::dependent<size_t, T>> n>
-constexpr void span<T, n>::reverse() const
-  requires(!is_const)
+constexpr void span<T, n>::reverse() const requires (!is_const)
 {
-  for (size_t i = 0; i < size() / 2; ++i) {
-    swap(i, size() - i - 1);
-  }
+  for (size_t i = 0; i < size() / 2; ++i) { swap(i, size() - i - 1); }
 }
 
 template <best::is_object T, best::option<best::dependent<size_t, T>> n>
 constexpr best::option<std::array<best::span<T>, 2>> span<T, n>::split_at(
-    size_t idx) const {
+  size_t idx) const {
   if (auto prefix = at({.end = idx})) {
     auto rest = *this;
     rest.data_ += idx;
@@ -1027,7 +1008,7 @@ template <best::contiguous R>
 constexpr best::option<size_t> span<T, n>::find(const R& needle) const
   requires best::equatable<T, best::data_type<R>> && (!best::equatable<T, R>)
 {
-  if (best::size(needle) == 0) return 0;
+  if (best::size(needle) == 0) { return 0; }
 
   if constexpr (best::is_span<R>) {
     using U = best::data_type<R>;
@@ -1045,10 +1026,10 @@ constexpr best::option<size_t> span<T, n>::find(const R& needle) const
       // Skip to the next possible start.
       size_t next = 0;
       for (const auto& x : haystack) {
-        if (x == first) break;
+        if (x == first) { break; }
         ++next;
       }
-      if (next == haystack.size()) return best::none;
+      if (next == haystack.size()) { return best::none; }
 
       // Skip forward.
       haystack = at(unsafe("we just did a bounds check; avoid going through "
@@ -1057,7 +1038,7 @@ constexpr best::option<size_t> span<T, n>::find(const R& needle) const
                      .start = next + 1});
 
       // Now check if we found the full needle.
-      if (haystack.starts_with(rest)) return size() - haystack.size() - 1;
+      if (haystack.starts_with(rest)) { return size() - haystack.size() - 1; }
     }
     return best::none;
   } else {
@@ -1069,10 +1050,10 @@ constexpr best::option<size_t> span<T, n>::find(const R& needle) const
 
 template <best::is_object T, best::option<best::dependent<size_t, T>> n>
 constexpr best::option<size_t> span<T, n>::find(
-    best::callable<void(const T&)> auto&& pred) const {
+  best::callable<void(const T&)> auto&& pred) const {
   size_t idx = 0;
   for (const auto& x : *this) {
-    if (pred(x)) return idx;
+    if (pred(x)) { return idx; }
     ++idx;
   }
   return best::none;
@@ -1092,42 +1073,42 @@ constexpr bool span<T, n>::contains(const R& needle) const
 }
 template <best::is_object T, best::option<best::dependent<size_t, T>> n>
 constexpr bool span<T, n>::contains(
-    best::callable<void(const T&)> auto&& pred) const {
+  best::callable<void(const T&)> auto&& pred) const {
   return find(BEST_FWD(pred)).has_value();
 }
 
 template <best::is_object T, best::option<best::dependent<size_t, T>> n>
 template <best::equatable<T> U>
 constexpr best::option<best::row<span<T>, span<T>>> span<T, n>::split_once(
-    const U& needle) const {
+  const U& needle) const {
   auto idx = find(needle);
-  if (!idx) return best::none;
+  if (!idx) { return best::none; }
   return {{
-      best::span(data(), *idx),
-      best::span(data() + *idx + 1, size() - *idx - 1),
+    best::span(data(), *idx),
+    best::span(data() + *idx + 1, size() - *idx - 1),
   }};
 }
 template <best::is_object T, best::option<best::dependent<size_t, T>> n>
 template <best::contiguous R>
 constexpr best::option<best::row<span<T>, span<T>>> span<T, n>::split_once(
-    const R& needle) const
+  const R& needle) const
   requires best::equatable<T, best::data_type<R>> && (!best::equatable<T, R>)
 {
   auto idx = find(needle);
-  if (!idx) return best::none;
+  if (!idx) { return best::none; }
   return {{
-      best::span(data(), *idx),
-      best::span(data() + *idx + needle.size(), size() - *idx - needle.size()),
+    best::span(data(), *idx),
+    best::span(data() + *idx + needle.size(), size() - *idx - needle.size()),
   }};
 }
 template <best::is_object T, best::option<best::dependent<size_t, T>> n>
 constexpr best::option<best::row<span<T>, span<T>>> span<T, n>::split_once(
-    best::callable<void(const T&)> auto&& pred) const {
+  best::callable<void(const T&)> auto&& pred) const {
   auto idx = find(pred);
-  if (!idx) return best::none;
+  if (!idx) { return best::none; }
   return {{
-      best::span(data(), idx),
-      best::span(data() + *idx + 1, size() - *idx - 1),
+    best::span(data(), idx),
+    best::span(data() + *idx + 1, size() - *idx - 1),
   }};
 }
 
@@ -1151,9 +1132,9 @@ constexpr auto span<T, n>::split(const R& needle) const
 }
 template <best::is_object T, best::option<best::dependent<size_t, T>> n>
 constexpr auto span<T, n>::split(
-    best::callable<void(const T&)> auto&& pred) const {
+  best::callable<void(const T&)> auto&& pred) const {
   return split_iter<decltype(pred)>(
-      split_impl<decltype(pred)>(BEST_FWD(pred), *this));
+    split_impl<decltype(pred)>(BEST_FWD(pred), *this));
 }
 
 template <best::is_object T, best::option<best::dependent<size_t, T>> n>
@@ -1170,16 +1151,16 @@ constexpr bool span<T, n>::ends_with(best::span<U> needle) const {
 template <best::is_object T, best::option<best::dependent<size_t, T>> n>
 template <best::equatable<T> U>
 constexpr best::option<best::span<T>> span<T, n>::strip_prefix(
-    best::span<U> prefix) const {
-  if (!starts_with(prefix)) return best::none;
+  best::span<U> prefix) const {
+  if (!starts_with(prefix)) { return best::none; }
   return at({.start = prefix.size()});
 }
 
 template <best::is_object T, best::option<best::dependent<size_t, T>> n>
 template <best::equatable<T> U>
 constexpr best::option<best::span<T>> span<T, n>::strip_suffix(
-    best::span<U> suffix) const {
-  if (!ends_with(suffix)) return best::none;
+  best::span<U> suffix) const {
+  if (!ends_with(suffix)) { return best::none; }
   return at({.end = size() - suffix.size()});
 }
 
@@ -1188,7 +1169,7 @@ template <best::equatable<T> U>
 constexpr bool span<T, n>::consume_prefix(best::span<U> prefix)
   requires is_dynamic
 {
-  if (!starts_with(prefix)) return false;
+  if (!starts_with(prefix)) { return false; }
   *this = *at({.start = prefix.size()});
   return true;
 }
@@ -1201,25 +1182,25 @@ template <best::equatable<T> U>
 constexpr bool span<T, n>::consume_suffix(best::span<U> suffix)
   requires is_dynamic
 {
-  if (!ends_with(suffix)) return false;
+  if (!ends_with(suffix)) { return false; }
   *this = *at({.end = size() - suffix.size()});
   return true;
 }
 
 template <best::is_object T, best::option<best::dependent<size_t, T>> n>
 constexpr best::result<size_t, size_t> span<T, n>::bisect(
-    const best::comparable<T> auto& sought) const {
+  const best::comparable<T> auto& sought) const {
   return bisect([&](auto& that) { return that <=> sought; });
 }
 template <best::is_object T, best::option<best::dependent<size_t, T>> n>
 constexpr best::result<size_t, size_t> span<T, n>::bisect(
-    const auto& sought, best::callable<void(const T&)> auto&& key) const {
+  const auto& sought, best::callable<void(const T&)> auto&& key) const {
   return bisect(
-      [&](auto& that) { return best::call(BEST_FWD(key), that) <=> sought; });
+    [&](auto& that) { return best::call(BEST_FWD(key), that) <=> sought; });
 }
 template <best::is_object T, best::option<best::dependent<size_t, T>> n>
 constexpr best::result<size_t, size_t> span<T, n>::bisect(
-    best::callable<best::partial_ord(const T&)> auto&& comparator) const {
+  best::callable<best::partial_ord(const T&)> auto&& comparator) const {
   // Taken from Rust's `<[T]>::binary_search_by()`.
   size_t size = this->size();
   size_t left = 0;
@@ -1252,26 +1233,25 @@ constexpr best::result<size_t, size_t> span<T, n>::bisect(
 template <best::is_object T, best::option<best::dependent<size_t, T>> n>
 template <typename U>
 constexpr void span<T, n>::copy_from(best::span<U> src) const
-  requires(!is_const)
+  requires (!is_const)
 {
   data().copy_assign(src.data(), best::min(size(), src.size()));
 }
 template <best::is_object T, best::option<best::dependent<size_t, T>> n>
 template <typename U>
 constexpr void span<T, n>::emplace_from(best::span<U> src) const
-  requires(!is_const)
+  requires (!is_const)
 {
   data().copy(src.data(), best::min(size(), src.size()));
 }
 
 template <best::is_object T, best::option<best::dependent<size_t, T>> n>
-constexpr void span<T, n>::destroy() const
-  requires(!is_const)
+constexpr void span<T, n>::destroy() const requires (!is_const)
 {
-  if constexpr (!best::is_debug() && best::destructible<T, trivially>) return;
-  for (size_t i = 0; i < size(); ++i) {
-    (data() + i).destroy();
+  if constexpr (!best::is_debug() && best::destructible<T, trivially>) {
+    return;
   }
+  for (size_t i = 0; i < size(); ++i) { (data() + i).destroy(); }
 }
 
 template <best::is_object T, best::option<best::dependent<size_t, T>> n>
@@ -1291,11 +1271,9 @@ constexpr bool span<T, n>::operator==(span<U, m> that) const
     }
   }
 
-  if (size() != that.size()) return false;
+  if (size() != that.size()) { return false; }
   for (size_t i = 0; i < size(); ++i) {
-    if (data()[i] != that.data()[i]) {
-      return false;
-    }
+    if (data()[i] != that.data()[i]) { return false; }
   }
 
   return true;
@@ -1329,7 +1307,7 @@ constexpr auto span<T, n>::operator<=>(span<U, m> that) const
 template <best::is_object T, best::option<best::dependent<size_t, T>> n>
 constexpr void span<T, n>::shift_within(unsafe u, size_t dst, size_t src,
                                         size_t count) const
-  requires(!is_const) && is_dynamic
+  requires (!is_const) && is_dynamic
 {
   (data() + dst).relo_overlapping(data() + src, count);
 }

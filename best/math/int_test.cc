@@ -59,7 +59,7 @@ static_assert(best::bits_of<uint64_t> == 64);
 
 static_assert(best::same<best::common_int<short, signed, long>, long>);
 static_assert(
-    best::same<best::common_int<short, unsigned, long>, unsigned long>);
+  best::same<best::common_int<short, unsigned, long>, unsigned long>);
 
 static_assert(best::unsigned_cmp(-1, 1) > 0);
 static_assert(best::signed_cmp(~0u, 1) < 0);

@@ -49,7 +49,7 @@ struct div_t {
 /// zero.
 template <integer A, integer B>
 BEST_INLINE_ALWAYS constexpr best::div_t<common_int<A, B>> div(
-    overflow<A> a, overflow<B> b, best::location loc = best::here) {
+  overflow<A> a, overflow<B> b, best::location loc = best::here) {
   if (best::unlikely(b.value == 0)) {
     best::crash_internal::crash({"division by zero", loc});
   }
@@ -66,7 +66,7 @@ BEST_INLINE_ALWAYS constexpr best::div_t<common_int<A, B>> div(
 }
 template <integer A, integer B>
 BEST_INLINE_ALWAYS constexpr best::div_t<common_int<A, B>> div(
-    A a, B b, best::location loc = best::here) {
+  A a, B b, best::location loc = best::here) {
   return best::div(overflow(a), overflow(b));
 }
 
@@ -75,7 +75,7 @@ BEST_INLINE_ALWAYS constexpr best::div_t<common_int<A, B>> div(
 /// Performs division, but rounding towards infinity.
 template <integer A, integer B>
 BEST_INLINE_ALWAYS constexpr overflow<best::common_int<A, B>> ceildiv(
-    overflow<A> a, overflow<B> b) {
+  overflow<A> a, overflow<B> b) {
   auto [q, r] = best::div(a, b);
   if ((r.value > 0 && b.value > 0) || (r.value < 0 && b.value < 0)) {
     return q + 1;
@@ -178,7 +178,7 @@ struct overflow {
   ///
   /// Wraps an integer.
   constexpr overflow(Int value, bool overflowed = false)
-      : value(value), overflowed(overflowed) {}
+    : value(value), overflowed(overflowed) {}
 
   /// # `overflow::overflow(overflow<J>)`
   ///
@@ -186,10 +186,10 @@ struct overflow {
   /// is recorded appropriately.
   template <typename J>
   constexpr overflow(overflow<J> that)
-      : value(that.value),
-        overflowed(that.overflowed ||
-                   best::int_cmp(best::min_of<Int>, that.value) < 0 ||
-                   best::int_cmp(best::max_of<Int>, that.value) > 0) {}
+    : value(that.value),
+      overflowed(that.overflowed ||
+                 best::int_cmp(best::min_of<Int>, that.value) < 0 ||
+                 best::int_cmp(best::max_of<Int>, that.value) > 0) {}
 
   /// # `overflow::wrap()`
   ///
@@ -200,7 +200,7 @@ struct overflow {
   ///
   /// Returns the result, but only if it did not overflow.
   BEST_INLINE_ALWAYS constexpr best::option<Int> checked() const {
-    if (overflowed) return {};
+    if (overflowed) { return {}; }
     return value;
   }
 
@@ -208,7 +208,7 @@ struct overflow {
   ///
   /// Returns the result, but crashes if overflow occurred.
   BEST_INLINE_ALWAYS constexpr Int strict(
-      best::location loc = best::here) const {
+    best::location loc = best::here) const {
     if (best::unlikely(overflowed)) {
       best::crash_internal::crash({"arithmetic overflow", loc});
     }
@@ -220,7 +220,7 @@ struct overflow {
   }
   template <integer J>
   BEST_INLINE_ALWAYS constexpr friend overflow<common_int<Int, J>> operator+(
-      overflow a, overflow<J> b) {
+    overflow a, overflow<J> b) {
     using C = common_int<Int, J>;
     C ca = a.value, cb = b.value;
 
@@ -239,7 +239,7 @@ struct overflow {
   }
   template <integer J>
   BEST_INLINE_ALWAYS constexpr friend overflow<common_int<Int, J>> operator-(
-      overflow a, overflow<J> b) {
+    overflow a, overflow<J> b) {
     using C = common_int<Int, J>;
     C ca = a.value, cb = b.value;
 
@@ -250,7 +250,7 @@ struct overflow {
 
   template <integer J>
   BEST_INLINE_ALWAYS constexpr friend overflow<common_int<Int, J>> operator*(
-      overflow a, overflow<J> b) {
+    overflow a, overflow<J> b) {
     using C = common_int<Int, J>;
     C ca = a.value, cb = b.value;
 
@@ -261,12 +261,12 @@ struct overflow {
 
   template <integer J>
   BEST_INLINE_ALWAYS constexpr friend overflow<common_int<Int, J>> operator/(
-      best::track_location<overflow> a, overflow<J> b) {
+    best::track_location<overflow> a, overflow<J> b) {
     return best::div(*a, b, a).quot;
   }
   template <integer J>
   BEST_INLINE_ALWAYS constexpr friend overflow<common_int<Int, J>> operator%(
-      best::track_location<overflow> a, overflow<J> b) {
+    best::track_location<overflow> a, overflow<J> b) {
     return best::div(*a, b, a).rem;
   }
 
@@ -276,7 +276,7 @@ struct overflow {
 
   template <integer J>
   BEST_INLINE_ALWAYS constexpr friend overflow<common_int<Int, J>> operator&(
-      overflow a, overflow<J> b) {
+    overflow a, overflow<J> b) {
     using C = common_int<Int, J>;
     C ca = a.value, cb = b.value;
 
@@ -284,7 +284,7 @@ struct overflow {
   }
   template <integer J>
   BEST_INLINE_ALWAYS constexpr friend overflow<common_int<Int, J>> operator|(
-      overflow a, overflow<J> b) {
+    overflow a, overflow<J> b) {
     using C = common_int<Int, J>;
     C ca = a.value, cb = b.value;
 
@@ -292,7 +292,7 @@ struct overflow {
   }
   template <integer J>
   BEST_INLINE_ALWAYS constexpr friend overflow<common_int<Int, J>> operator^(
-      overflow a, overflow<J> b) {
+    overflow a, overflow<J> b) {
     using C = common_int<Int, J>;
     C ca = a.value, cb = b.value;
 
@@ -324,11 +324,11 @@ struct overflow {
                                                                           \
   template <integer J>                                                    \
   BEST_INLINE_ALWAYS constexpr friend overflow& operator opeq_(           \
-      overflow & a, overflow<J> b) {                                      \
+    overflow & a, overflow<J> b) {                                        \
     return a = a op_ b;                                                   \
   }                                                                       \
   BEST_INLINE_ALWAYS constexpr friend overflow& operator opeq_(           \
-      overflow & a, integer auto b) {                                     \
+    overflow & a, integer auto b) {                                       \
     return a = a op_ b;                                                   \
   }
 

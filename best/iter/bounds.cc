@@ -32,7 +32,7 @@ namespace best::bounds_internal {
 
   if (count == 1 && start >= len) {
     crash_internal::crash(
-        {"bounds-check failed: %zu (start) >= %zu (len)", loc}, start, len);
+      {"bounds-check failed: %zu (start) >= %zu (len)", loc}, start, len);
   }
 
   if (end && *end < start) {
@@ -57,14 +57,14 @@ namespace best::bounds_internal {
 
   if (count && start + *count > len) {
     crash_internal::crash(
-        {"bounds-check failed: %zu + %zu (start + count) > %zu (len)", loc},
-        start, *count, len);
+      {"bounds-check failed: %zu + %zu (start + count) > %zu (len)", loc},
+      start, *count, len);
   }
 
   crash_internal::crash(
-      "failed to print proper bounds check result? this is a bug. %zu %zu/%d "
-      "%zu/%d %zu/%d %zu",
-      start, *end, end.has_value(), *including_end, including_end.has_value(),
-      *count, count.has_value(), len);
+    "failed to print proper bounds check result? this is a bug. %zu %zu/%d "
+    "%zu/%d %zu/%d %zu",
+    start, *end, end.has_value(), *including_end, including_end.has_value(),
+    *count, count.has_value(), len);
 }
 }  // namespace best::bounds_internal

@@ -37,9 +37,9 @@ namespace best {
 struct ascii final {
   using code = char;
   static constexpr best::encoding_about About{
-      .max_codes_per_rune = 1,
-      .is_self_syncing = true,
-      .is_lexicographic = true,
+    .max_codes_per_rune = 1,
+    .is_self_syncing = true,
+    .is_lexicographic = true,
   };
 
   static constexpr bool is_boundary(best::span<const char> input, size_t idx) {
@@ -47,8 +47,8 @@ struct ascii final {
   }
 
   static constexpr best::result<void, encoding_error> encode(
-      best::span<char>* output, rune rune) {
-    if (!rune.is_ascii()) return best::encoding_error::Invalid;
+    best::span<char>* output, rune rune) {
+    if (!rune.is_ascii()) { return best::encoding_error::Invalid; }
     auto next = output->take_first(1).ok_or(encoding_error::OutOfBounds);
     BEST_GUARD(next);
 
@@ -57,23 +57,23 @@ struct ascii final {
   }
 
   static constexpr best::result<rune, encoding_error> decode(
-      best::span<const char>* input) {
+    best::span<const char>* input) {
     auto next = input->take_first(1).ok_or(encoding_error::OutOfBounds);
     BEST_GUARD(next);
 
     return rune::from_int((*next.ok())[0])
-        .filter(&rune::is_ascii)
-        .ok_or(encoding_error::Invalid);
+      .filter(&rune::is_ascii)
+      .ok_or(encoding_error::Invalid);
   }
 
   static constexpr best::result<rune, encoding_error> undecode(
-      best::span<const char>* input) {
+    best::span<const char>* input) {
     auto next = input->take_last(1).ok_or(encoding_error::OutOfBounds);
     BEST_GUARD(next);
 
     return rune::from_int((*next.ok())[0])
-        .filter(&rune::is_ascii)
-        .ok_or(encoding_error::Invalid);
+      .filter(&rune::is_ascii)
+      .ok_or(encoding_error::Invalid);
   }
 
   constexpr bool operator==(const ascii&) const = default;
@@ -86,9 +86,9 @@ struct ascii final {
 struct latin1 final {
   using code = char;
   static constexpr best::encoding_about About{
-      .max_codes_per_rune = 1,
-      .is_self_syncing = true,
-      .is_lexicographic = true,
+    .max_codes_per_rune = 1,
+    .is_self_syncing = true,
+    .is_lexicographic = true,
   };
 
   static constexpr bool is_boundary(best::span<const char> input, size_t idx) {
@@ -96,8 +96,8 @@ struct latin1 final {
   }
 
   static constexpr best::result<void, encoding_error> encode(
-      best::span<char>* output, rune rune) {
-    if (rune > 0xff) return best::encoding_error::Invalid;
+    best::span<char>* output, rune rune) {
+    if (rune > 0xff) { return best::encoding_error::Invalid; }
     auto next = output->take_first(1).ok_or(encoding_error::OutOfBounds);
     BEST_GUARD(next);
 
@@ -106,7 +106,7 @@ struct latin1 final {
   }
 
   static constexpr best::result<rune, encoding_error> decode(
-      best::span<const char>* input) {
+    best::span<const char>* input) {
     auto next = input->take_first(1).ok_or(encoding_error::OutOfBounds);
     BEST_GUARD(next);
 
@@ -114,7 +114,7 @@ struct latin1 final {
   }
 
   static constexpr best::result<rune, encoding_error> undecode(
-      best::span<const char>* input) {
+    best::span<const char>* input) {
     auto next = input->take_last(1).ok_or(encoding_error::OutOfBounds);
     BEST_GUARD(next);
 

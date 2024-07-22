@@ -28,18 +28,18 @@
 
 namespace best::int_internal {
 template <typename T>
-concept is_int =                            //
-    std::is_same_v<T, char> ||              //
-    std::is_same_v<T, signed char> ||       //
-    std::is_same_v<T, signed short> ||      //
-    std::is_same_v<T, signed int> ||        //
-    std::is_same_v<T, signed long> ||       //
-    std::is_same_v<T, signed long long> ||  //
-    std::is_same_v<T, unsigned char> ||     //
-    std::is_same_v<T, unsigned short> ||    //
-    std::is_same_v<T, unsigned int> ||      //
-    std::is_same_v<T, unsigned long> ||     //
-    std::is_same_v<T, unsigned long long>;
+concept is_int =                          //
+  std::is_same_v<T, char> ||              //
+  std::is_same_v<T, signed char> ||       //
+  std::is_same_v<T, signed short> ||      //
+  std::is_same_v<T, signed int> ||        //
+  std::is_same_v<T, signed long> ||       //
+  std::is_same_v<T, signed long long> ||  //
+  std::is_same_v<T, unsigned char> ||     //
+  std::is_same_v<T, unsigned short> ||    //
+  std::is_same_v<T, unsigned int> ||      //
+  std::is_same_v<T, unsigned long> ||     //
+  std::is_same_v<T, unsigned long long>;
 
 template <typename Int, typename... Ints>
 constexpr auto widest() {

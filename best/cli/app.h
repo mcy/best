@@ -105,7 +105,7 @@ class app final {
   using mark_format_header_as_used = best::formatter;
 
   app(auto main, best::location loc, int (*shim)(uintptr_t))
-      : main_(reinterpret_cast<uintptr_t>(main)), shim_(shim), loc_(loc) {
+    : main_(reinterpret_cast<uintptr_t>(main)), shim_(shim), loc_(loc) {
     install();
   }
 
@@ -124,57 +124,57 @@ class app final {
 
 namespace best {
 inline app::app(void (*main)(), best::location loc)
-    : app(main, loc, [](uintptr_t vp) {
-        auto main = reinterpret_cast<void (*)()>(vp);
-        main();
-        return 0;
-      }) {}
+  : app(main, loc, [](uintptr_t vp) {
+      auto main = reinterpret_cast<void (*)()>(vp);
+      main();
+      return 0;
+    }) {}
 
 inline app::app(int (*main)(), best::location loc)
-    : app(main, loc, [](uintptr_t vp) {
-        auto main = reinterpret_cast<int (*)()>(vp);
-        return main();
-      }) {}
+  : app(main, loc, [](uintptr_t vp) {
+      auto main = reinterpret_cast<int (*)()>(vp);
+      return main();
+    }) {}
 
 template <typename T, typename E>
 app::app(best::result<T, E> (*main)(), best::location loc)
-    : app(main, loc, [](uintptr_t vp) {
-        auto main = reinterpret_cast<best::result<T, E> (*)()>(vp);
-        (void)*main();
-        return 0;
-      }) {}
+  : app(main, loc, [](uintptr_t vp) {
+      auto main = reinterpret_cast<best::result<T, E> (*)()>(vp);
+      (void)*main();
+      return 0;
+    }) {}
 
 template <typename Args>
 app::app(void (*main)(Args&), best::location loc)
-    : app(main, loc, [](uintptr_t vp) {
-        auto args = best::parse_flags<Args>(exe(), argv());
-        if (!args) args.err()->print_and_exit();
+  : app(main, loc, [](uintptr_t vp) {
+      auto args = best::parse_flags<Args>(exe(), argv());
+      if (!args) { args.err()->print_and_exit(); }
 
-        auto main = reinterpret_cast<void (*)(Args&)>(vp);
-        main(*args);
-        return 0;
-      }) {}
+      auto main = reinterpret_cast<void (*)(Args&)>(vp);
+      main(*args);
+      return 0;
+    }) {}
 
 template <typename Args>
 app::app(int (*main)(Args&), best::location loc)
-    : app(main, loc, [](uintptr_t vp) {
-        auto args = best::parse_flags<Args>(exe(), argv());
-        if (!args) args.err()->print_and_exit();
+  : app(main, loc, [](uintptr_t vp) {
+      auto args = best::parse_flags<Args>(exe(), argv());
+      if (!args) { args.err()->print_and_exit(); }
 
-        auto main = reinterpret_cast<int (*)(Args&)>(vp);
-        return main(*args);
-      }) {}
+      auto main = reinterpret_cast<int (*)(Args&)>(vp);
+      return main(*args);
+    }) {}
 
 template <typename Args, typename T, typename E>
 app::app(best::result<T, E> (*main)(Args&), best::location loc)
-    : app(main, loc, [](uintptr_t vp) {
-        auto args = best::parse_flags<Args>(exe(), argv());
-        if (!args) args.err()->print_and_exit();
+  : app(main, loc, [](uintptr_t vp) {
+      auto args = best::parse_flags<Args>(exe(), argv());
+      if (!args) { args.err()->print_and_exit(); }
 
-        auto main = reinterpret_cast<best::result<T, E> (*)(Args&)>(vp);
-        (void)*main(*args);
-        return 0;
-      }) {}
+      auto main = reinterpret_cast<best::result<T, E> (*)(Args&)>(vp);
+      (void)*main(*args);
+      return 0;
+    }) {}
 }  // namespace best
 
 #endif  // BEST_CLI_APP_H_

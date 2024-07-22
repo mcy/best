@@ -56,25 +56,25 @@ namespace best {
 /// * ISO-646 compliant. Every printable ISO 646 character is encodable.
 template <typename E_, typename E = best::as_auto<E_>>
 concept encoding =
-    best::copyable<E> && best::equatable<E> && requires(const E& e) {
-      /// Required type aliases.
-      typename E::code;
+  best::copyable<E> && best::equatable<E> && requires(const E& e) {
+    /// Required type aliases.
+    typename E::code;
 
-      /// Required constants.
-      { E::About } -> best::converts_to<best::encoding_about>;
+    /// Required constants.
+    { E::About } -> best::converts_to<best::encoding_about>;
 
-      /// It must provide the following operations. `best::rune` provides
-      /// wrappers for them, which specifies what each of these functions must
-      /// do.
-      requires requires(size_t idx, rune r,
-                        best::span<const typename E::code>& input,
-                        best::span<typename E::code>& output) {
-        { e.is_boundary(input, idx) } -> same<bool>;
-        { e.encode(&output, r) } -> same<result<void, encoding_error>>;
-        { e.decode(&input) } -> same<result<rune, encoding_error>>;
-        { e.undecode(&input) } -> same<result<rune, encoding_error>>;
-      };
+    /// It must provide the following operations. `best::rune` provides
+    /// wrappers for them, which specifies what each of these functions must
+    /// do.
+    requires requires(size_t idx, rune r,
+                      best::span<const typename E::code>& input,
+                      best::span<typename E::code>& output) {
+      { e.is_boundary(input, idx) } -> same<bool>;
+      { e.encode(&output, r) } -> same<result<void, encoding_error>>;
+      { e.decode(&input) } -> same<result<rune, encoding_error>>;
+      { e.undecode(&input) } -> same<result<rune, encoding_error>>;
     };
+  };
 
 /// # `best::encoding_error`
 ///
@@ -152,12 +152,12 @@ struct encoding_about final {
 /// and whose data pointer matches that encoding.
 template <typename T>
 concept string_type =
-    best::contiguous<T> && requires(best::ftadle& tag, const T& value) {
-      { BestEncoding(tag, value) } -> best::encoding;
-      {
-        best::data(value)
-      } -> best::same<code<decltype(BestEncoding(tag, value))> const*>;
-    };
+  best::contiguous<T> && requires(best::ftadle& tag, const T& value) {
+    { BestEncoding(tag, value) } -> best::encoding;
+    {
+      best::data(value)
+    } -> best::same<code<decltype(BestEncoding(tag, value))> const*>;
+  };
 
 /// # `best::encoding_of()`
 ///

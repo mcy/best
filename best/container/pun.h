@@ -113,12 +113,12 @@ class pun final {
   template <size_t n, typename... Args>
   constexpr explicit pun(best::index_t<n>, Args&&... args)
     requires best::constructible<type<n>, Args&&...>
-      : BEST_PUN_IMPL_(best::index<n>, BEST_FWD(args)...) {}
+    : BEST_PUN_IMPL_(best::index<n>, BEST_FWD(args)...) {}
 
   template <size_t n>
   constexpr explicit pun(best::index_t<n>, niche nh)
     requires best::has_niche<type<n>>
-      : BEST_PUN_IMPL_(best::index<n>, nh) {}
+    : BEST_PUN_IMPL_(best::index<n>, nh) {}
 
   /// # `pun::get()`
   ///

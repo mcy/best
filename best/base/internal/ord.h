@@ -60,7 +60,7 @@ template <typename T>
 T common_ord(T);
 template <typename T>
 auto common_ord(T, T, auto... rest)  //
-    -> decltype(common_ord(best::lie<T>, rest...));
+  -> decltype(common_ord(best::lie<T>, rest...));
 
 sord common_ord(eq);
 sord common_ord(le);
@@ -86,77 +86,77 @@ pord common_ord(uo, gt);
 pord common_ord(uo, uo);
 
 auto common_ord(sord, eq, auto... rest)  //
-    -> decltype(common_ord(sord::equivalent, rest...));
+  -> decltype(common_ord(sord::equivalent, rest...));
 auto common_ord(sord, le, auto... rest)  //
-    -> decltype(common_ord(sord::equivalent, rest...));
+  -> decltype(common_ord(sord::equivalent, rest...));
 auto common_ord(sord, gt, auto... rest)  //
-    -> decltype(common_ord(sord::equivalent, rest...));
+  -> decltype(common_ord(sord::equivalent, rest...));
 auto common_ord(eq, sord, auto... rest)  //
-    -> decltype(common_ord(sord::equivalent, rest...));
+  -> decltype(common_ord(sord::equivalent, rest...));
 auto common_ord(le, sord, auto... rest)  //
-    -> decltype(common_ord(sord::equivalent, rest...));
+  -> decltype(common_ord(sord::equivalent, rest...));
 auto common_ord(gt, sord, auto... rest)  //
-    -> decltype(common_ord(sord::equivalent, rest...));
+  -> decltype(common_ord(sord::equivalent, rest...));
 
 auto common_ord(word, eq, auto... rest)  //
-    -> decltype(common_ord(word::equivalent, rest...));
+  -> decltype(common_ord(word::equivalent, rest...));
 auto common_ord(word, le, auto... rest)  //
-    -> decltype(common_ord(word::equivalent, rest...));
+  -> decltype(common_ord(word::equivalent, rest...));
 auto common_ord(word, gt, auto... rest)  //
-    -> decltype(common_ord(word::equivalent, rest...));
+  -> decltype(common_ord(word::equivalent, rest...));
 auto common_ord(eq, word, auto... rest)  //
-    -> decltype(common_ord(word::equivalent, rest...));
+  -> decltype(common_ord(word::equivalent, rest...));
 auto common_ord(le, word, auto... rest)  //
-    -> decltype(common_ord(word::equivalent, rest...));
+  -> decltype(common_ord(word::equivalent, rest...));
 auto common_ord(gt, word, auto... rest)  //
-    -> decltype(common_ord(word::equivalent, rest...));
+  -> decltype(common_ord(word::equivalent, rest...));
 
 auto common_ord(pord, eq, auto... rest)  //
-    -> decltype(common_ord(pord::equivalent, rest...));
+  -> decltype(common_ord(pord::equivalent, rest...));
 auto common_ord(pord, le, auto... rest)  //
-    -> decltype(common_ord(pord::equivalent, rest...));
+  -> decltype(common_ord(pord::equivalent, rest...));
 auto common_ord(pord, gt, auto... rest)  //
-    -> decltype(common_ord(pord::equivalent, rest...));
+  -> decltype(common_ord(pord::equivalent, rest...));
 auto common_ord(eq, pord, auto... rest)  //
-    -> decltype(common_ord(pord::equivalent, rest...));
+  -> decltype(common_ord(pord::equivalent, rest...));
 auto common_ord(le, pord, auto... rest)  //
-    -> decltype(common_ord(pord::equivalent, rest...));
+  -> decltype(common_ord(pord::equivalent, rest...));
 auto common_ord(gt, pord, auto... rest)  //
-    -> decltype(common_ord(pord::equivalent, rest...));
+  -> decltype(common_ord(pord::equivalent, rest...));
 
 auto common_ord(uo, sord, auto... rest)  //
-    -> decltype(common_ord(pord::equivalent, rest...));
+  -> decltype(common_ord(pord::equivalent, rest...));
 auto common_ord(uo, word, auto... rest)  //
-    -> decltype(common_ord(pord::equivalent, rest...));
+  -> decltype(common_ord(pord::equivalent, rest...));
 auto common_ord(uo, pord, auto... rest)  //
-    -> decltype(common_ord(pord::equivalent, rest...));
+  -> decltype(common_ord(pord::equivalent, rest...));
 auto common_ord(sord, uo, auto... rest)  //
-    -> decltype(common_ord(pord::equivalent, rest...));
+  -> decltype(common_ord(pord::equivalent, rest...));
 auto common_ord(word, uo, auto... rest)  //
-    -> decltype(common_ord(pord::equivalent, rest...));
+  -> decltype(common_ord(pord::equivalent, rest...));
 auto common_ord(pord, uo, auto... rest)  //
-    -> decltype(common_ord(pord::equivalent, rest...));
+  -> decltype(common_ord(pord::equivalent, rest...));
 
 auto common_ord(sord, sord, auto... rest)  //
-    -> decltype(common_ord(sord::equivalent, rest...));
+  -> decltype(common_ord(sord::equivalent, rest...));
 auto common_ord(sord, word, auto... rest)  //
-    -> decltype(common_ord(word::equivalent, rest...));
+  -> decltype(common_ord(word::equivalent, rest...));
 auto common_ord(sord, pord, auto... rest)  //
-    -> decltype(common_ord(pord::equivalent, rest...));
+  -> decltype(common_ord(pord::equivalent, rest...));
 
 auto common_ord(word, sord, auto... rest)  //
-    -> decltype(common_ord(word::equivalent, rest...));
+  -> decltype(common_ord(word::equivalent, rest...));
 auto common_ord(word, word, auto... rest)  //
-    -> decltype(common_ord(word::equivalent, rest...));
+  -> decltype(common_ord(word::equivalent, rest...));
 auto common_ord(word, pord, auto... rest)  //
-    -> decltype(common_ord(pord::equivalent, rest...));
+  -> decltype(common_ord(pord::equivalent, rest...));
 
 auto common_ord(pord, sord, auto... rest)  //
-    -> decltype(common_ord(pord::equivalent, rest...));
+  -> decltype(common_ord(pord::equivalent, rest...));
 auto common_ord(pord, word, auto... rest)  //
-    -> decltype(common_ord(pord::equivalent, rest...));
+  -> decltype(common_ord(pord::equivalent, rest...));
 auto common_ord(pord, pord, auto... rest)  //
-    -> decltype(common_ord(pord::equivalent, rest...));
+  -> decltype(common_ord(pord::equivalent, rest...));
 
 auto common_impl(best::rank<1>, auto... args) -> decltype(common_ord(args...));
 void common_impl(best::rank<0>, auto...);
@@ -171,9 +171,9 @@ class chain final {
 
   constexpr friend auto operator->*(auto lhs, chain&& rhs) {
     using output =
-        common<decltype(lhs), decltype(best::call(BEST_FWD(rhs).cb_))>;
+      common<decltype(lhs), decltype(best::call(BEST_FWD(rhs).cb_))>;
 
-    if (!(lhs == 0)) return output(lhs);
+    if (!(lhs == 0)) { return output(lhs); }
     return output(best::call(BEST_FWD(rhs).cb_));
   }
 

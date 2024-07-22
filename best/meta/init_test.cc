@@ -64,7 +64,7 @@ static_assert(!best::constructible<NonTrivialPod, trivially, int, int>);
 static_assert(!best::constructible<NonTrivialPod, trivially, const int&, int>);
 static_assert(!best::constructible<NonTrivialPod, trivially, NonTrivialPod>);
 static_assert(
-    !best::constructible<NonTrivialPod, trivially, const NonTrivialPod>);
+  !best::constructible<NonTrivialPod, trivially, const NonTrivialPod>);
 
 static_assert(best::constructible<TrivialCopy, void>);
 static_assert(best::constructible<TrivialCopy, const TrivialCopy&>);
@@ -113,9 +113,9 @@ static_assert(best::convertible<NonTrivialPod, const NonTrivialPod>);
 static_assert(best::convertible<NonTrivialPod, const NonTrivialPod&>);
 static_assert(!best::convertible<NonTrivialPod, int, int>);
 static_assert(
-    !best::convertible<NonTrivialPod, trivially, const NonTrivialPod>);
+  !best::convertible<NonTrivialPod, trivially, const NonTrivialPod>);
 static_assert(
-    !best::convertible<NonTrivialPod, trivially, const NonTrivialPod&>);
+  !best::convertible<NonTrivialPod, trivially, const NonTrivialPod&>);
 
 static_assert(best::convertible<TrivialCopy, const TrivialCopy&>);
 static_assert(best::convertible<TrivialCopy, trivially, const TrivialCopy&>);
@@ -317,7 +317,7 @@ static_assert(best::constructible<NonTrivialPod, best::args<int, int>>);
 static_assert(best::constructible<NonTrivialPod, best::args<const int&, int>>);
 static_assert(best::constructible<NonTrivialPod, best::args<NonTrivialPod>>);
 static_assert(
-    best::constructible<NonTrivialPod, best::args<const NonTrivialPod>>);
+  best::constructible<NonTrivialPod, best::args<const NonTrivialPod>>);
 
 }  // namespace best::init_test
 

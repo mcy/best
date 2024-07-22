@@ -68,14 +68,10 @@ class BEST_RELOCATABLE box final {
   /// # `box::box(box)`
   ///
   /// Trivially relocatable. Copies perform memory allocations.
-  box(const box& that)
-    requires best::copyable<T> && best::copyable<alloc>;
-  box& operator=(const box& that)
-    requires best::copyable<T>;
-  box(box&& that)
-    requires best::moveable<alloc>;
-  box& operator=(box&& that)
-    requires best::moveable<alloc>;
+  box(const box& that) requires best::copyable<T> && best::copyable<alloc>;
+  box& operator=(const box& that) requires best::copyable<T>;
+  box(box&& that) requires best::moveable<alloc>;
+  box& operator=(box&& that) requires best::moveable<alloc>;
 
   /// # `box::box(value)`
   ///
@@ -83,19 +79,19 @@ class BEST_RELOCATABLE box final {
   explicit box(const T& from) : box(best::in_place, from) {}
   explicit box(T&& from) : box(best::in_place, BEST_MOVE(from)) {}
   explicit box(alloc alloc, const T& from)
-      : box(BEST_FWD(alloc), best::in_place, from) {}
+    : box(BEST_FWD(alloc), best::in_place, from) {}
   explicit box(alloc alloc, T&& from)
-      : box(BEST_FWD(alloc), best::in_place, BEST_MOVE(from)) {}
+    : box(BEST_FWD(alloc), best::in_place, BEST_MOVE(from)) {}
 
   /// # `box::box(...)`
   ///
   /// Constructs a box by calling a constructor in-place.
   explicit box(best::in_place_t, auto&&... args)
-      : box(alloc{}, best::in_place, BEST_FWD(args)...) {}
+    : box(alloc{}, best::in_place, BEST_FWD(args)...) {}
   explicit box(alloc alloc, best::in_place_t, auto&&... args)
-      : alloc_(best::in_place, BEST_FWD(alloc)) {
-    ptr_ = best::ptr(allocator().alloc(best::layout::of<T>()))
-               .cast(best::types<T>);
+    : alloc_(best::in_place, BEST_FWD(alloc)) {
+    ptr_ =
+      best::ptr(allocator().alloc(best::layout::of<T>())).cast(best::types<T>);
     ptr_.construct(BEST_FWD(args)...);
   }
 
@@ -105,13 +101,13 @@ class BEST_RELOCATABLE box final {
   /// the given allocated, with the layout of `T`.
   explicit box(unsafe u, best::ptr<T> ptr) : box(u, alloc{}, ptr) {}
   explicit box(unsafe u, alloc alloc, best::ptr<T> ptr)
-      : ptr_(ptr), alloc_(best::in_place, BEST_FWD(alloc)) {}
+    : ptr_(ptr), alloc_(best::in_place, BEST_FWD(alloc)) {}
 
   /// # `box::~box()`
   ///
   /// Boxes automatically destroy their contents.
   ~box() {
-    if (ptr_ == best::ptr<T>::dangling()) return;
+    if (ptr_ == best::ptr<T>::dangling()) { return; }
 
     ptr_.destroy();
     allocator().dealloc(ptr_.raw(), best::layout::of<T>());
@@ -162,7 +158,7 @@ class BEST_RELOCATABLE box final {
   {
     fmt.format(*box);
   }
-  friend constexpr void BestFmtQuery(auto& query, box*) {
+  constexpr friend void BestFmtQuery(auto& query, box*) {
     query = query.template of<T>;
   }
 
@@ -231,14 +227,10 @@ class BEST_RELOCATABLE box<T[], A> final {
   /// # `box::box(box)`
   ///
   /// Trivially relocatable. Copies perform memory allocations.
-  box(const box& that)
-    requires best::copyable<T> && best::copyable<alloc>;
-  box& operator=(const box& that)
-    requires best::copyable<T>;
-  box(box&& that)
-    requires best::moveable<alloc>;
-  box& operator=(box&& that)
-    requires best::moveable<alloc>;
+  box(const box& that) requires best::copyable<T> && best::copyable<alloc>;
+  box& operator=(const box& that) requires best::copyable<T>;
+  box(box&& that) requires best::moveable<alloc>;
+  box& operator=(box&& that) requires best::moveable<alloc>;
 
   /// # `box::box(...)`
   ///
@@ -247,10 +239,10 @@ class BEST_RELOCATABLE box<T[], A> final {
   explicit box(best::span<U> args) : box(alloc{}, args) {}
   template <typename U = const T>
   explicit box(alloc alloc, best::span<U> args)
-      : size_(args.size()), alloc_(best::in_place, BEST_FWD(alloc)) {
-    if (size_ == 0) return;
+    : size_(args.size()), alloc_(best::in_place, BEST_FWD(alloc)) {
+    if (size_ == 0) { return; }
     ptr_ = best::ptr(allocator().alloc(best::layout::array<T>(args.size())))
-               .cast(best::types<T>);
+             .cast(best::types<T>);
     as_span().emplace_from(args);
   }
 
@@ -259,15 +251,15 @@ class BEST_RELOCATABLE box<T[], A> final {
   /// Constructs a box by taking ownership of a span.
   explicit box(unsafe, best::span<T> args) : box(alloc{}, args) {}
   explicit box(unsafe, alloc alloc, best::span<T> args)
-      : ptr_(args.data()),
-        size_(args.size()),
-        alloc_(best::in_place, BEST_FWD(alloc)) {}
+    : ptr_(args.data()),
+      size_(args.size()),
+      alloc_(best::in_place, BEST_FWD(alloc)) {}
 
   /// # `box::~box()`
   ///
   /// Boxes automatically destroy their contents.
   ~box() {
-    if (data() == best::ptr<T>::dangling()) return;
+    if (data() == best::ptr<T>::dangling()) { return; }
 
     as_span().destroy();
     alloc_->dealloc(data(), best::layout::array<T>(size()));
@@ -405,20 +397,18 @@ class BEST_RELOCATABLE vbox final {
   /// if `T` is copyable but the complete type is not.
   vbox(const vbox& that) = delete;
   vbox& operator=(const vbox& that) = delete;
-  vbox(vbox&& that)
-    requires best::moveable<alloc>;
-  vbox& operator=(vbox&& that)
-    requires best::moveable<alloc>;
+  vbox(vbox&& that) requires best::moveable<alloc>;
+  vbox& operator=(vbox&& that) requires best::moveable<alloc>;
 
   /// # `vbox::vbox(box)`, `vbox::vbox(vbox)`
   ///
   /// Wraps a box, virtual or otherwise.
   template <best::ptr_convertible_to<T> U>
   explicit vbox(box<U> that)
-      : ptr_(BEST_MOVE(that).leak()), alloc_(that.alloc_) {}
+    : ptr_(BEST_MOVE(that).leak()), alloc_(that.alloc_) {}
   template <best::ptr_convertible_to<T> U>
   explicit vbox(vbox<U> that)
-      : ptr_(BEST_MOVE(that).leak()), alloc_(that.alloc_) {}
+    : ptr_(BEST_MOVE(that).leak()), alloc_(that.alloc_) {}
 
   /// # `vbox::vbox(unsafe, ptr)`
   ///
@@ -426,13 +416,13 @@ class BEST_RELOCATABLE vbox final {
   /// the given allocator.
   explicit vbox(unsafe u, best::vptr<T> ptr) : vbox(u, alloc{}, ptr) {}
   explicit vbox(unsafe u, alloc alloc, best::vptr<T> ptr)
-      : ptr_(ptr), alloc_(best::in_place, BEST_FWD(alloc)) {}
+    : ptr_(ptr), alloc_(best::in_place, BEST_FWD(alloc)) {}
 
   /// # `vbox::~vbox()`
   ///
   /// Boxes automatically destroy their contents.
   ~vbox() {
-    if (ptr_.thin() == best::ptr<T>::dangling()) return;
+    if (ptr_.thin() == best::ptr<T>::dangling()) { return; }
 
     ptr_.destroy();
     allocator().dealloc(ptr_.raw(), ptr_.layout());
@@ -482,15 +472,14 @@ class BEST_RELOCATABLE vbox final {
   ///
   /// Makes a copy of the contents of this `box`, if the complete type is
   /// copyable.
-  best::option<vbox> copy() const
-    requires best::copyable<alloc>
+  best::option<vbox> copy() const requires best::copyable<alloc>
   {
-    if (!ptr_.is_copyable()) return best::none;
+    if (!ptr_.is_copyable()) { return best::none; }
 
     best::vptr<T> ptr(
-        unsafe("the vtable is correct because we're making a copy"),
-        best::ptr(allocator().alloc(ptr_.layout())).cast(best::types<T>),
-        ptr_.vtable());
+      unsafe("the vtable is correct because we're making a copy"),
+      best::ptr(allocator().alloc(ptr_.layout())).cast(best::types<T>),
+      ptr_.vtable());
     ptr_.copy_to(ptr.raw());
 
     return vbox(alloc_, ptr);
@@ -513,26 +502,23 @@ namespace best {
 template <typename T, typename A>
 box<T, A>::box(const box& that)
   requires best::copyable<T> && best::copyable<alloc>
-    : box(that.allocator(), best::in_place, *that) {}
+  : box(that.allocator(), best::in_place, *that) {}
 
 template <typename T, typename A>
-box<T, A>& box<T, A>::operator=(const box& that)
-  requires best::copyable<T>
+box<T, A>& box<T, A>::operator=(const box& that) requires best::copyable<T>
 {
   **this = *that;
   return *this;
 }
 template <typename T, typename A>
-box<T, A>::box(box&& that)
-  requires best::moveable<alloc>
-    : ptr_(std::exchange(that.ptr_, best::ptr<T>::dangling())),
-      alloc_(BEST_MOVE(that.alloc_)) {}
+box<T, A>::box(box&& that) requires best::moveable<alloc>
+  : ptr_(std::exchange(that.ptr_, best::ptr<T>::dangling())),
+    alloc_(BEST_MOVE(that.alloc_)) {}
 
 template <typename T, typename A>
-box<T, A>& box<T, A>::operator=(box&& that)
-  requires best::moveable<alloc>
+box<T, A>& box<T, A>::operator=(box&& that) requires best::moveable<alloc>
 {
-  if (best::equal(this, &that)) return *this;
+  if (best::equal(this, &that)) { return *this; }
   this->~box();
   new (this) box(BEST_MOVE(that));
   return *this;
@@ -541,10 +527,9 @@ box<T, A>& box<T, A>::operator=(box&& that)
 template <typename T, typename A>
 box<T[], A>::box(const box& that)
   requires best::copyable<T> && best::copyable<alloc>
-    : box(that.allocator(), that.as_span()) {}
+  : box(that.allocator(), that.as_span()) {}
 template <typename T, typename A>
-box<T[], A>& box<T[], A>::operator=(const box& that)
-  requires best::copyable<T>
+box<T[], A>& box<T[], A>::operator=(const box& that) requires best::copyable<T>
 {
   if (size() == that.size()) {
     as_span().copy_from(that.as_span());
@@ -555,38 +540,34 @@ box<T[], A>& box<T[], A>::operator=(const box& that)
       alloc_->dealloc(data(), best::layout::array<T>(size()));
     }
     ptr_ = best::ptr(alloc_->alloc(best::layout::array<T>(that.size())))
-               .cast(best::types<T>);
+             .cast(best::types<T>);
     size_ = that.size();
     as_span().emplace_from(that.as_span());
   }
   return *this;
 }
 template <typename T, typename A>
-box<T[], A>::box(box&& that)
-  requires best::moveable<alloc>
-    : ptr_(std::exchange(that.ptr_, best::ptr<T>::dangling())),
-      size_(that.size()),
-      alloc_(BEST_MOVE(that.alloc_)) {}
+box<T[], A>::box(box&& that) requires best::moveable<alloc>
+  : ptr_(std::exchange(that.ptr_, best::ptr<T>::dangling())),
+    size_(that.size()),
+    alloc_(BEST_MOVE(that.alloc_)) {}
 template <typename T, typename A>
-box<T[], A>& box<T[], A>::operator=(box&& that)
-  requires best::moveable<alloc>
+box<T[], A>& box<T[], A>::operator=(box&& that) requires best::moveable<alloc>
 {
-  if (best::equal(this, &that)) return *this;
+  if (best::equal(this, &that)) { return *this; }
   this->~box();
   new (this) box(BEST_MOVE(that));
   return *this;
 }
 
 template <typename T, typename A>
-vbox<T, A>::vbox(vbox&& that)
-  requires best::moveable<alloc>
-    : ptr_(std::exchange(that.ptr_, best::ptr<T>::dangling())),
-      alloc_(BEST_MOVE(that.alloc_)) {}
+vbox<T, A>::vbox(vbox&& that) requires best::moveable<alloc>
+  : ptr_(std::exchange(that.ptr_, best::ptr<T>::dangling())),
+    alloc_(BEST_MOVE(that.alloc_)) {}
 template <typename T, typename A>
-vbox<T, A>& vbox<T, A>::operator=(vbox&& that)
-  requires best::moveable<alloc>
+vbox<T, A>& vbox<T, A>::operator=(vbox&& that) requires best::moveable<alloc>
 {
-  if (best::equal(this, &that)) return *this;
+  if (best::equal(this, &that)) { return *this; }
   this->~vbox();
   new (this) vbox(BEST_MOVE(that));
   return *this;

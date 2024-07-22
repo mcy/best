@@ -77,23 +77,23 @@ class rune final {
   /// The integer must be a constant, and it must be a valid Unicode scalar
   /// value, and *not* an unpaired surrogate.
   constexpr rune(uint32_t value) BEST_ENABLE_IF_CONSTEXPR(value)
-      BEST_ENABLE_IF(is_unicode(value) && !is_surrogate(value),
-                     "rune value not within the valid Unicode range")
-      : value_(value) {}
+    BEST_ENABLE_IF(is_unicode(value) && !is_surrogate(value),
+                   "rune value not within the valid Unicode range")
+    : value_(value) {}
 
   /// # `rune::from_int()`
   ///
   /// Parses a rune from an integer.
   /// Returns `best::none` if this integer is not in the Unicode scalar value
   /// range.
-  constexpr static best::option<rune> from_int(uint32_t);
-  constexpr static best::option<rune> from_int(int32_t);
+  static constexpr best::option<rune> from_int(uint32_t);
+  static constexpr best::option<rune> from_int(int32_t);
 
   /// # `rune::from_int_allow_surrogates()`
   ///
   /// Like `rune::from_int()`, but allows unpaired surrogates.
-  constexpr static best::option<rune> from_int_allow_surrogates(uint32_t);
-  constexpr static best::option<rune> from_int_allow_surrogates(int32_t);
+  static constexpr best::option<rune> from_int_allow_surrogates(uint32_t);
+  static constexpr best::option<rune> from_int_allow_surrogates(int32_t);
 
   /// # `rune::to_int()`
   ///
@@ -105,14 +105,14 @@ class rune final {
   ///
   /// Validates whether a span of code units is correctly encoded per `E`.
   template <best::encoding E = best::utf8>
-  constexpr static bool validate(best::span<const code<E>> input,
+  static constexpr bool validate(best::span<const code<E>> input,
                                  const E& enc = {}) {
     if constexpr (requires { enc.validate(input); }) {
       return enc.validate(input);
     }
 
     while (!input.is_empty()) {
-      if (!decode(&input, enc)) return false;
+      if (!decode(&input, enc)) { return false; }
     }
     return true;
   }
@@ -129,7 +129,7 @@ class rune final {
   /// Returns whether the code unit boundary given by `idx` is also a rune
   /// boundary.
   template <best::encoding E = best::utf8>
-  constexpr static bool is_boundary(best::span<const code<E>> input, size_t idx,
+  static constexpr bool is_boundary(best::span<const code<E>> input, size_t idx,
                                     const E& enc = {}) {
     return enc.is_boundary(input, idx);
   }
@@ -144,10 +144,10 @@ class rune final {
   /// Returns `best::none` on failure; in this case, `output` is not advanced.
   template <encoding E = utf8>
   constexpr best::result<best::span<code<E>>, encoding_error> encode(
-      best::span<code<E>>* output, const E& = {}) const;
+    best::span<code<E>>* output, const E& = {}) const;
   template <encoding E = utf8>
   constexpr best::result<best::span<code<E>>, encoding_error> encode(
-      best::span<code<E>> output, const E& enc = {}) const {
+    best::span<code<E>> output, const E& enc = {}) const {
     return encode(&output, enc);
   }
 
@@ -160,11 +160,11 @@ class rune final {
   ///
   /// Returns `best::none` on failure; in this case, `input` is not advanced.
   template <best::encoding E = best::utf8>
-  constexpr static best::result<rune, encoding_error> decode(
-      best::span<const code<E>>* input, const E& enc = {});
+  static constexpr best::result<rune, encoding_error> decode(
+    best::span<const code<E>>* input, const E& enc = {});
   template <best::encoding E = best::utf8>
-  constexpr static best::result<rune, encoding_error> decode(
-      best::span<const code<E>> input, const E& enc = {}) {
+  static constexpr best::result<rune, encoding_error> decode(
+    best::span<const code<E>> input, const E& enc = {}) {
     return decode(&input, enc);
   }
 
@@ -177,11 +177,11 @@ class rune final {
   ///
   /// Returns `best::none` on failure; in this case, `input` is not advanced.
   template <best::encoding E = best::utf8>
-  constexpr static best::result<rune, encoding_error> undecode(
-      best::span<const code<E>>* input, const E& enc = {});
+  static constexpr best::result<rune, encoding_error> undecode(
+    best::span<const code<E>>* input, const E& enc = {});
   template <best::encoding E = best::utf8>
-  constexpr static best::result<rune, encoding_error> undecode(
-      best::span<const code<E>> input, const E& enc = {}) {
+  static constexpr best::result<rune, encoding_error> undecode(
+    best::span<const code<E>> input, const E& enc = {}) {
     return undecode(&input, enc);
   }
 
@@ -189,7 +189,7 @@ class rune final {
   ///
   /// Returns the appropriate character to represent `num` in the given
   /// `radix` (i.e., base). Crashes if `radix > 36`.
-  constexpr static best::option<rune> from_digit(uint32_t num,
+  static constexpr best::option<rune> from_digit(uint32_t num,
                                                  uint32_t radix = 10);
 
   /// # `rune::is_digit()`
@@ -269,7 +269,7 @@ class rune final {
   /// Converts this rune to its ASCII lowercase counterpart, if it is ASCII
   /// uppercase.
   constexpr rune to_ascii_lower() const {
-    if (!is_ascii_upper()) return *this;
+    if (!is_ascii_upper()) { return *this; }
     return rune(in_place, value_ - 'A' + 'a');
   }
 
@@ -283,7 +283,7 @@ class rune final {
   /// Converts this rune to its ASCII uppercase counterpart, if it is ASCII
   /// lowercase.
   constexpr rune to_ascii_upper() const {
-    if (!is_ascii_lower()) return *this;
+    if (!is_ascii_lower()) { return *this; }
     return rune(in_place, value_ - 'a' + 'A');
   }
 
@@ -353,14 +353,14 @@ inline constexpr rune rune::Replacement = 0xfffd;
 
 namespace best {
 constexpr best::option<rune> rune::from_int(uint32_t value) {
-  if (!is_unicode(value) || is_surrogate(value)) return best::none;
+  if (!is_unicode(value) || is_surrogate(value)) { return best::none; }
   return rune(best::in_place, value);
 }
 constexpr best::option<rune> rune::from_int(int32_t value) {
   return from_int(static_cast<uint32_t>(value));
 }
 constexpr best::option<rune> rune::from_int_allow_surrogates(uint32_t value) {
-  if (!is_unicode(value)) return best::none;
+  if (!is_unicode(value)) { return best::none; }
   return rune(best::in_place, value);
 }
 constexpr best::option<rune> rune::from_int_allow_surrogates(int32_t value) {
@@ -375,7 +375,7 @@ constexpr best::result<size_t, encoding_error> rune::size(const E& enc) const {
 
 template <encoding E>
 constexpr best::result<best::span<code<E>>, encoding_error> rune::encode(
-    best::span<code<E>>* output, const E& enc) const {
+  best::span<code<E>>* output, const E& enc) const {
   auto orig = *output;
   auto result = enc.encode(output, *this);
   if (result) {
@@ -388,22 +388,18 @@ constexpr best::result<best::span<code<E>>, encoding_error> rune::encode(
 
 template <encoding E>
 constexpr best::result<rune, encoding_error> rune::decode(
-    best::span<const code<E>>* input, const E& enc) {
+  best::span<const code<E>>* input, const E& enc) {
   auto orig = *input;
   auto result = enc.decode(input);
-  if (result.err()) {
-    *input = orig;
-  }
+  if (result.err()) { *input = orig; }
   return result;
 }
 template <encoding E>
 constexpr best::result<rune, encoding_error> rune::undecode(
-    best::span<const code<E>>* input, const E& enc) {
+  best::span<const code<E>>* input, const E& enc) {
   auto orig = *input;
   auto result = enc.undecode(input);
-  if (result.err()) {
-    *input = orig;
-  }
+  if (result.err()) { *input = orig; }
   return result;
 }
 
@@ -411,7 +407,7 @@ constexpr best::option<rune> rune::from_digit(uint32_t num, uint32_t radix) {
   if (radix > 36) {
     crash_internal::crash("from_digit() radix too large: %u > 36", radix);
   }
-  if (num >= radix) return best::none;
+  if (num >= radix) { return best::none; }
 
   return rune{in_place, best::to_unsigned(Alphabet[num])};
 }
@@ -429,7 +425,7 @@ constexpr best::option<uint32_t> rune::to_digit(uint32_t radix) const {
     return best::none;
   }
 
-  if (value >= radix) return best::none;
+  if (value >= radix) { return best::none; }
   return value;
 }
 
@@ -439,48 +435,24 @@ constexpr bool rune::is_ascii_space() const {
     case '\t':
     case '\n':
     case '\f':
-    case '\r':
-      return true;
-    default:
-      return false;
+    case '\r': return true;
+    default: return false;
   }
 }
 
 void BestFmt(auto& fmt, const decltype(rune().escaped())& esc) {
   switch (esc._private) {
-    case '\'':
-      fmt.write("\\\'");
-      return;
-    case '"':
-      fmt.write("\\\"");
-      return;
-    case '\\':
-      fmt.write("\\\\");
-      return;
-    case '\0':
-      fmt.write("\\0");
-      return;
-    case '\a':
-      fmt.write("\\a");
-      return;
-    case '\b':
-      fmt.write("\\b");
-      return;
-    case '\f':
-      fmt.write("\\f");
-      return;
-    case '\n':
-      fmt.write("\\n");
-      return;
-    case '\r':
-      fmt.write("\\r");
-      return;
-    case '\t':
-      fmt.write("\\t");
-      return;
-    case '\v':
-      fmt.write("\\v");
-      return;
+    case '\'': fmt.write("\\\'"); return;
+    case '"': fmt.write("\\\""); return;
+    case '\\': fmt.write("\\\\"); return;
+    case '\0': fmt.write("\\0"); return;
+    case '\a': fmt.write("\\a"); return;
+    case '\b': fmt.write("\\b"); return;
+    case '\f': fmt.write("\\f"); return;
+    case '\n': fmt.write("\\n"); return;
+    case '\r': fmt.write("\\r"); return;
+    case '\t': fmt.write("\\t"); return;
+    case '\v': fmt.write("\\v"); return;
   }
 
   if (esc._private.is_ascii_control()) {  // TODO: unicode is_control

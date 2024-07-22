@@ -265,8 +265,8 @@ best::test Find = [](auto& t) {
 
   best::vec<best::span<const char>> byte_split(bytes.split('4'));
   t.expect_eq(
-      byte_split,
-      {{'1', '2', '3'}, {}, {}, {}, {}, {'5', '6', '7', '8', '9', '\0'}});
+    byte_split,
+    {{'1', '2', '3'}, {}, {}, {}, {}, {'5', '6', '7', '8', '9', '\0'}});
 
   int a[] = {1, 2, 3, 4, 4, 4, 4, 4, 5, 6, 7, 8, 9, 0};
   best::span ints = a;
@@ -377,7 +377,7 @@ best::test Shift = [](auto& t) {
   // This test doesn't work correctly in opt mode, because it relies on doing
   // UAF reads of destroyed values.
   // TODO: Make this test sound?
-  if (!best::is_debug()) return;
+  if (!best::is_debug()) { return; }
 
   unsafe u("test");
 

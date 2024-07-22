@@ -117,9 +117,9 @@ best::test Map = [](auto& t) {
   t.expect_eq(c, 1);
 
   best::result<std::unique_ptr<int>, best::str> x4(
-      x0.map([](int x) { return new int(x); }));
+    x0.map([](int x) { return new int(x); }));
   best::result<std::unique_ptr<int>, best::str> x5(
-      x1.map([](int x) { return new int(x); }));
+    x1.map([](int x) { return new int(x); }));
 
   t.expect_eq(**std::move(x4).map([](auto&& x) { return std::move(x); }), 42);
   t.expect_eq(std::move(x5).map([](auto&& x) { return std::move(x); }),
@@ -155,7 +155,7 @@ best::test Irregular = [](auto& t) {
 
 best::test Guard = [](auto& t) {
   auto cb =
-      [](best::result<int, best::str> x) -> best::result<bool, best::str> {
+    [](best::result<int, best::str> x) -> best::result<bool, best::str> {
     BEST_GUARD(x);
     return *x == 0;
   };

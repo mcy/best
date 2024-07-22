@@ -119,7 +119,7 @@ class vptr;
 // because it's not defined yet. However, if it's a dependent type, we can delay
 // it to the second phase of two-phase lookup.
 template <best::is_object T, best::option<best::dependent<size_t, T>> =
-                                 best::option<best::dependent<size_t, T>>{}>
+                               best::option<best::dependent<size_t, T>>{}>
 class span;
 
 // best/meta/empty.h

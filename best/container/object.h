@@ -95,17 +95,16 @@ class object final {
   constexpr explicit object(best::in_place_t, Args&&... args)
     requires best::constructible<T, Args&&...> &&
              (best::is_object<T> && !std::is_array_v<T>)
-      : BEST_OBJECT_VALUE_(BEST_FWD(args)...) {}
+    : BEST_OBJECT_VALUE_(BEST_FWD(args)...) {}
   constexpr explicit object(best::in_place_t, best::niche)
     requires best::is_ref<T>
-      : BEST_OBJECT_VALUE_(nullptr) {}
+    : BEST_OBJECT_VALUE_(nullptr) {}
 
   /// # `object::operator=()`
   ///
   /// Assigns to the wrapped value via `ptr::assign()`'s semantics.
   template <typename Arg>
-  constexpr object& operator=(Arg&& arg)
-    requires best::assignable<T, Arg>
+  constexpr object& operator=(Arg&& arg) requires best::assignable<T, Arg>
   {
     as_ptr().assign(BEST_FWD(arg));
     return *this;
@@ -193,7 +192,7 @@ class object final {
       fmt.format(*obj);
     }
   }
-  friend constexpr void BestFmtQuery(auto& query, object*) {
+  constexpr friend void BestFmtQuery(auto& query, object*) {
     query = query.template of<T>;
   }
 

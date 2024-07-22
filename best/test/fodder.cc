@@ -27,7 +27,7 @@ thread_local LeakTest* current_ = nullptr;
 LeakTest& current(best::location loc = best::here) {
   if (current_ == nullptr) {
     best::crash_internal::crash(
-        {"operation requires an ambient LeakTest", loc});
+      {"operation requires an ambient LeakTest", loc});
   }
   return *current_;
 }
@@ -38,9 +38,7 @@ LeakTest::Bubble::Bubble() : token_(current().next_++) {
 }
 
 LeakTest::Bubble::Bubble(const Bubble& that) : token_(that.token_) {
-  if (token_ >= 0) {
-    current().created_[token_]++;
-  }
+  if (token_ >= 0) { current().created_[token_]++; }
 }
 
 LeakTest::Bubble& LeakTest::Bubble::operator=(const Bubble& that) {
@@ -49,7 +47,7 @@ LeakTest::Bubble& LeakTest::Bubble::operator=(const Bubble& that) {
 }
 
 LeakTest::Bubble::Bubble(Bubble&& that)
-    : token_(std::exchange(that.token_, -1)) {}
+  : token_(std::exchange(that.token_, -1)) {}
 
 LeakTest::Bubble& LeakTest::Bubble::operator=(Bubble&& that) {
   std::destroy_at(this);
@@ -57,9 +55,7 @@ LeakTest::Bubble& LeakTest::Bubble::operator=(Bubble&& that) {
 }
 
 LeakTest::Bubble::~Bubble() {
-  if (token_ >= 0) {
-    current().destroyed_[token_]++;
-  }
+  if (token_ >= 0) { current().destroyed_[token_]++; }
 }
 
 LeakTest::LeakTest(best::test& t) : t_(&t) {

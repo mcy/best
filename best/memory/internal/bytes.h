@@ -52,35 +52,33 @@ template <typename>
 struct tag {};
 
 template <typename T, typename U>
-void can_memcmp(tag<T>, tag<U>)
-  requires requires {
-    requires sizeof(T) == sizeof(U);
+void can_memcmp(tag<T>, tag<U>) requires requires {
+  requires sizeof(T) == sizeof(U);
 #if BEST_HAS_BUILTIN(__is_trivially_equality_comparable)
-    requires __is_trivially_equality_comparable(T);
-    requires __is_trivially_equality_comparable(U);
+  requires __is_trivially_equality_comparable(T);
+  requires __is_trivially_equality_comparable(U);
 #else
-    requires std::is_integral_v<T>;
-    requires std::is_integral_v<U>;
+  requires std::is_integral_v<T>;
+  requires std::is_integral_v<U>;
 #endif
-  };
+};
 
 template <typename T, typename U>
-void can_memcmp(tag<T*>, tag<U*>)
-  requires requires {
-    // Function pointer equality is all kinds of messed up.
+void can_memcmp(tag<T*>, tag<U*>) requires requires {
+  // Function pointer equality is all kinds of messed up.
 
-    requires !best::is_func<T> && !best::is_func<U>;
-    // libc++ asserts there's something weird about virtual bases.
-    // This is not perfect detection for that case but allows a
-    // lot more "reasonable" code than libc++'s constraint.
-    //
-    // See:
-    // https://github.com/llvm/llvm-project/blob/ecf2a53407f517a261ee296e1f922c647a13a503/libcxx/include/__type_traits/is_equality_comparable.h#L41
-    requires !std::is_polymorphic_v<T> && !std::is_polymorphic_v<U>;
+  requires !best::is_func<T> && !best::is_func<U>;
+  // libc++ asserts there's something weird about virtual bases.
+  // This is not perfect detection for that case but allows a
+  // lot more "reasonable" code than libc++'s constraint.
+  //
+  // See:
+  // https://github.com/llvm/llvm-project/blob/ecf2a53407f517a261ee296e1f922c647a13a503/libcxx/include/__type_traits/is_equality_comparable.h#L41
+  requires !std::is_polymorphic_v<T> && !std::is_polymorphic_v<U>;
 
-    // Some platforms are just weird, man.
-    requires sizeof(T*) == sizeof(U*);
-  };
+  // Some platforms are just weird, man.
+  requires sizeof(T*) == sizeof(U*);
+};
 
 template <typename T>
 concept is_char = best::same<best::as_auto<T>, char> ||
@@ -109,11 +107,11 @@ concept constexpr_byte_comparable = requires {
 
 template <typename T, typename U>
 BEST_INLINE_ALWAYS constexpr bool equate(best::span<T> lhs, best::span<U> rhs) {
-  if (lhs.size() != rhs.size()) return false;
-  if (lhs.is_empty()) return true;
+  if (lhs.size() != rhs.size()) { return false; }
+  if (lhs.is_empty()) { return true; }
 
   if (!std::is_constant_evaluated()) {
-    if (lhs.data() == rhs.data()) return true;
+    if (lhs.data() == rhs.data()) { return true; }
   }
   return 0 == BEST_memcmp_(lhs.data(), rhs.data(), lhs.size() * sizeof(T));
 }
@@ -121,54 +119,50 @@ BEST_INLINE_ALWAYS constexpr bool equate(best::span<T> lhs, best::span<U> rhs) {
 template <typename T, typename U = const T>
 BEST_INLINE_ALWAYS constexpr best::ord compare(best::span<T> lhs,
                                                best::span<U> rhs) {
-  if (lhs.is_empty() || rhs.is_empty()) return lhs.size() <=> rhs.size();
+  if (lhs.is_empty() || rhs.is_empty()) { return lhs.size() <=> rhs.size(); }
   if (!std::is_constant_evaluated()) {
-    if (lhs.data() == rhs.data()) return lhs.size() <=> rhs.size();
+    if (lhs.data() == rhs.data()) { return lhs.size() <=> rhs.size(); }
   }
 
   auto to_compare = best::min(lhs.size(), rhs.size()) * sizeof(T);
   int result = BEST_memcmp_(lhs.data(), rhs.data(), to_compare);
 
-  if (result == 0) {
-    return lhs.size() <=> rhs.size();
-  }
+  if (result == 0) { return lhs.size() <=> rhs.size(); }
   return result <=> 0;
 }
 
 template <typename T, typename U>
-best::option<size_t> constexpr search_byte(best::span<T> haystack,
+constexpr best::option<size_t> search_byte(best::span<T> haystack,
                                            best::span<U> needle) {
   auto* found =
-      BEST_memchr_(haystack.data().raw(), *needle.data(), haystack.size());
-  if (!found) return best::none;
+    BEST_memchr_(haystack.data().raw(), *needle.data(), haystack.size());
+  if (!found) { return best::none; }
   return found - haystack.data();
 }
 
 template <typename T, typename U>
-best::option<size_t> constexpr search_memmem(best::span<T> haystack,
+constexpr best::option<size_t> search_memmem(best::span<T> haystack,
                                              best::span<U> needle) {
   if constexpr (sizeof(U) == 1) {
-    if (needle.size() == 1) {
-      return search_byte(haystack, needle);
-    }
+    if (needle.size() == 1) { return search_byte(haystack, needle); }
   }
 
   auto* data =
-      reinterpret_cast<const char*>(static_cast<const void*>(haystack.data()));
+    reinterpret_cast<const char*>(static_cast<const void*>(haystack.data()));
   auto* start = data;
   size_t size = haystack.size() * sizeof(T);
 
   while (true) {
     void* found = bytes_internal::memmem(data, size, needle.data(),
                                          needle.size() * sizeof(T));
-    if (!found) return best::none;
+    if (!found) { return best::none; }
 
     // Found a potential match.
     data = static_cast<const char*>(found);
     size_t offset = data - start;
 
     // If the match is aligned to the stride of `T`, we're done.
-    if (offset % sizeof(T) == 0) return offset / sizeof(T);
+    if (offset % sizeof(T) == 0) { return offset / sizeof(T); }
 
     // Otherwise, this is a false positive that we found because memmem is
     // not a striding search. Skip to the next few bytes so that we begin
@@ -182,18 +176,16 @@ best::option<size_t> constexpr search_memmem(best::span<T> haystack,
 
 template <typename T, typename U = const T>
 BEST_INLINE_ALWAYS constexpr best::option<size_t> search_constexpr(
-    best::span<T> haystack, best::span<U> needle) {
+  best::span<T> haystack, best::span<U> needle) {
   if constexpr (sizeof(U) == 1) {
-    if (needle.size() == 1) {
-      return search_byte(haystack, needle);
-    }
+    if (needle.size() == 1) { return search_byte(haystack, needle); }
   }
 
   size_t hz = haystack.size();
   size_t nz = needle.size();
 
-  if (nz == 0) return 0;
-  if (hz < nz) return best::none;
+  if (nz == 0) { return 0; }
+  if (hz < nz) { return best::none; }
 
   T* hp = haystack.data().raw();
   U* np = needle.data().raw();
@@ -202,16 +194,14 @@ BEST_INLINE_ALWAYS constexpr best::option<size_t> search_constexpr(
   const T* end = hp + hz;
   while (true) {
     size_t len = end - hp;
-    if (len < nz) return best::none;
+    if (len < nz) { return best::none; }
 
     // Skip to the next possible candidate.
     hp = (T*)BEST_memchr_(hp, first, len);
-    if (hp == nullptr) return best::none;
+    if (hp == nullptr) { return best::none; }
 
     // Check if we actually found the string.
-    if (BEST_memcmp_(hp, np, nz) == 0) {
-      return hp - haystack.data().raw();
-    }
+    if (BEST_memcmp_(hp, np, nz) == 0) { return hp - haystack.data().raw(); }
     ++hp;
   }
 }
@@ -227,7 +217,7 @@ BEST_INLINE_ALWAYS constexpr best::option<size_t> search(best::span<T> haystack,
     return bytes_internal::search_constexpr(haystack, needle);
   } else {
     best::crash_internal::crash(
-        "cannot call best::search_bytes() in constexpr for this type");
+      "cannot call best::search_bytes() in constexpr for this type");
   }
 }
 

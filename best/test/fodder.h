@@ -37,7 +37,7 @@ class NonTrivialPod final {
  public:
   constexpr NonTrivialPod(int x, int y) : x_(x), y_(y) {}
   constexpr NonTrivialPod(const NonTrivialPod& that)
-      : x_(that.x_), y_(that.y_) {}
+    : x_(that.x_), y_(that.y_) {}
   constexpr NonTrivialPod& operator=(const NonTrivialPod& that) {
     x_ = that.x_;
     y_ = that.y_;
@@ -62,12 +62,10 @@ class NonTrivialDtor final {
   constexpr NonTrivialDtor& operator=(NonTrivialDtor&&) = default;
 
   constexpr NonTrivialDtor(int* target, int value)
-      : target_(target), value_(value) {}
+    : target_(target), value_(value) {}
 
   constexpr ~NonTrivialDtor() {
-    if (target_ != nullptr) {
-      *target_ = value_;
-    }
+    if (target_ != nullptr) { *target_ = value_; }
   }
 
  private:
@@ -129,9 +127,7 @@ class LeakTest final {
     ~Bubble();
 
     friend std::ostream& operator<<(std::ostream& os, const Bubble& b) {
-      if (b.token_ < 0) {
-        return os << "<moved>";
-      }
+      if (b.token_ < 0) { return os << "<moved>"; }
       return os << "#" << b.token_;
     }
 

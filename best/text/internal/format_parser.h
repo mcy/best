@@ -27,7 +27,7 @@
 namespace best::format_internal {
 constexpr size_t find(const char* data, size_t len, auto cb) {
   for (size_t i = 0; i < len; ++i) {
-    if (cb(data[i])) return i;
+    if (cb(data[i])) { return i; }
   }
   return -1;
 }
@@ -81,10 +81,10 @@ constexpr bool visit_template(const char* data, size_t len, Print print,
         // The caller is assumed to have given us an actually UTF-8 string, not
         // just a random latin1 string.
         auto to_print = best::str(unsafe("templ<> checks this for us"), bytes);
-        if (!best::call(print, to_print)) return false;
+        if (!best::call(print, to_print)) { return false; }
       }
     }
-    if (brace == -1) return true;
+    if (brace == -1) { return true; }
 
     auto what = data[brace];
     data += brace + 1;
@@ -94,7 +94,7 @@ constexpr bool visit_template(const char* data, size_t len, Print print,
       // If this is immediately followed by another }, it is a literal.
       if (consume_prefix(data, len, '}')) {
         if constexpr (HavePrint) {
-          if (!best::call(print, best::str("}"))) return false;
+          if (!best::call(print, best::str("}"))) { return false; }
         }
         continue;
       }
@@ -105,7 +105,7 @@ constexpr bool visit_template(const char* data, size_t len, Print print,
     // If this is immediately followed by another {, it is a literal.
     if (consume_prefix(data, len, '{')) {
       if constexpr (HavePrint) {
-        if (!best::call(print, best::str("{"))) return false;
+        if (!best::call(print, best::str("{"))) { return false; }
       }
       continue;
     }
@@ -117,7 +117,7 @@ constexpr bool visit_template(const char* data, size_t len, Print print,
 
     // This is a fast-path for `{}`.
     if (consume_prefix(data, len, '}')) {
-      if (!best::call(interpolate, idx++, args)) return false;
+      if (!best::call(interpolate, idx++, args)) { return false; }
       continue;
     }
 
@@ -126,7 +126,7 @@ constexpr bool visit_template(const char* data, size_t len, Print print,
       data += 3;
       len -= 3;
       args.debug = true;
-      if (!best::call(interpolate, idx++, args)) return false;
+      if (!best::call(interpolate, idx++, args)) { return false; }
       continue;
     }
 
@@ -136,7 +136,7 @@ constexpr bool visit_template(const char* data, size_t len, Print print,
       len -= 3;
       args.pass_through = true;
       args.debug = true;
-      if (!best::call(interpolate, idx++, args)) return false;
+      if (!best::call(interpolate, idx++, args)) { return false; }
       continue;
     }
 
@@ -145,7 +145,7 @@ constexpr bool visit_template(const char* data, size_t len, Print print,
       auto count = find(data, len, [](char c) { return c < '0' || c > '9'; });
       // We should find a non-digit rune, because otherwise this is an invalid
       // string.
-      if (count == -1) -1;
+      if (count == -1) { -1; }
 
       uint32_t result = 0;
       for (size_t i = 0; i < count; ++i) {
@@ -163,21 +163,21 @@ constexpr bool visit_template(const char* data, size_t len, Print print,
     } else {
       // Parse digits for an explicit index.
       cur_idx = atoi();
-      if (cur_idx == -1) return false;
+      if (cur_idx == -1) { return false; }
 
       // The next rune must be either ':' or '}'. If it's ':' we consume it.
       if (!consume_prefix(data, len, ':')) {
-        if (!consume_prefix(data, len, '}')) return false;
-        if (!best::call(interpolate, cur_idx, args)) return false;
+        if (!consume_prefix(data, len, '}')) { return false; }
+        if (!best::call(interpolate, cur_idx, args)) { return false; }
         continue;
       }
     }
-    if (len == 0) return false;
+    if (len == 0) { return false; }
 
     if (consume_prefix(data, len, '!')) {
       args.pass_through = true;
       args.debug = true;
-      if (!best::call(interpolate, idx++, args)) return false;
+      if (!best::call(interpolate, idx++, args)) { return false; }
       continue;
     }
 
@@ -196,8 +196,7 @@ constexpr bool visit_template(const char* data, size_t len, Print print,
           args.alignment = spec::Right;
           have_align = true;
           return true;
-        default:
-          return false;
+        default: return false;
       }
     };
 
@@ -215,30 +214,30 @@ constexpr bool visit_template(const char* data, size_t len, Print print,
     }
 
     // Parse for '#' and '0'.
-    if (consume_prefix(data, len, '#')) args.alt = true;
+    if (consume_prefix(data, len, '#')) { args.alt = true; }
     if (consume_prefix(data, len, '0')) {
       // Cannot specify '0' with an explicit fill+alignment.
-      if (have_align) return false;
+      if (have_align) { return false; }
       args.sign_aware_padding = true;
     }
-    if (len == 0) return false;
+    if (len == 0) { return false; }
 
     // Now, try parsing a width.
     if (data[0] >= '0' && data[0] <= '9') {
       args.width = atoi();
       // Width must be positive.
-      if (args.width == 0 || args.width == -1) return false;
+      if (args.width == 0 || args.width == -1) { return false; }
     } else {
       // Using the alignment or '0' flags requires specifying a width.
-      if (have_align || args.sign_aware_padding) return false;
+      if (have_align || args.sign_aware_padding) { return false; }
     }
 
     // And then a precision.
     if (consume_prefix(data, len, '.')) {
       args.prec = atoi();
-      if (args.prec == -1) return false;
+      if (args.prec == -1) { return false; }
     }
-    if (len == 0) return false;
+    if (len == 0) { return false; }
 
     // Finally, we can parse the method. This should be any alphabetic ASCII
     // rune.
@@ -249,11 +248,11 @@ constexpr bool visit_template(const char* data, size_t len, Print print,
     }
 
     // And optionally the debug flag.
-    if (consume_prefix(data, len, '?')) args.debug = true;
+    if (consume_prefix(data, len, '?')) { args.debug = true; }
 
     // We should hit a '}' here unconditionally. Then, interpolate.
-    if (!consume_prefix(data, len, '}')) return false;
-    if (!best::call(interpolate, cur_idx, args)) return false;
+    if (!consume_prefix(data, len, '}')) { return false; }
+    if (!best::call(interpolate, cur_idx, args)) { return false; }
   }
 
   return true;
@@ -263,33 +262,33 @@ template <typename spec>
 constexpr bool validate(best::span<const typename spec::query> queries,
                         best::span<const char> templ) {
   return format_internal::visit_template<spec>(
-      templ.data(), templ.size() - 1, nullptr, [&](size_t n, const spec& s) {
-        if (n > queries.size()) return false;
-        auto& q = queries[n];
+    templ.data(), templ.size() - 1, nullptr, [&](size_t n, const spec& s) {
+      if (n > queries.size()) { return false; }
+      auto& q = queries[n];
 
-        if (q.requires_debug && !s.debug) return false;
-        if (!q.supports_width && s.width > 0) return false;
-        if (!q.supports_prec && s.prec) return false;
-        if (s.method && !q.uses_method(*s.method)) return false;
-        return true;
-      });
+      if (q.requires_debug && !s.debug) { return false; }
+      if (!q.supports_width && s.width > 0) { return false; }
+      if (!q.supports_prec && s.prec) { return false; }
+      if (s.method && !q.uses_method(*s.method)) { return false; }
+      return true;
+    });
 }
 
 template <typename spec, typename... Args>
 class templ final {
  private:
   static constexpr std::array<typename spec::query, sizeof...(Args)> Queries{
-      spec::query::template of<Args>...};
+    spec::query::template of<Args>...};
 
  public:
   template <size_t n>
   constexpr templ(const char (&chars)[n], best::location loc = best::here)
-      BEST_IS_VALID_LITERAL(chars, utf8{})
-          BEST_ENABLE_IF(validate<spec>(Queries, chars),
-                         "invalid format string (better diagnostics NYI)")
-      : template_(unsafe("checked by BEST_IS_VALID_LITERAL()"),
-                  best::span(chars, n - 1)),
-        loc_(loc) {}
+    BEST_IS_VALID_LITERAL(chars, utf8{})
+      BEST_ENABLE_IF(validate<spec>(Queries, chars),
+                     "invalid format string (better diagnostics NYI)")
+    : template_(unsafe("checked by BEST_IS_VALID_LITERAL()"),
+                best::span(chars, n - 1)),
+      loc_(loc) {}
 
   constexpr best::str as_str() const { return template_; }
   constexpr best::location where() const { return loc_; }

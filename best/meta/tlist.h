@@ -115,8 +115,8 @@ inline constexpr auto indices = []<size_t... i>(std::index_sequence<i...>) {
 /// Variadic version of std::is_same/std::same_as.
 template <typename... Ts>
 concept same =
-    (std::same_as<Ts, typename best::tlist<Ts...>::template type<0, void>> &&
-     ...);
+  (std::same_as<Ts, typename best::tlist<Ts...>::template type<0, void>> &&
+   ...);
 
 /// # `best::tlist<...>`
 ///
@@ -190,8 +190,8 @@ class tlist final {
   /// specified, in which case that is returned instead.
   template <size_t n, auto default_ = strict{}>
   static constexpr auto value =
-      type<n, best::select<tlist_internal::not_strict<decltype(default_)>,
-                           tlist_internal::strict, val<default_>>>::value;
+    type<n, best::select<tlist_internal::not_strict<decltype(default_)>,
+                         tlist_internal::strict, val<default_>>>::value;
 
   /// # `tlist::at()`
   ///
@@ -289,7 +289,7 @@ class tlist final {
   /// Ouf-of-bounds "writes" are discarded.
   template <size_t... n>
   static constexpr auto scatter(
-      best::is_tlist_of_size<sizeof...(n)> auto those);
+    best::is_tlist_of_size<sizeof...(n)> auto those);
 
   /// # `tlist::trim_prefix()`
   ///
@@ -312,9 +312,7 @@ class tlist final {
   /// value trait, or a type/value to search for.
   static constexpr auto find(tlist_internal::t_callable<Elems...> auto pred) {
     size_t n = -1;
-    if (((++n, best::call<Elems>(pred)) || ...)) {
-      return opt_size(n);
-    }
+    if (((++n, best::call<Elems>(pred)) || ...)) { return opt_size(n); }
     return opt_size{};
   }
   static constexpr auto find(tlist_internal::v_callable<Elems...> auto pred) {
@@ -329,7 +327,7 @@ class tlist final {
     return find([]<typename U> { return Trait<U>::value; });
   }
   static constexpr auto find(auto value)
-    requires(best::equatable<decltype(value), decltype(Elems::value)> && ...)
+    requires (best::equatable<decltype(value), decltype(Elems::value)> && ...)
   {
     return find([&](auto that) { return value == that.value; });
   }
@@ -338,7 +336,7 @@ class tlist final {
   ///
   /// Like `find()`, but requires that the returned element be the unique match.
   static constexpr auto find_unique(
-      tlist_internal::t_callable<Elems...> auto pred) {
+    tlist_internal::t_callable<Elems...> auto pred) {
     size_t n = -1;
     size_t found = 0;
     if ((((found || ++n), best::call<Elems>(pred) && (++found == 2)) || ...) ||
@@ -348,7 +346,7 @@ class tlist final {
     return opt_size{n};
   }
   static constexpr auto find_unique(
-      tlist_internal::v_callable<Elems...> auto pred) {
+    tlist_internal::v_callable<Elems...> auto pred) {
     return find_unique([&]<typename V> { return best::call(pred, V{}); });
   }
   template <typename T>
@@ -357,12 +355,12 @@ class tlist final {
   }
   template <template <typename> typename Trait>
   static constexpr auto find_unique()
-    requires(... && value_trait<Trait<Elems>>)
+    requires (... && value_trait<Trait<Elems>>)
   {
     return find_unique([]<typename U> { return Trait<U>::value; });
   }
   static constexpr auto find_unique(auto value)
-    requires(best::equatable<decltype(value), decltype(Elems::value)> && ...)
+    requires (best::equatable<decltype(value), decltype(Elems::value)> && ...)
   {
     return find_unique([&](auto that) { return value == that.value; });
   }
@@ -411,15 +409,15 @@ class tlist final {
   /// Applies `cb` to *every* type in this list at once. `cb` may either have
   /// a `typename...` parameter or an `auto...` argument.
   static constexpr decltype(auto) apply(
-      tlist_internal::ts_callable<Elems...> auto&& cb) {
+    tlist_internal::ts_callable<Elems...> auto&& cb) {
     return best::call<Elems...>(BEST_FWD(cb));
   }
   static constexpr decltype(auto) apply(
-      tlist_internal::vs_callable<Elems...> auto&& cb) {
+    tlist_internal::vs_callable<Elems...> auto&& cb) {
     return best::call(BEST_FWD(cb), Elems{}...);
   }
   static constexpr decltype(auto) apply(
-      tlist_internal::vts_callable<Elems...> auto&& cb) {
+    tlist_internal::vts_callable<Elems...> auto&& cb) {
     return best::call<Elems::value...>(BEST_FWD(cb));
   }
   template <template <typename...> typename Trait>
@@ -449,14 +447,14 @@ class tlist final {
 
   template <typename... Extra>
   static constexpr tlist<Extra...> remove_prefix_from(
-      tlist<Elems..., Extra...>) {
+    tlist<Elems..., Extra...>) {
     return {};
   }
   static constexpr void remove_prefix_from(auto) {}
 
   template <typename... Extra>
   static constexpr tlist<Extra...> remove_suffix_from(
-      tlist<Extra..., Elems...>) {
+    tlist<Extra..., Elems...>) {
     return {};
   }
   static constexpr void remove_suffix_from(auto) {}
@@ -549,7 +547,7 @@ template <typename... Elems>
 template <size_t... n>
 BEST_TLIST_MUST_USE(scatter)
 constexpr auto tlist<Elems...>::scatter(
-    best::is_tlist_of_size<sizeof...(n)> auto those) {
+  best::is_tlist_of_size<sizeof...(n)> auto those) {
   return tlist_internal::scatter<tlist, decltype(those), n...>{};
 }
 
@@ -611,13 +609,13 @@ constexpr bool tlist<Elems...>::operator==(best::is_tlist auto that) const {
 }
 template <typename... Elems>
 constexpr best::partial_ord tlist<Elems...>::operator<=>(
-    best::is_tlist auto that) const {
+  best::is_tlist auto that) const {
   if constexpr (tlist{} == that) {
     return best::partial_ord::equivalent;
   } else if constexpr (!std::is_void_v<decltype(remove_prefix_from(that))>) {
     return best::partial_ord::less;
   } else if constexpr (!std::is_void_v<decltype(that.remove_prefix_from(
-                           tlist{}))>) {
+                         tlist{}))>) {
     return best::partial_ord::greater;
   } else {
     return best::partial_ord::unordered;

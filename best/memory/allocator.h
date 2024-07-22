@@ -45,39 +45,39 @@ namespace best {
 /// other.
 template <typename A>
 concept allocator =  //
-    best::moveable<A> && best::equatable<A, A> &&
-    requires(A& alloc, best::layout layout, void* ptr) {
-      /// # `allocator::alloc(layout)`
-      ///
-      /// Allocates fresh memory. Returns a non-null pointer to it.
-      /// Crashes on allocation failure.
-      { alloc.alloc(layout) } -> std::same_as<void*>;
+  best::moveable<A> && best::equatable<A, A> &&
+  requires(A& alloc, best::layout layout, void* ptr) {
+    /// # `allocator::alloc(layout)`
+    ///
+    /// Allocates fresh memory. Returns a non-null pointer to it.
+    /// Crashes on allocation failure.
+    { alloc.alloc(layout) } -> std::same_as<void*>;
 
-      /// # `allocator::zalloc(layout)`
-      ///
-      /// Allocates fresh zeroed memory. Returns a non-null pointer to it.
-      /// Crashes on allocation failure.
-      { alloc.zalloc(layout) } -> std::same_as<void*>;
+    /// # `allocator::zalloc(layout)`
+    ///
+    /// Allocates fresh zeroed memory. Returns a non-null pointer to it.
+    /// Crashes on allocation failure.
+    { alloc.zalloc(layout) } -> std::same_as<void*>;
 
-      /// # `allocator::realloc(ptr, old, new)`
-      ///
-      /// Resizes memory previously allocated with this allocator.
-      /// Returns a non-null pointer to it.
-      ///
-      /// The second argument is the original layout it was allocated with, the
-      /// third is the desired layout.
-      /// Crashes on allocation failure.
-      { alloc.realloc(ptr, layout, layout) } -> std::same_as<void*>;
+    /// # `allocator::realloc(ptr, old, new)`
+    ///
+    /// Resizes memory previously allocated with this allocator.
+    /// Returns a non-null pointer to it.
+    ///
+    /// The second argument is the original layout it was allocated with, the
+    /// third is the desired layout.
+    /// Crashes on allocation failure.
+    { alloc.realloc(ptr, layout, layout) } -> std::same_as<void*>;
 
-      /// # `allocator::dealloc(ptr, layout)`
-      ///
-      /// Deallocates memory previously allocated with this allocator.
-      /// Returns a non-null pointer to it.
-      ///
-      /// The second argument is the original layout it was allocated with.
-      /// Crashes on allocation failure.
-      { alloc.dealloc(ptr, layout) };
-    };
+    /// # `allocator::dealloc(ptr, layout)`
+    ///
+    /// Deallocates memory previously allocated with this allocator.
+    /// Returns a non-null pointer to it.
+    ///
+    /// The second argument is the original layout it was allocated with.
+    /// Crashes on allocation failure.
+    { alloc.dealloc(ptr, layout) };
+  };
 
 /// # `best::malloc`
 ///

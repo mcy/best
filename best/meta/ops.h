@@ -92,8 +92,8 @@ enum class op {
 /// (... op args), if the operation supports folding.
 template <best::op op>
 constexpr auto operate(auto &&...args)
-    -> decltype(ops_internal::run<best::op>(ops_internal::tag<op>{},
-                                            BEST_FWD(args)...)) {
+  -> decltype(ops_internal::run<best::op>(ops_internal::tag<op>{},
+                                          BEST_FWD(args)...)) {
   return ops_internal::run<best::op>(ops_internal::tag<op>{},
                                      BEST_FWD(args)...);
 }
