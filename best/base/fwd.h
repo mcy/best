@@ -26,6 +26,7 @@
 
 #include "best/base/tags.h"
 #include "best/meta/taxonomy.h"
+#include "best/meta/traits.h"
 
 //! Forward declarations of all types in best that can be forward-declared.
 //!
@@ -113,12 +114,13 @@ class vtable;
 template <typename>
 class vptr;
 
-// best::span cannot be forward-declared because that depends on
-// best::option<size_t> being defined.
-//
 // best/memory/span.h
-// template <typename, best::option<size_t>>
-// class span;
+// To actually forward-declare this, we can't utter best::option<size_t> here
+// because it's not defined yet. However, if it's a dependent type, we can delay
+// it to the second phase of two-phase lookup.
+template <best::is_object T, best::option<best::dependent<size_t, T>> =
+                                 best::option<best::dependent<size_t, T>>{}>
+class span;
 
 // best/meta/empty.h
 struct empty;

@@ -847,11 +847,6 @@ option(best::bind_t, T&&) -> option<T&&>;
 option(best::none_t) -> option<void>;
 
 inline constexpr best::option<void> VoidOption{best::in_place};
-
-// Forward declare span as soon as possible.
-template <best::is_object, best::option<size_t> = best::none>
-class span;
-
 }  // namespace best
 
 /* ////////////////////////////////////////////////////////////////////////// *\
