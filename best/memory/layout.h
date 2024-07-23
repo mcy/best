@@ -27,6 +27,8 @@
 #include "best/math/int.h"
 #include "best/math/overflow.h"
 #include "best/memory/internal/layout.h"
+#include "best/meta/empty.h"
+#include "best/meta/traits.h"
 
 namespace best {
 /// # `best::size_of<T>`
@@ -66,7 +68,7 @@ class layout final {
   /// This must observe two critical requirements: `size % align == 0`, and
   /// `best::is_pow2(align)`.
   constexpr explicit layout(unsafe, size_t size, size_t align)
-    : size_(size), align_(align) {}
+      : BEST_LAYOUT_SIZE_(size), BEST_LAYOUT_ALIGN_(align) {}
 
   /// # `layout::of<T>()`
   ///
@@ -128,12 +130,22 @@ class layout final {
   /// # `layout::size()`.
   ///
   /// The size, in bytes. This is always divisible by `align`.
-  constexpr size_t size() const { return size_; }
+  constexpr size_t size() const { return BEST_LAYOUT_SIZE_; }
 
   /// # `layout::align()`.
   ///
-  /// The alignment requirement, in bytes.  This is always a power of 2.
-  constexpr size_t align() const { return align_; };
+  /// The alignment requirement, in bytes. This is always a power of 2.
+  constexpr size_t align() const { return BEST_LAYOUT_ALIGN_; };
+
+  /// # `layout::fits_in()`
+  ///
+  /// Returns whether an object with this layout can fit in a region with the
+  /// given layout.
+  constexpr bool fits_in(layout that) const {
+    return size() <= that.size() && align() <= that.align();
+  }
+
+  constexpr bool operator==(const layout&) const = default;
 
   friend void BestFmt(auto& fmt, layout ly) {
     auto rec = fmt.record();
@@ -141,8 +153,47 @@ class layout final {
     rec.field("align", ly.align());
   }
 
+ public:
+  size_t BEST_LAYOUT_SIZE_ = 1, BEST_LAYOUT_ALIGN_ = 1;
+// Public for structural-ness.
+#define BEST_LAYOUT_SIZE_ _private
+#define BEST_LAYOUT_ALIGN_ _private
+};
+
+/// # `best::has_layout`
+///
+/// Whether a type has a specific requested layout.
+template <typename T, best::layout layout>
+concept has_layout = best::layout::of<T>() == layout;
+
+/// # `best::fits_in_layout`
+///
+/// Whether a type will fit into the given layout.
+template <typename T, best::layout layout>
+concept fits_in_layout = best::layout::of<T>().fits_in(layout);
+
+/// # `best::laid_out<layout>`
+///
+/// A block of raw data with a prescribed layout. If the layout has size `0`,
+/// this will be an empty type.
+template <best::layout l>
+struct laid_out final {
+ public:
+  /// # `laid_out::get()`
+  ///
+  /// Returns a pointer to the data block.
+  constexpr const void* get() const { return &data_; }
+  constexpr void* get() { return &data_; }
+
+  /// # `laid_out::layout()`
+  ///
+  /// Returns the block's layout.
+  constexpr static best::layout layout() { return l; }
+
  private:
-  size_t size_ = 1, align_ = 1;
+  alignas(layout().align()) [[no_unique_address]] best::select<
+      l.size() == 0, best::empty,
+      char[layout().size() + (layout().size() == 0)]> data_;
 };
 }  // namespace best
 
