@@ -177,7 +177,7 @@ struct utf32;
 class test;
 
 // Some internal types that need forward decls.
-namespace ptr_internal {
+namespace interface_internal {
 struct access;
 }
 }  // namespace best
