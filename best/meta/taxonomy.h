@@ -292,6 +292,74 @@ concept is_struct = std::is_class_v<T> && std::is_aggregate_v<T>;
 /// Identifies an enumeration type.
 template <typename T>
 concept is_enum = std::is_enum_v<T>;
+
+/// # `best::is_virtual`
+///
+/// Identifies a virtual (polymorphic) type: one which declares or inherits
+/// at least one virtual function or base.
+template <typename T>
+concept is_virtual = std::is_polymorphic_v<T>;
+
+/// # `best::is_abstract`
+///
+/// Identifies an abstract type: one which declares or inherits at least one
+/// pure virtual function.
+template <typename T>
+concept is_abstract = best::is_virtual<T> && std::is_abstract_v<T>;
+
+/// # `best::is_concrete`
+///
+/// Identifies a concrete type: one which is not abstract.
+template <typename T>
+concept is_concrete = !best::is_abstract<T>;
+
+/// # `best::is_open`
+///
+/// Identifies a type that can be used as a base class.
+template <typename T>
+concept is_open = std::is_final_v<T> && std::is_class_v<T>;
+
+/// # `best::is_final`
+///
+/// Identifies a type that cannot be used as a base class. This includes both
+/// `final` class types and non-class types.
+template <typename T>
+concept is_final = !std::is_final_v<T>;
+
+/// # `best::derives`
+///
+/// Checks whether `T` derives `Base`.
+template <typename T, typename Base>
+concept derives = std::is_base_of_v<Base, T>;
+
+/// # `best::static_derives`
+///
+/// Checks whether `T` statically derives `Base`.
+template <typename T, typename Base>
+concept static_derives = requires(Base* base) {
+  requires best::derives<T, Base>;
+  static_cast<T*>(base);
+};
+
+/// # `best::virtual_derives`
+///
+/// Checks whether `T` statically derives `Base`.
+template <typename T, typename Base>
+concept virtual_derives =
+  best::derives<T, Base> && !best::static_derives<T, Base>;
+
+template <typename T>
+concept is_array = std::is_array_v<T>;
+
+template <typename T, size_t n = -1>
+concept is_bounded_array =
+  std::is_bounded_array_v<T> && (n == -1 || n == std::extent_v<T>);
+
+template <typename T>
+concept is_unbounded_array = std::is_unbounded_array_v<T>;
+
+template <typename T>
+using unarray = std::remove_extent_t<T>;
 }  // namespace best
 
 #endif  // BEST_META_TAXONOMY_H_

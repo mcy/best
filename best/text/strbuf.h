@@ -193,8 +193,8 @@ class textbuf final {
   ///
   /// Returns the string's data pointer.
   /// This value is never null.
-  const code* data() const { return buf_.data(); }
-  code* data() { return buf_.data(); }
+  const code* data() const { return buf_.data().raw(); }
+  code* data() { return buf_.data().raw(); }
 
   /// # `textbuf::size()`
   ///

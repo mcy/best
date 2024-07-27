@@ -10,6 +10,15 @@ cc_library(
 )
 
 cc_library(
+  name = "access",
+  hdrs = ["access.h"],
+  deps = [
+    ":fwd",
+    "//best/meta:taxonomy",
+  ],
+)
+
+cc_library(
   name = "port",
   hdrs = ["port.h"],
 )

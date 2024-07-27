@@ -113,7 +113,8 @@ BEST_INLINE_ALWAYS constexpr bool equate(best::span<T> lhs, best::span<U> rhs) {
   if (!std::is_constant_evaluated()) {
     if (lhs.data() == rhs.data()) { return true; }
   }
-  return 0 == BEST_memcmp_(lhs.data(), rhs.data(), lhs.size() * sizeof(T));
+  return 0 == BEST_memcmp_(lhs.data().raw(), rhs.data().raw(),
+                           lhs.size() * sizeof(T));
 }
 
 template <typename T, typename U = const T>
@@ -125,7 +126,7 @@ BEST_INLINE_ALWAYS constexpr best::ord compare(best::span<T> lhs,
   }
 
   auto to_compare = best::min(lhs.size(), rhs.size()) * sizeof(T);
-  int result = BEST_memcmp_(lhs.data(), rhs.data(), to_compare);
+  int result = BEST_memcmp_(lhs.data().raw(), rhs.data().raw(), to_compare);
 
   if (result == 0) { return lhs.size() <=> rhs.size(); }
   return result <=> 0;
@@ -137,7 +138,7 @@ constexpr best::option<size_t> search_byte(best::span<T> haystack,
   auto* found =
     BEST_memchr_(haystack.data().raw(), *needle.data(), haystack.size());
   if (!found) { return best::none; }
-  return found - haystack.data();
+  return found - haystack.data().raw();
 }
 
 template <typename T, typename U>
@@ -147,13 +148,12 @@ constexpr best::option<size_t> search_memmem(best::span<T> haystack,
     if (needle.size() == 1) { return search_byte(haystack, needle); }
   }
 
-  auto* data =
-    reinterpret_cast<const char*>(static_cast<const void*>(haystack.data()));
+  auto* data = haystack.data().cast(best::types<const char>).raw();
   auto* start = data;
   size_t size = haystack.size() * sizeof(T);
 
   while (true) {
-    void* found = bytes_internal::memmem(data, size, needle.data(),
+    void* found = bytes_internal::memmem(data, size, needle.data().raw(),
                                          needle.size() * sizeof(T));
     if (!found) { return best::none; }
 

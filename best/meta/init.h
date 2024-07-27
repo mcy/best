@@ -25,6 +25,7 @@
 #include <type_traits>
 
 #include "best/meta/internal/init.h"
+#include "best/meta/taxonomy.h"
 
 //! Concepts for determining when a type can be initialized in a particular
 //! way.
@@ -181,9 +182,13 @@ concept relocatable =
 template <typename T, typename... Args>
 concept destructible =
   init_internal::only_trivial<Args...> &&  //
-  (!std::is_object_v<T> ||
-   (init_internal::is_trivial<Args...> ? std::is_trivially_destructible_v<T>
-                                       : std::is_destructible_v<T>));
+  (best::is_unbounded_array<T>
+     ? (init_internal::is_trivial<Args...>
+          ? std::is_trivially_destructible_v<best::unarray<T>>
+          : std::is_destructible_v<best::unarray<T>>)
+     : (!std::is_object_v<T> || (init_internal::is_trivial<Args...>
+                                   ? std::is_trivially_destructible_v<T>
+                                   : std::is_destructible_v<T>)));
 
 /// A callback that constructs a `T`.
 ///

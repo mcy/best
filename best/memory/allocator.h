@@ -24,6 +24,7 @@
 #include <cstdlib>
 
 #include "best/memory/layout.h"
+#include "best/memory/ptr.h"
 #include "best/meta/init.h"
 
 //! Low level allocator abstractions.
@@ -46,18 +47,18 @@ namespace best {
 template <typename A>
 concept allocator =  //
   best::moveable<A> && best::equatable<A, A> &&
-  requires(A& alloc, best::layout layout, void* ptr) {
+  requires(A& alloc, best::layout layout, best::ptr<void> ptr) {
     /// # `allocator::alloc(layout)`
     ///
     /// Allocates fresh memory. Returns a non-null pointer to it.
     /// Crashes on allocation failure.
-    { alloc.alloc(layout) } -> std::same_as<void*>;
+    { alloc.alloc(layout) } -> std::same_as<best::ptr<void>>;
 
     /// # `allocator::zalloc(layout)`
     ///
     /// Allocates fresh zeroed memory. Returns a non-null pointer to it.
     /// Crashes on allocation failure.
-    { alloc.zalloc(layout) } -> std::same_as<void*>;
+    { alloc.zalloc(layout) } -> std::same_as<best::ptr<void>>;
 
     /// # `allocator::realloc(ptr, old, new)`
     ///
@@ -67,7 +68,7 @@ concept allocator =  //
     /// The second argument is the original layout it was allocated with, the
     /// third is the desired layout.
     /// Crashes on allocation failure.
-    { alloc.realloc(ptr, layout, layout) } -> std::same_as<void*>;
+    { alloc.realloc(ptr, layout, layout) } -> std::same_as<best::ptr<void>>;
 
     /// # `allocator::dealloc(ptr, layout)`
     ///
@@ -88,10 +89,11 @@ concept allocator =  //
 ///
 /// See `best::allocator` for information on what the functions on this type do.
 struct malloc final {
-  static void* alloc(layout layout);
-  static void* zalloc(layout layout);
-  static void* realloc(void* ptr, layout old, layout layout);
-  static void dealloc(void* ptr, layout layout);
+  static best::ptr<void> alloc(layout layout);
+  static best::ptr<void> zalloc(layout layout);
+  static best::ptr<void> realloc(best::ptr<void> ptr, layout old,
+                                 layout layout);
+  static void dealloc(best::ptr<void> ptr, layout layout);
 
   constexpr bool operator==(const malloc&) const = default;
 };

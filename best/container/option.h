@@ -61,6 +61,7 @@ template <typename T>
 concept is_option = requires {
   requires !std::is_class_v<typename best::as_auto<T>::type> ||
              !std::is_abstract_v<typename best::as_auto<T>::type>;
+  requires !std::is_unbounded_array_v<typename best::as_auto<T>::type>;
   requires best::same<best::as_auto<T>,
                       best::option<typename best::as_auto<T>::type>> ||
              requires {

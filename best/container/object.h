@@ -51,20 +51,29 @@ namespace best {
 template <typename T>
 class object final {
  public:
+  static_assert(best::is_thin<T>,
+                "best::object<T> only makes sense for thin-pointer types");
+
   /// # `object::wrapped_type`
   ///
   /// The representation for the value we're wrapping.
-  using wrapped_type = best::devoid<best::unqual<best::pointee_for<T>>>;
+  using wrapped_type = best::devoid<best::unqual<best::pointee<T>>>;
 
   using type = T;
   using value_type = best::as_auto<T>;
 
-  using cref = best::as_ref<const type>;
-  using ref = best::as_ref<type>;
-  using crref = best::as_rref<const type>;
-  using rref = best::as_rref<type>;
-  using cptr = best::as_ptr<const type>;
-  using ptr = best::as_ptr<type>;
+ private:
+  static constexpr bool view_is_ref = best::is_ref<best::view<T>>;
+
+ public:
+  using cref =
+    best::select<view_is_ref, best::as_ref<const type>,
+                 decltype(best::lie<best::ptr<T>>.as_const().deref())>;
+  using ref = best::select<view_is_ref, best::as_ref<type>, best::view<type>>;
+  using crref =
+    best::select<view_is_ref, best::as_rref<const type>,
+                 decltype(best::lie<best::ptr<T>>.as_const().deref())>;
+  using rref = best::select<view_is_ref, best::as_rref<type>, best::view<type>>;
 
   /// # `object::object()`
   ///
@@ -114,21 +123,21 @@ class object final {
   ///
   /// Extracts an `ptr<T>` pointing to this object.
   constexpr best::ptr<const T> as_ptr() const {
-    return best::ptr(best::addr(BEST_OBJECT_VALUE_)).template cast<const T>();
+    return best::ptr(best::addr(BEST_OBJECT_VALUE_)).cast(best::types<const T>);
   }
   constexpr best::ptr<T> as_ptr() {
-    return best::ptr(best::addr(BEST_OBJECT_VALUE_)).template cast<T>();
+    return best::ptr(best::addr(BEST_OBJECT_VALUE_)).cast(best::types<T>);
   }
 
   /// # `ptr::operator*`, `ptr::operator->`
   ///
   /// Retrieves the wrapped value.
-  constexpr cref operator*() const& { return *as_ptr(); }
+  constexpr cref operator*() const& { return *as_ptr().as_const(); }
   constexpr ref operator*() & { return *as_ptr(); }
   constexpr crref operator*() const&& { return static_cast<crref>(**this); }
   constexpr rref operator*() && { return static_cast<rref>(**this); }
-  constexpr cptr operator->() const { return as_ptr().operator->(); }
-  constexpr ptr operator->() { return as_ptr().operator->(); }
+  constexpr auto operator->() const { return as_ptr().operator->(); }
+  constexpr auto operator->() { return as_ptr().operator->(); }
 
   /// # `object::or_empty()`
   ///

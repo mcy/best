@@ -310,13 +310,15 @@ class tlist final {
   /// Returns the first index of this list that satisfies the given type
   /// predicate. This predicate can be a callback (as in `map()`), a bool-typed
   /// value trait, or a type/value to search for.
-  static constexpr auto find(tlist_internal::t_callable<Elems...> auto pred) {
+  static constexpr auto find(tlist_internal::t_callable<Elems...> auto&& pred) {
     size_t n = -1;
-    if (((++n, best::call<Elems>(pred)) || ...)) { return opt_size(n); }
+    if (((++n, best::call<Elems>(BEST_FWD(pred))) || ...)) {
+      return opt_size(n);
+    }
     return opt_size{};
   }
-  static constexpr auto find(tlist_internal::v_callable<Elems...> auto pred) {
-    return find([&]<typename V> { return best::call(pred, V{}); });
+  static constexpr auto find(tlist_internal::v_callable<Elems...> auto&& pred) {
+    return find([&]<typename V> { return best::call(BEST_FWD(pred), V{}); });
   }
   template <typename T>
   static constexpr auto find() {

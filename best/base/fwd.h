@@ -35,6 +35,9 @@
 //! best. Users SHOULD NOT forward-declared best types.
 
 namespace best {
+// best/base/access.h
+class access;
+
 // best/cli/cli.h
 struct argv_query;
 class cli;
@@ -107,11 +110,12 @@ struct int_range;
 template <typename>
 class track_location;
 
-// best/memory.ptr.h
+// best/memory/ptr.h
 template <typename>
 class ptr;
-class vtable;
-template <typename>
+
+// best/memory/vptr.h
+template <typename...>
 class vptr;
 
 // best/memory/span.h
@@ -172,6 +176,10 @@ struct utf32;
 // best/test/test.h
 class test;
 
+// Some internal types that need forward decls.
+namespace ptr_internal {
+struct access;
+}
 }  // namespace best
 
 #endif  // BEST_BASE_FWD_H_

@@ -135,11 +135,11 @@ best::test Append = [](auto& t) {
   t.expect_eq(x2, {"foo", "bar", "baz", "foo", "bar", "baz"});
   x2.splice(2, x2[{.start = 1, .end = 4}]);
   t.expect_eq(x2,
-              {"foo", "bar", "bar", "bar", "bar", "baz", "foo", "bar", "baz"});
+              {"foo", "bar", "bar", "baz", "foo", "baz", "foo", "bar", "baz"});
   x2.truncate(4);
-  t.expect_eq(x2, {"foo", "bar", "bar", "bar"});
+  t.expect_eq(x2, {"foo", "bar", "bar", "baz"});
   x2.splice(0, x2[{.start = 2}]);
-  t.expect_eq(x2, {"bar", "bar", "foo", "bar", "bar", "bar"});
+  t.expect_eq(x2, {"bar", "baz", "foo", "bar", "bar", "baz"});
 };
 
 best::test Leaky = [](auto& t) {
