@@ -116,14 +116,14 @@ constexpr int32_t undecode8(best::span<const char>* input) {
   size_t len = 0;
   for (; len < 4; ++len) {
     if (input->size() < len) { return OutOfBounds; }
-    if (best::leading_ones(input->data()[input->size() - len - 1]) != 1) {
-      break;
-    }
+    auto byte =
+      input->at(unsafe("bounds check above"), input->size() - len - 1);
+    if (best::leading_ones(byte) != 1) { break; }
   }
   if (len == 4) { return Invalid; }
   *input = {input->data(), input->size() - len};
 
-  return decode8(input->data() + input->size() - len, len);
+  return decode8(input->data().offset(input->size() - len).raw(), len);
 }
 
 // This function expects the caller to pre-compute encode8_size.
@@ -180,7 +180,7 @@ constexpr int32_t decode16(const char16_t* data, size_t rune_words) {
 
 constexpr int32_t undecode16(best::span<const char16_t>* input) {
   if (input->is_empty()) { return OutOfBounds; }
-  uint16_t lo = input->data()[input->size() - 1];
+  uint16_t lo = input->at(unsafe("input is nonempty"), input->size() - 1);
   if (is_high_surrogate(lo)) { return Invalid; }
   if (!is_low_surrogate(lo)) {
     *input = {input->data(), input->size() - 1};
@@ -188,7 +188,8 @@ constexpr int32_t undecode16(best::span<const char16_t>* input) {
   }
 
   if (input->size() < 2) { return OutOfBounds; }
-  uint16_t hi = input->data()[input->size() - 2];
+  uint16_t hi =
+    input->at(unsafe("input is at least two elements wide"), input->size() - 2);
 
   if (!is_high_surrogate(hi)) { return Invalid; }
   *input = {input->data(), input->size() - 2};

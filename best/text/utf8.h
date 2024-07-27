@@ -46,7 +46,8 @@ struct utf8 final {
   };
 
   static constexpr bool validate(best::span<const char> input) {
-    return best::utf_internal::validate_utf8_fast(input.data(), input.size());
+    return best::utf_internal::validate_utf8_fast(input.data().raw(),
+                                                  input.size());
   }
 
   static constexpr bool is_boundary(best::span<const char> input, size_t idx) {
@@ -59,7 +60,7 @@ struct utf8 final {
     best::span<char>* output, rune rune) {
     size_t bytes = best::utf_internal::encode8_size(rune);
     if (output->size() < bytes) { return encoding_error::OutOfBounds; }
-    best::utf_internal::encode8(output->data(), rune, bytes);
+    best::utf_internal::encode8(output->data().raw(), rune, bytes);
 
     *output = (*output)[{.start = bytes}];
     return best::ok();
@@ -70,7 +71,7 @@ struct utf8 final {
     auto bytes = best::utf_internal::decode8_size(*input);
     if (bytes < 0) { return encoding_error(~bytes); }
 
-    auto code = best::utf_internal::decode8(input->data(), bytes);
+    auto code = best::utf_internal::decode8(input->data().raw(), bytes);
     if (code < 0) { return encoding_error(~code); }
 
     // Elide a bounds check here; this shaves off milliseconds off of the
@@ -122,7 +123,7 @@ struct wtf8 final {
     auto bytes = best::utf_internal::decode8_size(*input);
     if (bytes < 0) { return encoding_error(~bytes); }
 
-    auto code = best::utf_internal::decode8(input->data(), bytes);
+    auto code = best::utf_internal::decode8(input->data().raw(), bytes);
     if (code < 0) { return encoding_error(~code); }
 
     // Elide a bounds check here; this shaves off milliseconds off of the

@@ -68,7 +68,7 @@ class layout final {
   /// This must observe two critical requirements: `size % align == 0`, and
   /// `best::is_pow2(align)`.
   constexpr explicit layout(unsafe, size_t size, size_t align)
-      : BEST_LAYOUT_SIZE_(size), BEST_LAYOUT_ALIGN_(align) {}
+    : BEST_LAYOUT_SIZE_(size), BEST_LAYOUT_ALIGN_(align) {}
 
   /// # `layout::of<T>()`
   ///
@@ -188,12 +188,12 @@ struct laid_out final {
   /// # `laid_out::layout()`
   ///
   /// Returns the block's layout.
-  constexpr static best::layout layout() { return l; }
+  static constexpr best::layout layout() { return l; }
 
  private:
   alignas(layout().align()) [[no_unique_address]] best::select<
-      l.size() == 0, best::empty,
-      char[layout().size() + (layout().size() == 0)]> data_;
+    l.size() == 0, best::empty,
+    char[layout().size() + (layout().size() == 0)]> data_;
 };
 }  // namespace best
 

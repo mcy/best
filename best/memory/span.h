@@ -406,7 +406,9 @@ class span final {
   ///
   /// Extracts a single element. If the requested index is out-of-bounds,
   /// Undefined Behavior.
-  constexpr T& at(unsafe, size_t idx) const { return data()[idx]; }
+  constexpr T& at(unsafe, size_t idx) const {
+    return data().offset(idx).deref();
+  }
 
   /// # `span::at(unsafe, {.start = ...})`
   ///
@@ -707,7 +709,8 @@ class span<T, n>::iter_impl final {
   friend best::iter<iter_impl>;
   friend best::iter<iter_impl&>;
 
-  constexpr iter_impl(T* ptr, size_t idx) : start_(ptr), end_(ptr + idx) {}
+  constexpr iter_impl(best::ptr<T> ptr, size_t idx)
+    : start_(ptr), end_(ptr + idx) {}
 
   constexpr best::option<T&> next() {
     if (start_ == end_) { return best::none; }
@@ -722,11 +725,10 @@ class span<T, n>::iter_impl final {
 
   constexpr best::option<T&> last() && {
     if (start_ == end_) { return best::none; }
-    return end_[-1];
+    return end_.offset(-1).deref();
   }
 
-  T* start_;
-  T* end_;
+  best::ptr<T> start_, end_;
 };
 
 /// # `best::span::split_impl`
@@ -855,7 +857,12 @@ template <best::is_object T, best::option<best::dependent<size_t, T>> n>
 constexpr auto span<T, n>::split_last() const
   -> best::option<best::row<T&, span<T, minus<1>>>> {
   if (is_empty()) { return best::none; }
-  return {{data()[size() - 1], span<T, minus<1>>(data(), size() - 1)}};
+  return {{
+    at(unsafe(
+         "size() > 0 because of the is_empty() above, so size() - 1 < size()"),
+       size() - 1),
+    span<T, minus<1>>(data(), size() - 1),
+  }};
 }
 template <best::is_object T, best::option<best::dependent<size_t, T>> n>
 template <size_t m>
@@ -915,7 +922,9 @@ constexpr best::option<best::span<T>> span<T, n>::take_last(size_t m)
 template <best::is_object T, best::option<best::dependent<size_t, T>> n>
 constexpr T& span<T, n>::operator[](best::track_location<size_t> idx) const {
   best::bounds{.start = idx, .count = 1}.compute_count(size(), idx);
-  return data()[idx];
+  return at(
+    unsafe("compute_count() performs a bounds check and crashes if it fails"),
+    idx);
 }
 
 template <best::is_object T, best::option<best::dependent<size_t, T>> n>
@@ -944,7 +953,7 @@ constexpr auto span<T, n>::operator[](best::vlist<range>) const
 
 template <best::is_object T, best::option<best::dependent<size_t, T>> n>
 constexpr best::option<T&> span<T, n>::at(size_t idx) const {
-  if (idx < size()) { return data()[idx]; }
+  if (idx < size()) { return at(unsafe("bounds check on the same line"), idx); }
   return best::none;
 }
 
@@ -1272,8 +1281,9 @@ constexpr bool span<T, n>::operator==(span<U, m> that) const
   }
 
   if (size() != that.size()) { return false; }
+  unsafe u("the loop below performs a bounds check");
   for (size_t i = 0; i < size(); ++i) {
-    if (data()[i] != that.data()[i]) { return false; }
+    if (at(u, i) != that.at(u, i)) { return false; }
   }
 
   return true;
@@ -1295,8 +1305,9 @@ constexpr auto span<T, n>::operator<=>(span<U, m> that) const
   }
 
   size_t prefix = best::min(size(), that.size());
+  unsafe u("the loop below performs a bounds check");
   for (size_t i = 0; i < prefix; ++i) {
-    if (auto result = data()[i] <=> that.data()[i]; result != 0) {
+    if (auto result = at(u, i) <=> that.at(u, i); result != 0) {
       return result;
     }
   }

@@ -293,7 +293,7 @@ class vec final {
   ///
   /// Converts this vector into a box by taking ownership of the allocation.
   best::box<T[], alloc> to_box() && {
-    if (is_empty()) { return {}; }
+    if (is_empty()) { return best::box<T[], alloc>(); }
 
     spill_to_heap(size(), true);
     auto span = as_span();
@@ -301,7 +301,7 @@ class vec final {
                     // inlined vector.
     return best::box<T[], alloc>(
       unsafe("we are marking this vector completely empty in this function"),
-      *BEST_MOVE(alloc_), span);
+      *BEST_MOVE(alloc_), best::ptr<T[]>(span.data(), span.size()));
   }
 
   /// # `vec::reserve()`.
@@ -620,13 +620,13 @@ void vec<T, max_inline, A>::destroy() {
 template <best::relocatable T, size_t max_inline, best::allocator A>
 best::ptr<const T> vec<T, max_inline, A>::data() const {
   if (auto heap = on_heap()) { return heap->data(); }
-  return reinterpret_cast<const best::ptr<T>::pointee*>(this);
+  return best::ptr(this).cast(best::types<const T>);
 }
 
 template <best::relocatable T, size_t max_inline, best::allocator A>
 best::ptr<T> vec<T, max_inline, A>::data() {
   if (auto heap = on_heap()) { return heap->data(); }
-  return reinterpret_cast<best::ptr<T>::pointee*>(this);
+  return best::ptr(this).cast(best::types<T>);
 }
 
 template <best::relocatable T, size_t max_inline, best::allocator A>
@@ -720,7 +720,7 @@ void vec<T, max_inline, A>::splice_within(size_t idx, size_t start,
   unsafe u(
     "no bounds checks required; has_subarray and insert_uninit verify "
     "all relevant bounds for us");
-  if (idx > end) {
+  if (end <= idx) {
     // The spliced-from region is before the insertion point, so we have
     // one loop.
     as_span()
@@ -745,7 +745,7 @@ void vec<T, max_inline, A>::splice_within(size_t idx, size_t start,
       .emplace_from(as_span().at(u, {.start = start, .count = before}));
     as_span()
       .at(u, {.start = idx + before, .count = after})
-      .emplace_from(as_span().at(u, {.start = idx, .count = after}));
+      .emplace_from(as_span().at(u, {.start = idx + count, .count = after}));
   }
 }
 
@@ -849,17 +849,15 @@ void vec<T, max_inline, A>::spill_to_heap(best::option<size_t> capacity_hint,
 
   // If we're on-heap, we can resize somewhat more intelligently.
   if (on_heap() && best::relocatable<T, trivially>) {
-    void* grown = alloc_->realloc(data(), old_layout, new_layout);
+    auto grown = alloc_->realloc(data(), old_layout, new_layout);
     // construct_at instead of assignment, since raw_ may contain garbage.
-    std::construct_at(&raw_, static_cast<best::ptr<T>::pointee*>(grown),
-                      new_size);
+    std::construct_at(&raw_, grown.cast(best::types<T>), new_size);
     return;
   }
 
   // In the general case, we need to allocate new memory, relocate the values,
   // destroy the moved-from values, and free the old buffer if it is on-heap.
-  best::ptr<T> new_data =
-    static_cast<best::ptr<T>::pointee*>(alloc_->alloc(new_layout));
+  auto new_data = alloc_->alloc(new_layout).cast(best::types<T>);
 
   size_t old_size = size();
   new_data.relo(data(), old_size);

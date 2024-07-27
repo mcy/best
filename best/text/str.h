@@ -512,7 +512,7 @@ class pretext final {
   ///
   /// Returns the string's data pointer.
   /// This value is never null.
-  constexpr const code* data() const { return span_.data(); }
+  constexpr const code* data() const { return span_.data().raw(); }
 
   /// # `pretext::is_empty()`
   ///

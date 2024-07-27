@@ -17,6 +17,16 @@ cc_library(
   ],
 )
 
+cc_test(
+  name = "ptr_test",
+  srcs = ["ptr_test.cc"],
+  linkopts = ["-rdynamic"],
+  deps = [
+    ":ptr",
+    "//best/test",
+  ],
+)
+
 cc_library(
   name = "span",
   hdrs = [
@@ -71,6 +81,7 @@ cc_library(
   srcs = ["allocator.cc"],
   deps = [
     ":layout",
+    ":ptr",
     "//best/meta:init",
   ]
 )

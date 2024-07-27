@@ -56,7 +56,7 @@ struct utf16 final {
   static constexpr best::result<void, encoding_error> encode(
     best::span<char16_t>* output, rune rune) {
     auto size =
-      best::utf_internal::encode16(output->data(), output->size(), rune);
+      best::utf_internal::encode16(output->data().raw(), output->size(), rune);
     if (size < 0) { return encoding_error(~size); }
 
     *output = (*output)[{.start = size}];
@@ -68,7 +68,7 @@ struct utf16 final {
     auto words = best::utf_internal::decode16_size(*input);
     if (words < 0) { return encoding_error(~words); }
 
-    auto code = best::utf_internal::decode16(input->data(), words);
+    auto code = best::utf_internal::decode16(input->data().raw(), words);
     if (code < 0) { return encoding_error(~code); }
 
     *input = (*input)[{.start = words}];

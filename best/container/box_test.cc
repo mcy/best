@@ -37,48 +37,18 @@ best::test Thin = [](auto& t) {
 };
 
 best::test Span = [](auto& t) {
-  best::box<int[]> x0({1, 2, 3, 4, 5});
-  t.expect_eq(x0.as_span(), best::span{1, 2, 3, 4, 5});
+  best::box x0({1, 2, 3, 4, 5});
+  t.expect_eq(*x0, best::span{1, 2, 3, 4, 5});
 
   best::option<best::box<int[]>> x1;
   t.expect_eq(x1, best::none);
   x1 = x0;
-  t.expect_eq(x1->as_span(), best::span{1, 2, 3, 4, 5});
-  t.expect_eq(x1->as_span(), x0.as_span());
+  t.expect_eq(*x1, best::span{1, 2, 3, 4, 5});
+  t.expect_eq(*x1, *x0);
+  t.expect_eq(x1, x0);
 
   x0 = best::box<int[]>();
-  t.expect_eq(x0.size(), 0);
-};
-
-struct Iface {
-  Iface() = default;
-  Iface(const Iface&) = default;
-  Iface& operator=(const Iface&) = default;
-
-  virtual best::str get() = 0;
-};
-
-class Impl final : public Iface {
- public:
-  explicit Impl(best::strbuf buf) : value_(BEST_MOVE(buf)) {}
-  Impl(const Impl&) = default;
-  Impl& operator=(const Impl&) = default;
-
-  best::str get() override { return value_; }
-
- private:
-  best::strbuf value_;
-};
-
-best::test Virt = [](auto& t) {
-  best::box<Impl> value(Impl{"hello hello hello hello hello"});
-  t.expect_eq(value->get(), "hello hello hello hello hello");
-
-  best::vbox<Iface> virt(BEST_MOVE(value));
-  t.expect_eq(virt->get(), "hello hello hello hello hello");
-
-  best::vbox<Iface> virt2 = *virt.copy();
-  t.expect_eq(virt->get(), "hello hello hello hello hello");
+  t.expect_eq(x0->size(), 0);
 };
 
 best::test Leaky = [](auto& t) {
@@ -100,10 +70,10 @@ best::test Leaky = [](auto& t) {
   x0 = best::box(Bubble());
   x2 = x0;
 
-  best::box<Bubble[]> x3({{}, {}, {}});
+  best::box x3({Bubble{}, {}, {}});
   auto x4 = x3;
   x4 = x3;
   auto x5 = std::move(x3);
-  x4 = best::box<Bubble[]>({{}});
+  x4 = best::box({Bubble{}});
 };
 }  // namespace best::box_test

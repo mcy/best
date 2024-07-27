@@ -262,7 +262,8 @@ template <typename spec>
 constexpr bool validate(best::span<const typename spec::query> queries,
                         best::span<const char> templ) {
   return format_internal::visit_template<spec>(
-    templ.data(), templ.size() - 1, nullptr, [&](size_t n, const spec& s) {
+    templ.data().raw(), templ.size() - 1, nullptr,
+    [&](size_t n, const spec& s) {
       if (n > queries.size()) { return false; }
       auto& q = queries[n];
 
@@ -281,6 +282,8 @@ class templ final {
     spec::query::template of<Args>...};
 
  public:
+  static_assert(validate<spec>(Queries, ""));
+
   template <size_t n>
   constexpr templ(const char (&chars)[n], best::location loc = best::here)
     BEST_IS_VALID_LITERAL(chars, utf8{})

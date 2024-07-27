@@ -27,6 +27,7 @@
 #include "best/base/niche.h"
 #include "best/base/ord.h"
 #include "best/base/port.h"
+#include "best/base/tags.h"
 #include "best/log/internal/crash.h"
 #include "best/memory/internal/ptr.h"
 #include "best/memory/layout.h"
@@ -36,9 +37,55 @@
 #include "best/meta/tlist.h"
 #include "best/meta/traits.h"
 
-//! Pointers.
+//! Raw pointers.
 //!
-//! This header provides an enhanced raw pointer type `best::ptr<T>`.
+//! This header provides an enhanced raw pointer type `best::ptr<T>`. `best`
+//! pointers more closely resemble Rust pointers than C++ pointers: it is
+//! possible for users to define custom metadata to attach to their pointer
+//! types. For example, `best::ptr<T[]>` is a fat pointer that carries a length.
+//!
+//! # Views, Pointers, and Metadata
+//!
+//! A view type is a type through which a value of type `T` can be accessed. For
+//! example, if `T` is an "ordinary" object type, `T&` is its view type. The
+//! view type for `T&` is `T&` itself. The view type for `T[n]` is
+//! `best::span<T, n>`, and for `T[]` it's `best::span<T>`. View types
+//! generalize references in some way.
+//!
+//! A `best::ptr<T>` contains the necessary information for constructing `T`'s
+//! view type, `best::ptr<T>::view`. For this, it carries a raw C++ pointer of
+//! type `best::ptr<T>::pointee*`, and a metadata value `best::ptr<T>::meta`,
+//! which contains any additional information not carried by the pointer. For
+//! example, `best::ptr<T[]>::meta` is `size_t`, and this represents the length
+//! of the corresponding span.
+//!
+//! Types which do not have extra metadata[1] are called thin pointer
+//! types, which is detected by `best::is_thin<T>`. Pointers which are not thin
+//! are called fat.
+//!
+//! Dereferencing a pointer produces its view type. This means that functions on
+//! the view type can be called through `->`. For example, given a
+//! `best::ptr<int[]>`, we can get its element count with `p->size()`.
+//!
+//! [1]: Formally, a thin pointer type is a type whose pointer metadata type
+//! is trivial and empty, and for which `best::is_sized<T>` is true.
+//!
+//! # Defining Custom Fat Pointers
+//!
+//! Defining a custom fat pointer type for a user-defined type `T` is somewhat
+//! involved.
+//!
+//! First, you must define a metadata struct `M` that satisfies
+//! `best::is_ptr_metadata`. This specifies all kinds of necessary
+//! functionality, such as the pointee, view, and metadata types for `T`, how
+//! to dereference it, how to compute the layout, etc.
+//!
+//! THen, you just need to make sure that that type is findable as
+//! `T::BestPtrMetadata`. This type can be private: you need only befriend
+//! `best::access`. This type is never exposed by `best`; instead, users will
+//! only be able to see `M::metadata`.
+//!
+//!
 
 namespace best {
 /// # `best::is_ptr_metadata`
@@ -55,10 +102,12 @@ namespace best {
 ///   /// The user-visible metadata type. `my_meta` does not appear in
 ///   /// `best::ptr<T>`'s public interface, but `my_meta::metadata` does.
 ///   using metadata;
+///   /// The const version of `T`.
+///   using as_const;
 ///
 ///   /// Conversion to/from the user-visible metadata type.
 ///   my_meta(metadata);
-///   metadata to_metadata() const;
+///   const metadata& to_metadata() const;
 ///
 ///   /// Upcasts from a best::ptr<U> by converting its metadata.
 ///   /// Whether this constructor exists dictates whether a `best::ptr<T>` is
@@ -72,30 +121,47 @@ namespace best {
 ///   template <typename P>
 ///   my_meta(best::tlist<P>, const typename P::metadata&);
 ///
-///   /// Returns the layout of the whole pointed-to object, and the stride,
-///   /// which is used by pointer arithmetic.
+///   /// Returns the layout of the whole pointed-to object. If this function is
+///   /// static, `T` is said to be "sized", because the size is a compile-time
+///   /// constant.
 ///   best::layout layout() const;
-///   best::layout stride() const;
-///
-///   /// Provides an opportunity to update the value of the metadata for
-///   /// the result of a pointer arithmetic operation.
-///   my_meta offset(ptrdiff_t offset) const;
 ///
 ///   /// Dereferences the pointer. This should be either a pointer or a class
-///   /// type. If the former, `operator->()` will return `deref()` and
-///   /// `operator*()` will return `*deref()`. Otherwise, `operator->()` will
+///   /// type. If the former, `get()` will return `deref()` and
+///   /// `operator*()` will return `*deref()`. Otherwise, `get()` will
 ///   /// return `best::arrow(deref())` and `operator*()` will be deleted.
 ///   auto deref(pointee*) const;
 ///
-///   /// Returns whether the pointed-to type is copyable.
-///   bool copyable() const;
-///   /// Copies this value to the given destination, which must have a layout
-///   /// at least as large as `layout()`.
+///   /// Constructs a new value at the pointed-to location with some particular
+///   /// set of arguments.
 ///   ///
-///   /// If the destination is too small or `copyable()` returns false, this is
-///   /// UB. This function is intended for making copies of types which are not
-///   /// known to be copyable at compile time.
-///   void copy(void*, pointee*) const;
+///   /// `meta_for` constructs a `my_meta` object for the given arguments. For
+///   /// example, for a `best::ptr<T[]>`, you can construct from a span, and
+///   /// this calculates the necessary layout for that.
+///   ///
+///   /// `construct()` performs the construction. If `assign` is true, the
+///   /// implementation can assume that `*dst` is initialized.
+///   ///
+///   /// Calling `construct()` on a destination that is too small is UB.
+///   static my_meta meta_for(auto&&...);
+///   void construct(pointee* dst, bool assign, auto&&... args) const;
+///
+///   /// Returns whether the pointed-to type is known to be copyable at
+///   /// compile time.
+///   static bool is_statically_copyable();
+///   /// Returns whether the pointed-to type is known to be copyable at
+///   /// runtime. Must return `true` if `is_statically_copyable()` returns
+///   /// true.
+///   bool is_dynamically_copyable() const;
+///
+///   /// Copies this value to the given destination, which must have a layout
+///   /// at least as large as `layout()`. If `assign` is true, the
+///   /// implementation can assume that `*dst` is initialized.
+///   ///
+///   /// If the destination is too small or `is_dynamically_copyable()` returns
+///   /// false, this is UB. This function is intended for making copies of
+///   /// types which are not known to be copyable at compile time.
+///   void copy(pointee* dst, pointee* src, bool assign) const;
 ///
 ///   /// Destroys the pointed-to value.
 ///   void destroy(pointee*) const;
@@ -105,72 +171,68 @@ namespace best {
 /// User-defined types can customize their pointer metadata by providing a
 /// member type named `BestPtrMetadata`.
 template <typename M>
-concept is_ptr_metadata = requires(const M& meta, typename M::pointee* ptr,  //
-                                   typename M::metadata data, void* dst) {
-  requires best::is_object<typename M::pointee> ||
-             best::is_void<typename M::pointee>;
-  { M(data) };
-  { meta.to_metadata() } -> best::same<typename M::metadata>;
+concept is_ptr_metadata =
+  requires(const M& meta, typename M::pointee* ptr, typename M::metadata data,
+           best::ptr<typename M::type> dst) {
+    typename M::as_const;
+    requires best::is_object<typename M::pointee> ||
+               best::is_void<typename M::pointee>;
+    { M(data) };
+    { meta.to_metadata() } -> best::same<const typename M::metadata&>;
 
-  { meta.layout() } -> best::same<best::layout>;
-  { meta.stride() } -> best::same<best::layout>;
+    { meta.layout() } -> best::same<best::layout>;
 
-  { meta.offset(ptrdiff_t{}) } -> best::same<M>;
+    { meta.deref(ptr) };
 
-  { meta.deref(ptr) };
+    { M::is_statically_copyable() } -> best::same<bool>;
+    { meta.is_dynamically_copyable() } -> best::same<bool>;
+    { meta.copy(ptr, ptr, bool{}) } -> best::same<void>;
 
-  { meta.copyable() } -> best::same<bool>;
-  { meta.copy(dst, ptr) } -> best::same<void>;
+    { meta.destroy(ptr) } -> best::same<void>;
+  };
 
-  { meta.destroy(ptr) } -> best::same<void>;
-};
+/// # `best::is_thin`
+///
+/// Whether `best::ptr<T>` is a thin pointer. See `best::ptr::is_thin()`.
+template <typename T>
+concept is_thin = best::ptr<T>::is_thin();
 
-/// # `best::pointee_for<T>`
+/// # `best::is_sized`
+///
+/// Whether `best::ptr<T>::layout()` depends on the pointer value.
+template <typename T>
+concept is_sized = requires { best::ptr_internal::meta<T>::layout(); };
+
+/// # `best::view`
+///
+/// The view type for `T`, i.e., the thing that `operator*` returns out of a
+/// `best::ptr<T>`.
+template <typename T>
+using view = best::ptr<T>::view;
+
+/// # `best::pointee<T>`
 ///
 /// A suitable pointee type for representing values of the given type. In
 /// particular, this converts references into pointers, and function types
 /// into function pointers.
 template <typename T>
-using pointee_for = best::select<best::is_object<T> || best::is_void<T>, T,
-                                 const best::as_ptr<T>>;
+using pointee = best::ptr<T>::pointee;
 
-/// # `best::ptr_about`
+/// # `best::ptr_constructible`
 ///
-/// Metadata information for some pointer type T. This allows `best::ptr` to
-/// point to exotic types, like `T&`, `T[]`, and `best::interface<T>`, in a
-/// uniform way.
-///
-/// To provide a custom implementation for a user-defined type, it should
-/// provide a FTADLE of the form
-/// ```
-/// friend constexpr best::ptr_about<?, ?> BestPtrAbout(auto&, T*);
-/// ```
-template <typename Pointee, typename Metadata, typename Deref>
-struct ptr_about {
-  using pointee = Pointee;
-  using metadata = Metadata;
-  using deref = Deref;
-
-  /// # `ptr_metadata::layout`
-  ///
-  /// Returns the layout of `T`.
-  best::layout (*layout)(const pointee*, const metadata&) = nullptr;
-
-  /// # `ptr_metadata::copy`
-  ///
-  /// Copies a value of `T` to a region with an appropriate layout. May be null
-  /// if the type cannot be copied.
-  bool (*copy)(void*, const pointee*, const metadata&) = nullptr;
-
-  /// # `ptr_metadata::destroy`
-  ///
-  /// Destroys a value of `T`.
-  void (*destroy)(pointee*, const metadata&) = nullptr;
+/// Whether `T` can be constructed through a `best::ptr<T>` with the given
+/// arguments. If `best::is_thin<T>`, this concept holds if (but not only if)
+/// `best::constructible<T, Args...>` holds. For fat types, this can be
+/// anything: for example, `best::ptr_constructable<int[], int[]>` is false.
+template <typename T, typename... Args>
+concept ptr_constructible = requires(best::ptr<T> p, Args... args) {
+  requires (!best::is_unbounded_array<Args> && ...);
+  p.construct(BEST_FWD(args)...);
 };
 
 /// # `best::ptr_losslessly_converts_to`
 ///
-/// Whether or not a pointer conversion is "lossless", i.e., converting
+/// Whether a pointer conversion is "lossless", i.e., converting
 /// from `best::ptr<T>` to `best::ptr<U>` produces a pointer whose core
 /// operations (layout, copy, and destroy) are unchanged. This is requires for
 /// e.g. being able to destroy and dealloc correctly through the resulting
@@ -185,61 +247,62 @@ concept ptr_losslessly_converts_to =
 
 /// # `best::ptr<T>`
 ///
-/// A pointer to a possibly non-object `T`.
-///
-/// This allows creating a handle to a possibly non-object type that can be
-/// manipulated in a consistent manner.
-///
-/// The mapping is as follows:
-///
-/// ```text
-/// best::is_object<T> -> T*
-/// best::is_ref<T>    -> const best::as_ptr<T>*
-/// best::is_func<T>   -> const best::as_ptr<T>*
-/// best::is_void<T>   -> void*
-/// ```
-///
-/// Note the `const` for reference types: this reflects the fact that e.g.
-/// `T& const` is just `T&`.
-///
-/// Note that a `best::ptr<void>` is *not* a `void*` insofar that it does not
-/// represent a type-erased pointer.
+/// A pointer to a possibly non-object `T`. See the header documentation for
+/// more information.
 template <typename T>
 class ptr final {
- private:
-  using meta_ = best::ptr_internal::meta<T>;
-  static_assert(best::is_ptr_metadata<meta_>,
-                "BestPtrMetadata must satisfy best::is_ptr_metadata");
-
  public:
   /// # `ptr::type`.
   ///
   /// The wrapped type; `ptr<T>` is nominally a `T*`.
   using type = T;
 
+  static_assert(best::is_ptr_metadata<best::ptr_internal::meta<T>>,
+                "BestPtrMetadata must satisfy best::is_ptr_metadata");
+
   /// # `ptr::pointee`, `ptr::metadata`.
   ///
   /// The "true" pointee type. Internally, an `ptr` stores a `pointee*` and a
   /// `metadata`.
-  using pointee = meta_::pointee;
-  using metadata = meta_::metadata;
-  using deref = decltype(best::lie<meta_>.deref((pointee*)nullptr));
+  using pointee = best::ptr_internal::meta<T>::pointee;
+  using metadata = best::ptr_internal::meta<T>::metadata;
 
-  using cref = best::as_ref<const T>;
-  using ref = best::as_ref<T>;
-  using crref = best::as_rref<const T>;
-  using rref = best::as_rref<T>;
+ private:
+  using arrow =
+    decltype(best::lie<best::ptr_internal::meta<T>>.deref((pointee*)nullptr));
+  static_assert(!best::is_ref<arrow>,
+                "BestPtrMetadata::deref() must not return a reference");
+
+ public:
+  /// # `ptr::view`
+  ///
+  /// The type returned by `operator*`. This can be either a reference, if
+  /// the metadata type returns a pointer out of `deref`, or whatever view type
+  /// `best::deref` returns.
+  using view =
+    best::select<best::is_ptr<arrow>, best::as_ref<best::unptr<arrow>>, arrow>;
 
   /// # `best::is_thin()`
   ///
   /// Returns whether this is a "thin pointer", i.e., a pointer whose metadata
   /// is a trivial, empty type.
   static constexpr bool is_thin() {
-    return std::is_trivial_v<metadata> && best::is_empty<metadata>;
+    return std::is_trivial_v<metadata> && best::is_empty<metadata> &&
+           best::is_sized<T>;
+  }
+
+  /// # `best::is_const()`
+  ///
+  /// Returns whether this is a const pointer, i.e., a pointer that cannot be
+  /// mutated through.
+  static constexpr bool is_const() {
+    return requires(ptr p) {
+      requires best::same<ptr, decltype(p.as_const())>;
+    };
   }
 
  private:
-  // Helper for making requires clauses cleaner.
+  // Helpers for making requires clauses cleaner.
   static constexpr bool thin = is_thin();
 
  public:
@@ -270,8 +333,8 @@ class ptr final {
   /// Upcasts a `ptr` of a different type.
   template <typename U>
   constexpr ptr(ptr<U> ptr)
-    requires requires(const typename best::ptr<U>::meta_& m) {
-      meta_(best::types<best::ptr<U>>, m);
+    requires requires(const best::ptr_internal::meta<U>& m) {
+      best::ptr_internal::meta<T>(best::types<best::ptr<U>>, m.to_metadata());
     }
     : BEST_PTR_((pointee*)ptr.raw()),
       BEST_PTR_META_(best::types<best::ptr<U>>, ptr.meta()) {}
@@ -281,11 +344,6 @@ class ptr final {
   /// Constructs a pointer from a raw, pointee-pointer, and a metadata value.
   constexpr ptr(ptr<pointee> ptr, metadata meta)
     : BEST_PTR_(ptr.raw()), BEST_PTR_META_(BEST_MOVE(meta)) {}
-
-  /// # `ptr::is_niche()`
-  ///
-  /// Whether this value is a niche representation.
-  constexpr bool is_niche() const requires thin;
 
   /// # `ptr::dangling()`
   ///
@@ -299,16 +357,17 @@ class ptr final {
     };
   }
 
-  /// # `ptr::layout()`, `ptr::stride()`
-  ///
-  /// Returns the layout and stride of the pointed-to value.
-  constexpr best::layout layout() const { return BEST_PTR_META_.layout(); }
-  constexpr best::layout stride() const { return BEST_PTR_META_.stride(); }
-
   /// # `ptr::to_pointee()`
   ///
   /// Converts this pointer to a thin `best::ptr` pointing to its pointee type.
   constexpr best::ptr<pointee> to_pointee() const { return *this; }
+
+  /// # `ptr::as_const()`
+  ///
+  /// Converts this to the corresponding const pointer type.
+  constexpr auto as_const() const {
+    return best::ptr<typename best::ptr_internal::meta<T>::as_const>(*this);
+  }
 
   /// # `ptr::cast()`
   ///
@@ -317,7 +376,7 @@ class ptr final {
   constexpr best::ptr<U> cast(best::tlist<U> = {}) const
     requires best::ptr<U>::thin
   {
-    return (pointee_for<U>*)raw();
+    return (best::pointee<U>*)raw();
   }
 
   /// # `ptr::to_addr()`, `ptr::from_addr()`
@@ -329,58 +388,68 @@ class ptr final {
     return {reinterpret_cast<pointee*>(addr), BEST_MOVE(meta)};
   }
 
-  /// # `ptr::raw()`.
+  /// # `ptr::raw()`, `ptr::meta()`
   ///
-  /// Returns the raw underlying pointer.
-  constexpr pointee* raw() const { return BEST_PTR_; }
-  constexpr metadata meta() const { return BEST_PTR_META_.to_metadata(); }
-  constexpr operator pointee*() const { return raw(); }
+  /// Returns the raw underlying pointer and its metadata.
+  constexpr pointee* const& raw() const { return BEST_PTR_; }
+  constexpr const metadata& meta() const { return meta_().to_metadata(); }
 
-  /// # `ptr::operator==`, `ptr::operator<=>`
+  /// # `ptr::layout()`
   ///
-  /// All pointers may be compared by address, regardless of type.
-  template <typename U>
-  constexpr bool operator==(ptr<U> that) const;
-  template <typename U>
-  constexpr best::ord operator<=>(ptr<U> that) const;
-  template <typename U>
-  constexpr bool operator==(U* that) const;
-  template <typename U>
-  constexpr best::ord operator<=>(U* that) const;
-  constexpr bool operator==(std::nullptr_t) const { return raw() == nullptr; }
-  constexpr best::ord operator<=>(std::nullptr_t) const {
-    return raw() <=> nullptr;
-  }
+  /// Returns the layout of the pointed-to value.
+  constexpr best::layout layout() const { return meta_().layout(); }
 
-  /// # `ptr::operator*`, `ptr::operator->`
+  /// # `ptr::is_niche()`
   ///
-  /// Dereferences this pointer.
+  /// Whether this value is a niche representation.
+  constexpr bool is_niche() const requires thin;
+
+  /// # `ptr::operator*`, `ptr::operator->`, `ptr::deref()`, `ptr::get()`.
+  ///
+  /// Dereferences this pointer. `deref()` and `get()` are equivalent to
+  /// `operator*` and `operator->`.
   ///
   /// For example, this will dereference the wrapping pointer of a `T&`, so
   /// if `T = U&`, then `raw = U**` and this dereferences that twice.
-  constexpr decltype(auto) operator*() const requires best::is_ptr<deref>;
-  constexpr auto operator->() const;
-
-  /// # `ptr[idx]`
-  ///
-  /// Indexes into a thin pointer.
-  constexpr decltype(auto) operator[](ptrdiff_t idx)
-    requires best::is_ptr<deref>
-  {
-    return *(*this + idx);
+  constexpr view deref() const;
+  constexpr auto get() const;
+  constexpr view operator*() const { return deref(); }
+  constexpr auto operator->() const {
+    if constexpr (best::is_ptr<decltype(get())>) {
+      return get();
+    } else {
+      return best::arrow(get());
+    }
   }
+
+  /// # `ptr[idx]`, `ptr(idx)`
+  ///
+  /// If the view type of this `ptr` is indexable or callable, these functions
+  /// will forward to it.
+  ///
+  /// NOTE: is distinct from the indexing operator of raw pointers. E.g.
+  /// `best::ptr<int>` is NOT indexable! You should instead write
+  /// `offset(i).deref()`.
+  // clang-format off
+  constexpr decltype(auto) operator[](size_t i) const requires (!thin) && requires { deref()[i]; } { return deref()[i]; }
+  constexpr decltype(auto) operator[](bounds i) const requires (!thin) && requires { deref()[i]; } { return deref()[i]; }
+  constexpr decltype(auto) operator[](auto&& i) const requires (!thin) && requires { deref()[BEST_FWD(i)]; } { return deref()[BEST_FWD(i)]; }
+  constexpr decltype(auto) operator()(auto&&... args) const requires requires { best::call(deref(), args...); } {
+    return best::call(deref(), BEST_FWD(args)...);
+  }
+  // clang-format on
 
   /// # `ptr::operator+`, `ptr::operator-`
   ///
   /// Performs unchecked pointer arithmetic using `ptr::offset()`.
-  constexpr ptr operator+(ptrdiff_t idx) const;
-  constexpr ptr operator+=(ptrdiff_t idx);
-  constexpr ptr operator++();
-  constexpr ptr operator++(int);
-  constexpr ptr operator-(ptrdiff_t idx) const;
-  constexpr ptr operator-=(ptrdiff_t idx);
-  constexpr ptr operator--();
-  constexpr ptr operator--(int);
+  constexpr ptr operator+(ptrdiff_t idx) const requires thin;
+  constexpr ptr operator+=(ptrdiff_t idx) requires thin;
+  constexpr ptr operator++() requires thin;
+  constexpr ptr operator++(int) requires thin;
+  constexpr ptr operator-(ptrdiff_t idx) const requires thin;
+  constexpr ptr operator-=(ptrdiff_t idx) requires thin;
+  constexpr ptr operator--() requires thin;
+  constexpr ptr operator--(int) requires thin;
 
   template <typename U>
   constexpr ptrdiff_t operator-(ptr<U> that) const
@@ -394,16 +463,13 @@ class ptr final {
   /// Offsets this pointer by the given index.
   ///
   /// This operation will automatically multiply `idx` by the value returned by
-  /// `stride()`. This function is only constexpr when `stride().size() ==
-  /// size_of<pointee>`.
-  constexpr ptr offset(ptrdiff_t idx) const {
-    if (std::is_constant_evaluated() && size_of<pointee> == stride().size()) {
-      return {raw() + idx, BEST_PTR_META_.offset(idx)};
+  /// `layout().size()`.
+  constexpr ptr offset(ptrdiff_t idx) const requires thin
+  {
+    if (std::is_constant_evaluated() && size_of<pointee> == layout().size()) {
+      return raw() + idx;
     }
-    return {
-      to_pointee().scaled_offset(idx, stride().size()),
-      BEST_PTR_META_.offset(idx),
-    };
+    return to_pointee().scaled_offset(idx, layout().size());
   }
 
   /// # `ptr::scaled_offset()`
@@ -412,7 +478,6 @@ class ptr final {
   /// if we cast to a `size`-sized type, offset by `idx`, and cast back to `T`.
   ///
   /// Beware: this may create unaligned pointers, which is Undefined Behavior.
-  /// It will also leave the metadata for this pointer untouched, which may
   ptr scaled_offset(ptrdiff_t idx, size_t size = 1) const requires thin
   {
     if (idx == 0) { return *this; }
@@ -424,12 +489,41 @@ class ptr final {
   ///
   /// Computes the difference between the addresses of two pointers.
   template <typename U>
-  ptrdiff_t byte_offset_from(best::ptr<U> that) const requires thin
-  {
+  ptrdiff_t byte_offset_from(best::ptr<U> that) const {
     return to_addr() - that.to_addr();
   }
 
-  /// # `ptr::construct()`
+  /// # `ptr::operator==`, `ptr::operator<=>`
+  ///
+  /// All thin pointers may be compared by address, regardless of type.
+  /// Fat pointers may only be compared with pointers whose metadata types are
+  /// comparable.
+  ///
+  /// All pointers may be compared with `nullptr`, which compares as equal with
+  /// any null pointer and less than all other pointers.
+  constexpr bool operator==(std::nullptr_t) const;
+  template <typename U>
+  constexpr bool operator==(ptr<U> that) const
+    requires requires { meta() == that.meta(); };
+  template <typename U>
+  constexpr bool operator==(U* that) const requires thin;
+
+  constexpr best::ord operator<=>(std::nullptr_t) const;
+  template <typename U>
+  constexpr best::ord operator<=>(ptr<U> that) const
+    requires requires { meta() <=> that.meta(); };
+  template <typename U>
+  constexpr best::ord operator<=>(U* that) const requires thin;
+
+ private:
+  template <typename... Args>
+  static constexpr bool constructible =
+    requires(best::ptr_internal::meta<T> m, pointee* dst, Args... args) {
+      m.construct(dst, bool{}, BEST_FWD(args)...);
+    };
+
+ public:
+  /// # `ptr::construct()`, `ptr::assign()`
   ///
   /// Constructs in place according to the constructors valid per
   /// `best::constructible`.
@@ -438,23 +532,31 @@ class ptr final {
   /// on an `ptr<T&>` or `ptr<T()>`.
   template <typename... Args>
   BEST_INLINE_SYNTHETIC constexpr void construct(Args&&... args) const
-    requires thin && best::constructible<T, Args&&...>;
+    requires constructible<Args&&...>;
   template <typename... Args>
   BEST_INLINE_SYNTHETIC constexpr void construct(best::args<Args...> args) const
-    requires thin && best::constructible<T, Args...>;
+    requires constructible<Args...>;
+  template <typename... Args>
+  BEST_INLINE_SYNTHETIC constexpr void assign(Args&&... args) const
+    requires constructible<Args&&...>;
+  template <typename... Args>
+  BEST_INLINE_SYNTHETIC constexpr void assign(best::args<Args...> args) const
+    requires constructible<Args...>;
+
   BEST_INLINE_SYNTHETIC constexpr void construct(niche) const
     requires thin && best::has_niche<T>;
 
-  /// # `ptr::assign()`
+  /// # `ptr::meta_for()`
   ///
-  /// Assigns in place according to the assignments valid per
-  /// `best::assignable`.
+  /// Computes the metadata that must be attached to a pointer that contains
+  /// `args`.
   template <typename... Args>
-  BEST_INLINE_SYNTHETIC constexpr void assign(Args&&... args) const
-    requires thin && best::assignable<T, Args&&...>;
-  template <typename... Args>
-  BEST_INLINE_SYNTHETIC constexpr void assign(best::args<Args...> args) const
-    requires thin && best::assignable<T, Args...>;
+  BEST_INLINE_SYNTHETIC static constexpr metadata meta_for(Args&&... args)
+    requires constructible<Args&&...>
+  {
+    return best::ptr_internal::meta<T>::meta_for(BEST_FWD(args)...)
+      .to_metadata();
+  }
 
   /// # `ptr::destroy()`
   ///
@@ -478,6 +580,9 @@ class ptr final {
   /// destructors.
   ///
   /// `ptr::relo()` will leave the copied-from region uninitialized.
+  ///
+  /// Note that none of these functions will update the metadata of `this`; the
+  /// caller is responsible for doing that separately.
   template <typename U>
   BEST_INLINE_ALWAYS constexpr void copy(ptr<U> that, size_t count = 1) const
     requires thin && best::constructible<T, best::as_ref<const U>>
@@ -496,6 +601,11 @@ class ptr final {
   {
     copy_impl<how{.kind = how::Relo}>(that, count);
   }
+  BEST_INLINE_ALWAYS constexpr void copy(ptr that) const
+    requires (!thin) && (best::ptr_internal::meta<T>::is_statically_copyable())
+  {
+    meta_().copy(raw(), that.raw(), false);
+  }
 
   /// # `ptr::copy_assign()`, `ptr::move_assign()`, ptr::relo_assign()`
   ///
@@ -503,6 +613,9 @@ class ptr final {
   /// the destination must be initialized.
   ///
   /// `ptr::relo_assign()` will leave the copied-from region uninitialized.
+  ///
+  /// Note that none of these functions will update the metadata of `this`; the
+  /// caller is responsible for doing that separately.
   template <typename U>
   BEST_INLINE_ALWAYS constexpr void copy_assign(ptr<U> that,
                                                 size_t count = 1) const
@@ -523,6 +636,36 @@ class ptr final {
     requires thin && best::constructible<T, best::as_rref<U>>
   {
     copy_impl<how{.kind = how::Relo, .assign = true}>(that, count);
+  }
+  BEST_INLINE_ALWAYS constexpr void copy_assign(ptr that) const
+    requires (!thin) && (best::ptr_internal::meta<T>::is_statically_copyable())
+  {
+    meta_().copy(raw(), that.raw(), true);
+  }
+
+  /// # `ptr::try_copy()`, `ptr::try_copy_assign()`
+  ///
+  /// This is like `copy()`, but it fails if there is no copy constructor
+  /// available, returning `nullptr`. There are some pointee types that are only
+  /// known to be copyable at runtime due to the contents of their vtables.
+  ///
+  /// On success, returns a new `best::ptr<T>` with the correct metadata
+  /// attached.
+  [[nodiscard(
+    "ptr::try_copy() returns whether or not it "
+    "succeeded")]] BEST_INLINE_ALWAYS constexpr ptr
+  try_copy(ptr that) const {
+    if (!meta_().is_dynamically_copyable()) { return nullptr; }
+    meta_().copy(that, *this, false);
+    return {raw(), that.meta()};
+  }
+  [[nodiscard(
+    "ptr::try_copy_assign() returns whether or not it "
+    "succeeded")]] BEST_INLINE_ALWAYS constexpr ptr
+  try_copy_assign(ptr that) const {
+    if (!meta_().is_dynamically_copyable()) { return nullptr; }
+    meta_().copy(that, *this, true);
+    return {raw(), that.meta()};
   }
 
   /// # `ptr::copy_overlapping()`, `ptr::move_overlapping()`
@@ -571,6 +714,11 @@ class ptr final {
   }
 
   friend void BestFmt(auto& fmt, ptr value) {
+    if constexpr (!thin && requires { fmt.format(value.meta()); }) {
+      fmt.format("{:#x}@{}", value.to_addr(), value.meta());
+      return;
+    }
+
     fmt.format("{:#x}", value.to_addr());
   }
   constexpr friend void BestFmtQuery(auto& query, ptr*) {
@@ -584,12 +732,20 @@ class ptr final {
   template <typename...>
   friend class vptr;
 
+  constexpr explicit ptr(best::in_place_t, pointee* p,
+                         best::ptr_internal::meta<T>&& m)
+    : BEST_PTR_(p), BEST_PTR_META_(BEST_MOVE(m)) {}
+
+  constexpr const best::ptr_internal::meta<T>& meta_() const {
+    return BEST_PTR_META_;
+  }
+
   BEST_INLINE_ALWAYS constexpr void check() const {
     if (!best::is_debug() || std::is_constant_evaluated()) { return; }
     if (*this == nullptr) {
       best::crash_internal::crash("dereferenced a null `best::ptr`");
     }
-    if (*this < from_addr(0x1000)) {
+    if (to_pointee() < best::ptr<void>::from_addr(0x1000)) {
       best::crash_internal::crash("dereferenced a dangling `best::ptr`");
     };
   }
@@ -601,7 +757,7 @@ class ptr final {
 
     template <typename U>
     constexpr bool can_memcpy() const {
-      return best::same<const pointee_for<T>, const pointee_for<U>> &&
+      return best::same<const best::pointee<T>, const best::pointee<U>> &&
              (best::copyable<T, trivially> ||
               (best::relocatable<T, trivially> && kind == how::Relo));
     }
@@ -622,7 +778,7 @@ class ptr final {
  public:
   // Public for structural-ness.
   pointee* BEST_PTR_ = nullptr;
-  [[no_unique_address]] meta_ BEST_PTR_META_;
+  [[no_unique_address]] best::ptr_internal::meta<T> BEST_PTR_META_;
 };
 template <typename T>
 ptr(ptr<T>) -> ptr<T>;
@@ -649,108 +805,122 @@ constexpr bool ptr<T>::is_niche() const requires thin
 }
 
 template <typename T>
-template <typename U>
-constexpr bool ptr<T>::operator==(ptr<U> that) const {
-  return best::equal(raw(), that.raw());
-};
-template <typename T>
-template <typename U>
-constexpr best::ord ptr<T>::operator<=>(ptr<U> that) const {
-  return best::compare(raw(), that.raw());
-};
-template <typename T>
-template <typename U>
-constexpr bool ptr<T>::operator==(U* that) const {
-  return best::equal(raw(), that);
-};
-template <typename T>
-template <typename U>
-constexpr best::ord ptr<T>::operator<=>(U* that) const {
-  return best::compare(raw(), that);
-};
-
-template <typename T>
-BEST_INLINE_SYNTHETIC constexpr decltype(auto) ptr<T>::operator*() const
-  requires best::is_ptr<deref>
-{
-  return *operator->();
-}
-template <typename T>
-BEST_INLINE_SYNTHETIC constexpr auto ptr<T>::operator->() const {
-  check();
-  if constexpr (best::is_ptr<deref>) {
-    return deref();
+BEST_INLINE_SYNTHETIC constexpr auto ptr<T>::deref() const -> view {
+  if constexpr (best::is_ptr<decltype(get())>) {
+    if constexpr (best::is_void<best::unptr<decltype(get())>>) {
+      (void)get();
+    } else {
+      return *get();
+    }
   } else {
-    return best::arrow(deref());
+    check();
+    return meta_().deref(raw());
   }
 }
+template <typename T>
+BEST_INLINE_SYNTHETIC constexpr auto ptr<T>::get() const {
+  check();
+  return meta_().deref(raw());
+}
 
 template <typename T>
-constexpr ptr<T> ptr<T>::operator+(ptrdiff_t idx) const {
+constexpr ptr<T> ptr<T>::operator+(ptrdiff_t idx) const requires thin
+{
   return offset(idx);
 }
 template <typename T>
-constexpr ptr<T> ptr<T>::operator+=(ptrdiff_t idx) {
+constexpr ptr<T> ptr<T>::operator+=(ptrdiff_t idx) requires thin
+{
   *this = offset(idx);
   return *this;
 }
 template <typename T>
-constexpr ptr<T> ptr<T>::operator++() {
+constexpr ptr<T> ptr<T>::operator++() requires thin
+{
   return *this += 1;
 }
 template <typename T>
-constexpr ptr<T> ptr<T>::operator++(int) {
+constexpr ptr<T> ptr<T>::operator++(int) requires thin
+{
   auto prev = *this;
   ++*this;
-  return *this;
+  return prev;
 }
 
 template <typename T>
-constexpr ptr<T> ptr<T>::operator-(ptrdiff_t idx) const {
+constexpr ptr<T> ptr<T>::operator-(ptrdiff_t idx) const requires thin
+{
   return offset(-idx);
 }
 template <typename T>
-constexpr ptr<T> ptr<T>::operator-=(ptrdiff_t idx) {
+constexpr ptr<T> ptr<T>::operator-=(ptrdiff_t idx) requires thin
+{
   *this = offset(-idx);
   return *this;
 }
 template <typename T>
-constexpr ptr<T> ptr<T>::operator--() {
+constexpr ptr<T> ptr<T>::operator--() requires thin
+{
   return *this -= 1;
 }
 template <typename T>
-constexpr ptr<T> ptr<T>::operator--(int) {
+constexpr ptr<T> ptr<T>::operator--(int) requires thin
+{
   auto prev = *this;
   --*this;
-  return *this;
+  return prev;
+}
+
+template <typename T>
+constexpr bool ptr<T>::operator==(std::nullptr_t) const {
+  return raw() == nullptr;
+}
+template <typename T>
+template <typename U>
+constexpr bool ptr<T>::operator==(ptr<U> that) const
+  requires requires { meta() == that.meta(); }
+{
+  return best::equal(raw(), that.raw()) && meta() == that.meta();
+}
+template <typename T>
+template <typename U>
+constexpr bool ptr<T>::operator==(U* that) const requires thin
+{
+  return best::equal(raw(), that);
+}
+
+template <typename T>
+constexpr best::ord ptr<T>::operator<=>(std::nullptr_t) const {
+  return raw() <=> nullptr;
+}
+template <typename T>
+template <typename U>
+constexpr best::ord ptr<T>::operator<=>(ptr<U> that) const
+  requires requires { meta() <=> that.meta(); }
+{
+  return best::compare(raw(), that.raw())->*best::or_cmp([&] {
+    return meta() <=> that.meta();
+  });
+}
+template <typename T>
+template <typename U>
+constexpr best::ord ptr<T>::operator<=>(U* that) const requires thin
+{
+  return best::compare(raw(), that);
 }
 
 template <typename T>
 template <typename... Args>
 BEST_INLINE_SYNTHETIC constexpr void ptr<T>::construct(Args&&... args) const
-  requires thin && best::constructible<T, Args&&...>
+  requires constructible<Args&&...>
 {
   check();
-
-  // TODO: Add array traits, support multi-dimensional arrays?
-  if constexpr (std::is_bounded_array_v<T> && sizeof...(Args) == 1 &&
-                ((std::extent_v<best::as_auto<Args>> == std::extent_v<T>) &&
-                 ...)) {
-    for (size_t i = 0; i < std::extent_v<T>; ++i) {
-      new (best::addr((*raw())[i])) std::remove_extent_t<T>(args[i]...);
-    }
-  } else if constexpr (best::is_object<T>) {
-    new (raw()) T(BEST_FWD(args)...);
-  } else if constexpr (best::is_ref<T>) {
-    *const_cast<best::unqual<pointee>*>(raw()) = best::addr(args...);
-  } else if constexpr (best::is_func<T>) {
-    *const_cast<best::unqual<pointee>*>(raw()) = (args, ...);
-  }
+  meta_().construct(raw(), false, BEST_FWD(args)...);
 }
 template <typename T>
 template <typename... Args>
-BEST_INLINE_SYNTHETIC constexpr void ptr<T>::construct(best::args<Args...> args)
-  const requires thin && best::constructible<T, Args...>
+BEST_INLINE_SYNTHETIC constexpr void ptr<T>::construct(
+  best::args<Args...> args) const requires constructible<Args...>
 {
   args.row.apply([&](auto&&... args) { construct(BEST_FWD(args)...); });
 }
@@ -769,25 +939,15 @@ BEST_INLINE_SYNTHETIC constexpr void ptr<T>::construct(niche) const
 template <typename T>
 template <typename... Args>
 BEST_INLINE_SYNTHETIC constexpr void ptr<T>::assign(Args&&... args) const
-  requires thin && best::assignable<T, Args&&...>
+  requires constructible<Args&&...>
 {
   check();
-  if constexpr (std::is_bounded_array_v<T> && sizeof...(Args) == 1 &&
-                ((std::extent_v<best::as_auto<Args>> == std::extent_v<T>) &&
-                 ...)) {
-    for (size_t i = 0; i < std::extent_v<T>; ++i) {
-      (*this)[i] = (args[i], ...);
-    }
-  } else if constexpr (best::is_object<T>) {
-    **this = (BEST_FWD(args), ...);
-  } else {
-    construct(BEST_FWD(args)...);
-  }
+  meta_().construct(raw(), true, BEST_FWD(args)...);
 }
 template <typename T>
 template <typename... Args>
 BEST_INLINE_SYNTHETIC constexpr void ptr<T>::assign(
-  best::args<Args...> args) const requires thin && best::assignable<T, Args...>
+  best::args<Args...> args) const requires constructible<Args...>
 {
   args.row.apply([&](auto&&... args) { assign(BEST_FWD(args)...); });
 }
@@ -797,14 +957,14 @@ BEST_INLINE_SYNTHETIC constexpr void ptr<T>::destroy() const
   requires best::destructible<T>
 {
   check();
-  BEST_PTR_META_.destroy(raw());
+  meta_().destroy(raw());
   if (!std::is_constant_evaluated() && best::is_debug()) {
     BEST_PUSH_GCC_DIAGNOSTIC()
     BEST_IGNORE_GCC_DIAGNOSTIC("-Wdynamic-class-memaccess")
     // If T is polymorphic, Clang will whine that we're clobbering the vtable.
     // However, we literally just called the destructor, so it's simply wrong.
     // Hence, we disable the warning.
-    fill(Magic, 1);
+    cast(best::types<char>).fill(Magic, layout().size());
     BEST_POP_GCC_DIAGNOSTIC()
   }
 }
@@ -840,17 +1000,17 @@ BEST_INLINE_SYNTHETIC constexpr void ptr<T>::copy_impl(ptr<U> that,
   for (size_t i = 0; i < count; ++i) {
     if constexpr (how.assign) {
       if constexpr (how.kind == how::Copy) {
-        (*this + i).assign(that[i]);
+        offset(i).assign(that.offset(i).deref());
       } else {
-        (*this + i).assign(BEST_MOVE(that[i]));
+        offset(i).assign(BEST_MOVE(that.offset(i).deref()));
       }
     } else if constexpr (how.kind == how::Copy) {
-      (*this + i).construct(that[i]);
+      offset(i).construct(that.offset(i).deref());
     } else {
-      (*this + i).construct(BEST_MOVE(that[i]));
+      offset(i).construct(BEST_MOVE(that.offset(i).deref()));
     }
 
-    if constexpr (how.kind == how::Relo) { (that + i).destroy(); }
+    if constexpr (how.kind == how::Relo) { that.offset(i).destroy(); }
   }
 }
 
