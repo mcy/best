@@ -346,7 +346,20 @@ concept static_derives = requires(Base* base) {
 /// Checks whether `T` statically derives `Base`.
 template <typename T, typename Base>
 concept virtual_derives =
-    best::derives<T, Base> && !best::static_derives<T, Base>;
+  best::derives<T, Base> && !best::static_derives<T, Base>;
+
+template <typename T>
+concept is_array = std::is_array_v<T>;
+
+template <typename T, size_t n = -1>
+concept is_bounded_array =
+  std::is_bounded_array_v<T> && (n == -1 || n == std::extent_v<T>);
+
+template <typename T>
+concept is_unbounded_array = std::is_unbounded_array_v<T>;
+
+template <typename T>
+using unarray = std::remove_extent_t<T>;
 }  // namespace best
 
 #endif  // BEST_META_TAXONOMY_H_

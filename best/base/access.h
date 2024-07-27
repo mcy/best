@@ -32,15 +32,16 @@ namespace best {
 /// # `best::access`
 ///
 /// Befriend this type to allow best easy access to key type members that you
-/// may not want to make public API, such as `BestVtable`, `BestRowKey`, and so
-/// on.
+/// may not want to make public API, such as `BestPtrMetadata`, `BestRowKey`,
+/// and so on.
 class access final {
  private:
   ~access() = delete;
 
   // Types and other members we want access to.
   template <typename T>
-  using BestVtable = T::BestVtable;
+  requires requires { typename T::BestPtrMetadata; }
+  using BestPtrMetadata = T::BestPtrMetadata;
 
   template <typename T>
   static constexpr T constructor(auto&&... args)
@@ -50,8 +51,8 @@ class access final {
   }
 
   // Best types that can access them.
-  friend ::best::interface_internal::access;
+  friend ::best::ptr_internal::access;
 };
 }  // namespace best
 
-#endif  // BEST_BASE_FWD_H_
+#endif  // BEST_BASE_ACCESS_H_
