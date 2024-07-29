@@ -27,7 +27,6 @@
 #include "best/base/guard.h"
 #include "best/math/overflow.h"
 #include "best/memory/span.h"
-#include "best/meta/taxonomy.h"
 #include "best/text/encoding.h"
 #include "best/text/rune.h"
 #include "best/text/utf8.h"
@@ -495,7 +494,7 @@ class pretext final {
   /// Creates a new string from an arbitrary span.
   template <best::contiguous R>
   constexpr pretext(const R& data, encoding enc = {})
-    requires best::same<best::unqual<best::data_type<R>>, code> &&
+    requires best::same<best::un_qual<best::data_type<R>>, code> &&
                (!best::string_type<R> ||
                 !best::same<encoding, best::encoding_type<decltype(data)>>)
     : span_(data), enc_(BEST_MOVE(enc)) {}

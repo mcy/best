@@ -21,7 +21,7 @@
 #define BEST_BASE_GUARD_H_
 
 #include "best/base/tags.h"
-#include "best/meta/taxonomy.h"
+#include "best/meta/traits/refs.h"
 
 //! A middling approximation of Rust's `?` operator.
 //!
@@ -67,7 +67,7 @@ concept guardable = requires(best::ftadle f, const R& r) {
   for (::best::guard_internal::impl g_{expr_}; !g_;) return g_, g_.residual()
 
 namespace guard_internal {
-template <guardable R>
+template <best::guardable R>
 struct impl {
   constexpr decltype(auto) residual() {
     return BestGuardResidual(best::ftadle{}, BEST_FWD(result));

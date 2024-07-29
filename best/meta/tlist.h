@@ -29,7 +29,7 @@
 #include "best/iter/bounds.h"
 #include "best/meta/internal/tlist.h"
 #include "best/meta/ops.h"
-#include "best/meta/traits.h"
+#include "best/meta/traits/types.h"
 
 //! Type-level list types.
 //!
@@ -56,19 +56,6 @@ template <typename T, size_t n>
 concept is_tlist_of_size = requires(T t) {
   tlist_internal::is_tlist(t);
   requires T::size() == n;
-};
-
-/// # `best::val<x>`
-///
-/// A value-as-a-type.
-///
-/// This type helps bridge the type/value universes by being the canonical
-/// empty type with a variable named `value`. It is also a type trait that
-/// produces the type of `x`.
-template <auto x>
-struct val {
-  using type = decltype(x);
-  static constexpr auto value = x;
 };
 
 /// # `best::vlist<...>`

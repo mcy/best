@@ -6,27 +6,6 @@ cc_library(
 )
 
 cc_library(
-  name = "traits",
-  hdrs = [
-    "traits.h",
-    "internal/traits.h",
-  ],
-)
-
-cc_library(
-  name = "taxonomy",
-  hdrs = [
-    "taxonomy.h",
-    "internal/abominable.h",
-    "internal/quals.h",
-  ],
-  deps = [
-    ":traits",
-    "//best/base:hint",
-  ],
-)
-
-cc_library(
   name = "ops",
   hdrs = [
     "ops.h",
@@ -44,8 +23,11 @@ cc_library(
     "internal/init.h",
   ],
   deps = [
-    ":taxonomy",
     "//best/base:tags",
+    "//best/meta/traits:arrays",
+    "//best/meta/traits:empty",
+    "//best/meta/traits:funcs",
+    "//best/meta/traits:ptrs",
   ]
 )
 
@@ -60,22 +42,14 @@ cc_test(
 )
 
 cc_library(
-  name = "empty",
-  hdrs = ["empty.h"],
-  deps = [
-    ":init",
-  ]
-)
-
-cc_library(
   name = "names",
   hdrs = [
     "names.h",
     "internal/names.h",
   ],
   deps = [
-    ":taxonomy",
     "//best/base:fwd",
+    "//best/meta/traits:enums",
     "//best/text:str",
   ],
 )
@@ -100,10 +74,11 @@ cc_library(
   ],
   deps = [
     ":names",
-    ":taxonomy",
     "//best/base:fwd",
     "//best/container:row",
     "//best/func:tap",
+    "//best/meta/traits:classes",
+    "//best/meta/traits:enums",
     "//best/text:str",
   ],
 )
@@ -127,11 +102,11 @@ cc_library(
   ],
   deps = [
     ":ops",
-    ":traits",
     "//best/base:fwd",
     "//best/base:ord",
     "//best/func:call",
     "//best/iter:bounds",
+    "//best/meta/traits:types",
   ]
 )
 

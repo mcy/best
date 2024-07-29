@@ -23,8 +23,7 @@
 #include "best/base/internal/ord.h"
 #include "best/func/call.h"
 #include "best/meta/init.h"
-#include "best/meta/taxonomy.h"
-#include "best/meta/traits.h"
+#include "best/meta/traits/ptrs.h"
 
 //! Ordering types.
 //!
@@ -114,7 +113,7 @@ using order_type = decltype([](auto x, auto y) {
   } else {
     return *x <=> *y;
   }
-}(best::lie<best::as_ptr<const T>>, best::lie<best::as_ptr<const U>>));
+}(best::lie<best::as_raw_ptr<const T>>, best::lie<best::as_raw_ptr<const U>>));
 
 /// # `best::equal()`
 ///
@@ -128,8 +127,8 @@ using order_type = decltype([](auto x, auto y) {
 constexpr bool equal(const auto& a, const auto& b) {
   if constexpr (best::equatable<decltype(a), decltype(b)>) {
     return a == b;
-  } else if constexpr (best::is_ptr<best::as_auto<decltype(a)>> &&
-                       best::is_ptr<best::as_auto<decltype(b)>>) {
+  } else if constexpr (best::is_raw_ptr<best::as_auto<decltype(a)>> &&
+                       best::is_raw_ptr<best::as_auto<decltype(b)>>) {
     return (const volatile void*)a == (const volatile void*)b;
   } else {
     return false;
@@ -150,8 +149,8 @@ constexpr bool equal(const auto& a, const auto& b) {
 constexpr auto compare(const auto& a, const auto& b) {
   if constexpr (best::comparable<decltype(a), decltype(b)>) {
     return a <=> b;
-  } else if constexpr (best::is_ptr<best::as_auto<decltype(a)>> &&
-                       best::is_ptr<best::as_auto<decltype(b)>>) {
+  } else if constexpr (best::is_raw_ptr<best::as_auto<decltype(a)>> &&
+                       best::is_raw_ptr<best::as_auto<decltype(b)>>) {
     // Not using std::compare_three_way, because the alleged UB of comparing
     // pointers across allocations is fake news on LLVM, and we would otherwise
     // need to bring in another (partial) STL header.

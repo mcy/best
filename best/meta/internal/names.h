@@ -25,6 +25,7 @@
 #include "best/base/fwd.h"
 #include "best/base/port.h"
 #include "best/memory/span.h"
+#include "best/meta/traits/enums.h"
 #include "best/text/str.h"
 
 // This needs to go in the global namespace, since its full name is relevant for
@@ -191,10 +192,10 @@ constexpr best::str parse() {
                    prefix[{.start = i}]);
 }
 
-BEST_PUSH_GCC_DIAGNOSTIC()
-BEST_IGNORE_GCC_DIAGNOSTIC("-Wenum-constexpr-conversion")
 template <best::is_enum auto e>
 constexpr best::option<best::str> parse() {
+  BEST_PUSH_GCC_DIAGNOSTIC()
+  BEST_IGNORE_GCC_DIAGNOSTIC("-Wenum-constexpr-conversion")
   auto offsets = names_internal::ValueOffsets;
   auto raw = names_internal::raw_name<e>();
   auto name =
@@ -207,8 +208,8 @@ constexpr best::option<best::str> parse() {
   if (name.starts_with('(')) { return best::none; }
   // `name` is going to be scoped, so we need to strip off a leading path.
   return names_internal::remove_namespace(name);
+  BEST_POP_GCC_DIAGNOSTIC()
 };
-BEST_POP_GCC_DIAGNOSTIC()
 
 };  // namespace best::names_internal
 

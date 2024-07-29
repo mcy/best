@@ -4,7 +4,6 @@ cc_library(
   name = "arrow",
   hdrs = ["arrow.h"],
   deps = [
-    "//best/meta:taxonomy",
   ]
 )
 
@@ -15,9 +14,12 @@ cc_library(
     "internal/call.h"
   ],
   deps = [
-    "//best/base:port",
-    "//best/meta:empty",
+    "//best/base:hint",
     "//best/meta:init",
+    "//best/meta/traits:empty",
+    "//best/meta/traits:objects",
+    "//best/meta/traits:funcs",
+    "//best/meta/traits:types",
   ],
 )
 
@@ -29,6 +31,9 @@ cc_library(
   ],
   deps = [
     ":call",
+    "//best/meta/traits:funcs",
+    "//best/meta/traits:ptrs",
+    "//best/meta/traits:refs",
   ]
 )
 

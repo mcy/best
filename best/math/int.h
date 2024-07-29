@@ -27,7 +27,7 @@
 #include "best/base/fwd.h"
 #include "best/base/hint.h"
 #include "best/math/internal/common_int.h"
-#include "best/meta/taxonomy.h"
+#include "best/meta/traits/quals.h"
 
 //! Utilities for working with primitive integer types.
 //!
@@ -39,7 +39,7 @@ namespace best {
 /// Any primitive integer type.
 /// This explicitly excludes `bool` and non-`char` character types.
 template <typename T>
-concept integer = int_internal::is_int<best::unqual<T>>;
+concept integer = int_internal::is_int<best::un_qual<T>>;
 
 /// # `best::bits_of<T>`
 ///

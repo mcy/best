@@ -239,12 +239,12 @@ class impl : public storage<Ts...> {
     return *get(u, i);
   }
   template <size_t n>
-  BEST_INLINE_SYNTHETIC constexpr best::as_ptr<type<n>> ptr(
+  BEST_INLINE_SYNTHETIC constexpr best::as_raw_ptr<type<n>> ptr(
     unsafe u, best::index_t<n> i = {}) const {
     return get(u, i).operator->();
   }
   template <size_t n>
-  BEST_INLINE_SYNTHETIC constexpr best::as_ptr<type<n>> ptr(
+  BEST_INLINE_SYNTHETIC constexpr best::as_raw_ptr<type<n>> ptr(
     unsafe u, best::index_t<n> i = {}) {
     return get(u, i).operator->();
   }
@@ -336,7 +336,7 @@ class impl : public storage<Ts...> {
 
   static constexpr auto make_match_arm(auto&& self, auto&& cb) {
     return [&]<size_t n>(best::index_t<n> tag) -> decltype(auto) {
-      using Type = best::refcopy<type<n>, decltype(self)&&>;
+      using Type = best::copy_ref<type<n>, decltype(self)&&>;
 
       // This needs to be dependent on tag, even trivially, so that the call
       // of callback(empty) in one of the if statements below uses two-phase
@@ -361,7 +361,7 @@ class impl : public storage<Ts...> {
 
   static constexpr auto make_index_match_arm(auto&& self, auto&& cb) {
     return [&]<size_t n>(best::index_t<n> tag) -> decltype(auto) {
-      using Type = best::refcopy<type<n>, decltype(self)&&>;
+      using Type = best::copy_ref<type<n>, decltype(self)&&>;
 
       // This needs to be dependent on tag, even trivially, so that the call
       // of callback(empty) in one of the if statements below uses two-phase

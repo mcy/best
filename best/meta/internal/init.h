@@ -22,7 +22,9 @@
 
 #include "best/base/fwd.h"
 #include "best/base/port.h"
-#include "best/meta/taxonomy.h"
+#include "best/meta/traits/empty.h"
+#include "best/meta/traits/funcs.h"
+#include "best/meta/traits/ptrs.h"
 
 //! Rule-based implementation of constructable/convertible/assignable, using
 //! overload resolution as a reasonably fast lookup.
@@ -85,19 +87,19 @@ void ctor(tag<T[n]>, tag<trivially>, tag<U (&&)[n]>)
 
 template <best::is_lref T, best::is_ref R>
 void ctor(tag<T>, tag<R>)
-  requires std::is_convertible_v<best::as_ptr<R>, best::as_ptr<T>>;
+  requires std::is_convertible_v<best::as_raw_ptr<R>, best::as_raw_ptr<T>>;
 
 template <best::is_lref T, best::is_ref R>
 void ctor(tag<T>, tag<trivially>, tag<R>)
-  requires std::is_convertible_v<best::as_ptr<R>, best::as_ptr<T>>;
+  requires std::is_convertible_v<best::as_raw_ptr<R>, best::as_raw_ptr<T>>;
 
 template <best::is_rref T, best::is_rref R>
 void ctor(tag<T>, tag<R>)
-  requires std::is_convertible_v<best::as_ptr<R>, best::as_ptr<T>>;
+  requires std::is_convertible_v<best::as_raw_ptr<R>, best::as_raw_ptr<T>>;
 
 template <best::is_rref T, best::is_rref R>
 void ctor(tag<T>, tag<trivially>, tag<R>)
-  requires std::is_convertible_v<best::as_ptr<R>, best::as_ptr<T>>;
+  requires std::is_convertible_v<best::as_raw_ptr<R>, best::as_raw_ptr<T>>;
 
 // -------------------------------------------------------------------------- //
 

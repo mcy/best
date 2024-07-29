@@ -29,7 +29,6 @@
 #include "best/container/option.h"
 #include "best/func/call.h"
 #include "best/meta/init.h"
-#include "best/meta/taxonomy.h"
 
 namespace best {
 /// # `best::is_iter_impl`
@@ -108,8 +107,8 @@ class iter final {
   /// The iterator implementation must opt into this by defining a type alias
   /// called `BestIterArrow`.
   // clang-format off
-  constexpr best::as_ptr<const impl> operator->() const requires has_extra_iter_methods<Impl> { return best::addr(impl_); }
-  constexpr best::as_ptr<impl> operator->() requires has_extra_iter_methods<Impl> { return best::addr(impl_); }
+  constexpr best::as_raw_ptr<const impl> operator->() const requires has_extra_iter_methods<Impl> { return best::addr(impl_); }
+  constexpr best::as_raw_ptr<impl> operator->() requires has_extra_iter_methods<Impl> { return best::addr(impl_); }
   // clang-format on
 
   /// # `iter::next()`

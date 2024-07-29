@@ -90,7 +90,7 @@ concept contiguous = requires(const T& ct, T&& t) {
 /// Extracts the referent type of a contiguous range. For example,
 /// `best::data_type<int[4]>` is `int`.
 template <best::contiguous R>
-using data_type = best::unref<decltype(*best::data(best::lie<R>))>;
+using data_type = best::un_ref<decltype(*best::data(best::lie<R>))>;
 
 /// # `best::static_size<T>`
 ///
@@ -106,7 +106,7 @@ using data_type = best::unref<decltype(*best::data(best::lie<R>))>;
 /// applied to this type, or best::none.
 template <best::contiguous T>
 inline constexpr best::option<size_t> static_size =
-  BestStaticSize(best::types<T>, best::as_ptr<T>{});
+  BestStaticSize(best::types<T>, best::as_raw_ptr<T>{});
 
 /// # `best::static_contiguous`
 ///
@@ -186,13 +186,13 @@ class span final {
  public:
   /// Helper type aliases.
   using type = T;
-  using value_type = best::unqual<T>;
+  using value_type = best::un_qual<T>;
   using cref = best::as_ref<const type>;
   using ref = best::as_ref<type>;
   using crref = best::as_rref<const type>;
   using rref = best::as_rref<type>;
-  using cptr = best::as_ptr<const type>;
-  using ptr = best::as_ptr<type>;
+  using cptr = best::as_raw_ptr<const type>;
+  using ptr = best::as_raw_ptr<type>;
 
   /// # `span::is_static`
   ///
@@ -255,7 +255,7 @@ class span final {
   template <best::contiguous R>
   constexpr explicit(is_static && n != static_size<R>)
     span(R&& range, best::location loc = best::here)
-      requires best::qualifies_to<best::unref<best::data_type<R>>, T> &&
+      requires best::qualifies_to<best::un_ref<best::data_type<R>>, T> &&
                (is_dynamic ||                       //
                 best::static_size<R>.is_empty() ||  //
                 best::static_size<span> == best::static_size<R>)

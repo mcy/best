@@ -24,6 +24,7 @@
 #include <cstdlib>
 
 #include "best/meta/tlist.h"
+#include "best/meta/traits/ptrs.h"
 
 // This header contains implementations of the layout algorithms for structs and
 // unions; they are implemented as variable templates to encourage the compiler
@@ -32,7 +33,7 @@
 namespace best::layout_internal {
 template <typename T>
 using to_object = best::devoid<
-  best::select<best::is_object<T> || best::is_void<T>, T, best::as_ptr<T>>>;
+  best::select<best::is_object<T> || best::is_void<T>, T, best::as_raw_ptr<T>>>;
 
 /// Computes the alignment of a struct/union with the given member types.
 ///

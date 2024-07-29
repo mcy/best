@@ -88,14 +88,14 @@ class vec final {
  public:
   /// Helper type aliases.
   using type = T;
-  using value_type = best::unqual<T>;
+  using value_type = best::un_qual<T>;
 
   using cref = best::as_ref<const type>;
   using ref = best::as_ref<type>;
   using crref = best::as_rref<const type>;
   using rref = best::as_rref<type>;
-  using cptr = best::as_ptr<const type>;
-  using ptr = best::as_ptr<type>;
+  using cptr = best::as_raw_ptr<const type>;
+  using ptr = best::as_raw_ptr<type>;
 
   /// # `vec::alloc`
   ///
@@ -674,7 +674,7 @@ template <best::relocatable T, size_t max_inline, best::allocator A>
 void vec<T, max_inline, A>::assign(const contiguous auto& that) {
   if (best::equal(this, &that)) { return; }
 
-  using Range = best::unref<decltype(that)>;
+  using Range = best::un_ref<decltype(that)>;
   if constexpr (best::is_vec<Range>) {
     if (!on_heap() && !that.on_heap() && best::copyable<T, trivially> &&
         best::same<T, typename Range::type> && MaxInline == Range::MaxInline) {

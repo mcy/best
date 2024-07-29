@@ -5,7 +5,9 @@ cc_library(
   hdrs = ["fwd.h"],
   deps = [
     ":tags",
-    "//best/meta:taxonomy",
+    "//best/meta/traits:objects",
+    "//best/meta/traits:refs",
+    "//best/meta/traits:types",
   ]
 )
 
@@ -14,7 +16,6 @@ cc_library(
   hdrs = ["access.h"],
   deps = [
     ":fwd",
-    "//best/meta:taxonomy",
   ],
 )
 
@@ -45,7 +46,7 @@ cc_library(
   hdrs = ["guard.h"],
   deps = [
     ":tags",
-    "//best/meta:taxonomy",
+    "//best/meta/traits:refs",
   ]
 )
 
@@ -54,7 +55,6 @@ cc_library(
   hdrs = ["niche.h"],
   deps = [
     ":ord",
-    "//best/meta:taxonomy",
   ]
 )
 
@@ -68,7 +68,7 @@ cc_library(
     ":port",
     "//best/func:call",
     "//best/meta:init",
-    "//best/meta:taxonomy",
+    "//best/meta/traits:ptrs",
   ],
 )
 

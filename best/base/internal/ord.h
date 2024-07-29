@@ -21,7 +21,6 @@
 #define BEST_BASE_INTERNAL_ORD_H_
 
 #include "best/func/call.h"
-#include "best/meta/taxonomy.h"
 
 namespace best::ord_internal {
 struct le {

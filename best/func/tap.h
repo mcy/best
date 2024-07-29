@@ -22,7 +22,6 @@
 
 #include "best/base/tags.h"
 #include "best/func/call.h"
-#include "best/meta/taxonomy.h"
 
 //! Taps, `best`'s "functional pipeline" syntax.
 //!

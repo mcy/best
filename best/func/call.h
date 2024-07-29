@@ -25,8 +25,7 @@
 #include "best/base/fwd.h"
 #include "best/base/hint.h"
 #include "best/func/internal/call.h"
-#include "best/meta/empty.h"
-#include "best/meta/taxonomy.h"
+#include "best/meta/traits/empty.h"
 
 //! Highly generic function-calling functions.
 

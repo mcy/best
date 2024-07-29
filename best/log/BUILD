@@ -6,8 +6,9 @@ cc_library(
   deps = [
     "//best/base:port",
     "//best/base:fwd",
-    "//best/meta:taxonomy",
     "//best/func:fnref",
+    "//best/meta/traits:empty",
+    "//best/meta/traits:ptrs",
   ],
 )
 

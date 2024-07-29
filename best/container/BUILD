@@ -31,7 +31,6 @@ cc_library(
   deps = [
     "//best/base:ord",
     "//best/memory:ptr",
-    "//best/meta:empty",
   ]
 )
 
@@ -194,6 +193,6 @@ cc_library(
   hdrs = ["internal/simple_option.h"],
   visibility = ["//best:__subpackages__"],
   deps = [
-    "//best/meta:taxonomy",
+    "//best/meta/traits:refs",
   ]
 )

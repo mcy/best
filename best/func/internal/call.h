@@ -24,8 +24,10 @@
 
 #include "best/base/hint.h"
 #include "best/meta/init.h"
-#include "best/meta/taxonomy.h"
-#include "best/meta/traits.h"
+#include "best/meta/traits/empty.h"
+#include "best/meta/traits/funcs.h"
+#include "best/meta/traits/objects.h"
+#include "best/meta/traits/types.h"
 
 namespace best::call_internal {
 template <typename...>

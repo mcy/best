@@ -189,8 +189,8 @@ struct format_spec final {
     template <typename T>
     static constexpr auto of = []<typename q = query> {
       q query;
-      if constexpr (requires { BestFmtQuery(query, best::as_ptr<T>()); }) {
-        BestFmtQuery(query, best::as_ptr<T>());
+      if constexpr (requires { BestFmtQuery(query, best::as_raw_ptr<T>()); }) {
+        BestFmtQuery(query, best::as_raw_ptr<T>());
       }
       return query;
     }

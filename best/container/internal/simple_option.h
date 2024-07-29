@@ -22,7 +22,7 @@
 
 #include <cstddef>
 
-#include "best/meta/taxonomy.h"
+#include "best/meta/traits/refs.h"
 
 namespace best::container_internal {
 /// A simple implementation of best::option that does not use the complex
@@ -51,8 +51,8 @@ class option final {
   constexpr const T& operator*() const { return value_; }
   constexpr T& operator*() { return value_; }
 
-  constexpr const T* operator->() const { return best::addr(value_); }
-  constexpr T* operator->() { return best::addr(value_); }
+  constexpr const T* operator->() const { return __builtin_addressof(value_); }
+  constexpr T* operator->() { return __builtin_addressof(value_); }
 
   constexpr bool operator==(const option& that) const {
     return has_ == that.has_ && value_ == that.value_;
