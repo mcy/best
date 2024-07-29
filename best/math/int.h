@@ -34,69 +34,70 @@
 //! See also `overflow.h` and `bit.h` for more utilities.
 
 namespace best {
-/// # `best::integer`
+/// # `best::is_int`
 ///
 /// Any primitive integer type.
+///
 /// This explicitly excludes `bool` and non-`char` character types.
 template <typename T>
-concept integer = int_internal::is_int<best::un_qual<T>>;
+concept is_int = int_internal::is_int<best::un_qual<T>>;
 
 /// # `best::bits_of<T>`
 ///
 /// The number of bits in `Int`.
-template <integer Int>
+template <best::is_int Int>
 inline constexpr size_t bits_of = sizeof(Int) * 8;
 
-/// # `best::signed_int`
+/// # `best::is_signed`
 ///
 /// Any primitive signed integer.
 template <typename T>
-concept signed_int = best::integer<T> && std::is_signed_v<T>;
+concept is_signed = best::is_int<T> && std::is_signed_v<T>;
 
 /// # `best::to_signed()`
 ///
 /// Casts an integer to its signed counterpart, if it is not already signed.
 /// This operation never loses precision.
-BEST_INLINE_ALWAYS constexpr auto to_signed(integer auto x) {
+BEST_INLINE_ALWAYS constexpr auto to_signed(best::is_int auto x) {
   return (std::make_signed_t<decltype(x)>)x;
 }
 
 /// # `best::signed_cmp()`
 ///
 /// Compares two integers as if they were signed.
-BEST_INLINE_ALWAYS constexpr std::strong_ordering signed_cmp(integer auto x,
-                                                             integer auto y) {
+BEST_INLINE_ALWAYS constexpr std::strong_ordering signed_cmp(
+  best::is_int auto x, best::is_int auto y) {
   return best::to_signed(x) <=> best::to_signed(y);
 }
 
-/// # `best::unsigned_int`
+/// # `best::is_unsigned`
 ///
 /// Any primitive unsigned integer.
 template <typename T>
-concept unsigned_int = best::integer<T> && std::is_unsigned_v<T>;
+concept is_unsigned = best::is_int<T> && std::is_unsigned_v<T>;
 
 /// # `best::to_unsigned()`
 ///
 /// Casts an integer to its unsigned counterpart, if it is not already unsigned.
 /// This operation never loses precision.
-BEST_INLINE_ALWAYS constexpr auto to_unsigned(integer auto x) {
+BEST_INLINE_ALWAYS constexpr auto to_unsigned(best::is_int auto x) {
   return (std::make_unsigned_t<decltype(x)>)x;
 }
 
 /// # `best::unsigned_cmp()`
 ///
 /// Compares two integers as if they were unsigned.
-BEST_INLINE_ALWAYS constexpr std::strong_ordering unsigned_cmp(integer auto x,
-                                                               integer auto y) {
+BEST_INLINE_ALWAYS constexpr std::strong_ordering unsigned_cmp(
+  best::is_int auto x, best::is_int auto y) {
   return best::to_unsigned(x) <=> best::to_unsigned(y);
 }
 
 /// # `best::int_cmp()`
 ///
 /// Compares two integers as if they had infinite-precision.
-BEST_INLINE_ALWAYS constexpr std::strong_ordering int_cmp(integer auto x,
-                                                          integer auto y) {
-  if constexpr (signed_int<decltype(x)> == signed_int<decltype(y)>) {
+BEST_INLINE_ALWAYS constexpr std::strong_ordering int_cmp(best::is_int auto x,
+                                                          best::is_int auto y) {
+  if constexpr (best::is_signed<decltype(x)> == best::is_signed<decltype(y)>) {
     return x <=> y;
   } else if (x < 0) {
     return std::strong_ordering::less;
@@ -110,23 +111,23 @@ BEST_INLINE_ALWAYS constexpr std::strong_ordering int_cmp(integer auto x,
 /// # `best::max_of<T>`
 ///
 /// The maximum value for a particular integer type.
-template <integer Int>
+template <best::is_int Int>
 inline constexpr Int max_of =
   // If Int is unsigned, this is 0x11...11.
   // If Int is signed, this is 0x01...11.
-  to_unsigned<Int>(-1) >> signed_int<Int>;
+  to_unsigned<Int>(-1) >> best::is_signed<Int>;
 
 /// # `best::min_of<T>`
 ///
 /// The minimum value for a particular integer type.
-template <integer Int>
+template <best::is_int Int>
 inline constexpr Int min_of = ~max_of<Int>;
 
 /// # `best::int_fits()`
 ///
 /// Checks whether an integer is representable by another integer type.
-template <integer Int>
-BEST_INLINE_ALWAYS constexpr bool int_fits(integer auto x) {
+template <best::is_int Int>
+BEST_INLINE_ALWAYS constexpr bool int_fits(best::is_int auto x) {
   return best::int_cmp(x, min_of<Int>) >= 0 &&
          best::int_cmp(max_of<Int>, x) >= 0;
 }
@@ -135,8 +136,9 @@ BEST_INLINE_ALWAYS constexpr bool int_fits(integer auto x) {
 ///
 /// Casts an integer to another type, returning `best::none` if the cast would
 /// not be exact.
-template <integer Int>
-BEST_INLINE_ALWAYS constexpr best::option<Int> checked_cast(integer auto x) {
+template <best::is_int Int>
+BEST_INLINE_ALWAYS constexpr best::option<Int> checked_cast(
+  best::is_int auto x) {
   if (!best::int_fits<Int>(x)) { return {}; }
   return x;
 }
@@ -147,13 +149,13 @@ BEST_INLINE_ALWAYS constexpr best::option<Int> checked_cast(integer auto x) {
 ///
 /// This is defined to be the larges integer type among them. If any of them
 /// are unsigned, the type is also unsigned.
-template <integer... Ints>
+template <best::is_int... Ints>
 using common_int = decltype(best::int_internal::common<Ints...>());
 
 /// # `best::min()`
 ///
 /// Computes the minimum from a collection of signed or unsigned integers.
-template <unsigned_int... Ints>
+template <best::is_unsigned... Ints>
 BEST_INLINE_ALWAYS constexpr best::common_int<Ints...> min(Ints... args)
   requires (sizeof...(args) > 0)
 {
@@ -164,7 +166,7 @@ BEST_INLINE_ALWAYS constexpr best::common_int<Ints...> min(Ints... args)
   ((output > args ? output = args : 0), ...);
   return output;
 }
-template <signed_int... Ints>
+template <best::is_signed... Ints>
 BEST_INLINE_ALWAYS constexpr best::common_int<Ints...> min(Ints... args)
   requires (sizeof...(args) > 0)
 {
@@ -179,7 +181,7 @@ BEST_INLINE_ALWAYS constexpr best::common_int<Ints...> min(Ints... args)
 /// # `best::max()`
 ///
 /// Computes the maximum from a collection of signed or unsigned integers.
-template <unsigned_int... Ints>
+template <best::is_unsigned... Ints>
 BEST_INLINE_ALWAYS constexpr best::common_int<Ints...> max(Ints... args)
   requires (sizeof...(args) > 0)
 {
@@ -190,7 +192,7 @@ BEST_INLINE_ALWAYS constexpr best::common_int<Ints...> max(Ints... args)
   ((output < args ? output = args : 0), ...);
   return output;
 }
-template <signed_int... Ints>
+template <best::is_signed... Ints>
 BEST_INLINE_ALWAYS constexpr best::common_int<Ints...> max(Ints... args)
   requires (sizeof...(args) > 0)
 {

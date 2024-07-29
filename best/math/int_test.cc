@@ -22,19 +22,19 @@
 #include "best/container/option.h"  // Needed for best::checked_cast.
 
 namespace best::int_test {
-static_assert(best::integer<int8_t>);
-static_assert(best::integer<int16_t>);
-static_assert(best::integer<int32_t>);
-static_assert(best::integer<int64_t>);
-static_assert(best::integer<uint8_t>);
-static_assert(best::integer<uint16_t>);
-static_assert(best::integer<uint32_t>);
-static_assert(best::integer<uint64_t>);
+static_assert(best::is_int<int8_t>);
+static_assert(best::is_int<int16_t>);
+static_assert(best::is_int<int32_t>);
+static_assert(best::is_int<int64_t>);
+static_assert(best::is_int<uint8_t>);
+static_assert(best::is_int<uint16_t>);
+static_assert(best::is_int<uint32_t>);
+static_assert(best::is_int<uint64_t>);
 
-static_assert(!best::integer<bool>);
-static_assert(!best::integer<wchar_t>);
-static_assert(!best::integer<char16_t>);
-static_assert(!best::integer<char32_t>);
+static_assert(!best::is_int<bool>);
+static_assert(!best::is_int<wchar_t>);
+static_assert(!best::is_int<char16_t>);
+static_assert(!best::is_int<char32_t>);
 
 static_assert(best::to_unsigned(-1) == ~0);
 static_assert(best::to_signed(~0u) == -1);

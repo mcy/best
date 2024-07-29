@@ -225,7 +225,7 @@ constexpr void BestFromArgvQuery(auto& query, bool*) {
   query.wants_arg = false;
 }
 
-result<void, best::strbuf> BestFromArgv(auto raw, best::integer auto& arg) {
+result<void, best::strbuf> BestFromArgv(auto raw, best::is_int auto& arg) {
   if (auto i = best::atoi_with_prefix<best::as_auto<decltype(arg)>>(raw)) {
     arg = *i;
     return best::ok();

@@ -118,7 +118,7 @@ constexpr void BestFmtQuery(auto& query, T** range) {
   query.uses_method = [](rune r) { return r == 'p'; };
 }
 
-void BestFmt(auto& fmt, integer auto value) {
+void BestFmt(auto& fmt, best::is_int auto value) {
   // Taken liberally from Rust's implementation of Formatter::pad_integral().
 
   // First, select the base and prefix.
@@ -188,7 +188,7 @@ void BestFmt(auto& fmt, integer auto value) {
     for (size_t i = 0; i < post; ++i) { fmt.write(fill); }
   }
 }
-constexpr void BestFmtQuery(auto& query, integer auto*) {
+constexpr void BestFmtQuery(auto& query, best::is_int auto*) {
   query.requires_debug = false;
   query.supports_width = true;
   query.uses_method = [](auto r) { return str("boxX").contains(r); };

@@ -31,14 +31,13 @@
 //! Overflow-detection utilities.
 
 namespace best {
-
-template <integer>
+template <best::is_int>
 struct overflow;
 
 /// # `best::div_t`
 ///
 /// The result of calling `best::div`: a quotient and a remainder.
-template <integer Int>
+template <best::is_int Int>
 struct div_t {
   overflow<Int> quot, rem;
 };
@@ -47,7 +46,7 @@ struct div_t {
 ///
 /// Simultaneously computes the quotient and remainder. Crashes on division by
 /// zero.
-template <integer A, integer B>
+template <best::is_int A, best::is_int B>
 BEST_INLINE_ALWAYS constexpr best::div_t<common_int<A, B>> div(
   overflow<A> a, overflow<B> b, best::location loc = best::here) {
   if (best::unlikely(b.value == 0)) {
@@ -57,14 +56,14 @@ BEST_INLINE_ALWAYS constexpr best::div_t<common_int<A, B>> div(
   using C = common_int<A, B>;
   C ca = a.value, cb = b.value;
 
-  if (best::signed_int<C> && best::unlikely(ca == min_of<C> && cb == -1)) {
+  if (best::is_signed<C> && best::unlikely(ca == min_of<C> && cb == -1)) {
     return {{min_of<C>, true}, {min_of<C>, true}};
   }
 
   return {{ca / cb, a.overflowed || b.overflowed},
           {ca % cb, a.overflowed || b.overflowed}};
 }
-template <integer A, integer B>
+template <best::is_int A, best::is_int B>
 BEST_INLINE_ALWAYS constexpr best::div_t<common_int<A, B>> div(
   A a, B b, best::location loc = best::here) {
   return best::div(overflow(a), overflow(b));
@@ -73,7 +72,7 @@ BEST_INLINE_ALWAYS constexpr best::div_t<common_int<A, B>> div(
 /// # `best::ceildiv()`
 ///
 /// Performs division, but rounding towards infinity.
-template <integer A, integer B>
+template <best::is_int A, best::is_int B>
 BEST_INLINE_ALWAYS constexpr overflow<best::common_int<A, B>> ceildiv(
   overflow<A> a, overflow<B> b) {
   auto [q, r] = best::div(a, b);
@@ -82,7 +81,7 @@ BEST_INLINE_ALWAYS constexpr overflow<best::common_int<A, B>> ceildiv(
   }
   return q;
 }
-template <integer A, integer B>
+template <best::is_int A, best::is_int B>
 BEST_INLINE_ALWAYS constexpr overflow<best::common_int<A, B>> ceildiv(A a,
                                                                       B b) {
   return best::ceildiv(overflow(a), overflow(b));
@@ -92,7 +91,7 @@ BEST_INLINE_ALWAYS constexpr overflow<best::common_int<A, B>> ceildiv(A a,
 ///
 /// Computes a sum, but saturates at the integer boundaries instead of
 /// overflowing
-template <integer A, integer B>
+template <best::is_int A, best::is_int B>
 BEST_INLINE_ALWAYS constexpr best::common_int<A, B> saturating_add(A a, B b) {
   using C = common_int<A, B>;
   auto [c, of] = best::overflow(a) + b;
@@ -108,7 +107,7 @@ BEST_INLINE_ALWAYS constexpr best::common_int<A, B> saturating_add(A a, B b) {
 ///
 /// Computes a subtraction, but saturates at the integer boundaries instead of
 /// overflowing
-template <integer A, integer B>
+template <best::is_int A, best::is_int B>
 BEST_INLINE_ALWAYS constexpr best::common_int<A, B> saturating_sub(A a, B b) {
   using C = common_int<A, B>;
   auto [c, of] = best::overflow(a) - b;
@@ -116,8 +115,8 @@ BEST_INLINE_ALWAYS constexpr best::common_int<A, B> saturating_sub(A a, B b) {
     // The sign of a determines which direction to saturate in.
     // If C is unsigned, this condition is otherwise always false,
     // but unsigned subtraction can only underflow, so we adjust for that.
-    return (C(a) < 0 || best::unsigned_int<C>) ? best::min_of<C>
-                                               : best::max_of<C>;
+    return (C(a) < 0 || best::is_unsigned<C>) ? best::min_of<C>
+                                              : best::max_of<C>;
   }
   return c;
 }
@@ -126,7 +125,7 @@ BEST_INLINE_ALWAYS constexpr best::common_int<A, B> saturating_sub(A a, B b) {
 ///
 /// Computes a product, but saturates at the integer boundaries instead of
 /// overflowing
-template <integer A, integer B>
+template <best::is_int A, best::is_int B>
 BEST_INLINE_ALWAYS constexpr best::common_int<A, B> saturating_mul(A a, B b) {
   using C = common_int<A, B>;
   auto [c, of] = best::overflow(a) * b;
@@ -148,7 +147,7 @@ BEST_INLINE_ALWAYS constexpr best::common_int<A, B> saturating_mul(A a, B b) {
 /// +, -, and * have the usual definition of overflow. / and % underflow only
 /// when computing `best::div(best::min_of<Int>, -1)`. << and >> overflow when
 /// the shift amount is negative or than or equal to `best::bits<Int>`.
-template <integer Int>
+template <best::is_int Int>
 struct overflow {
   /// # `overflow::value`
   ///
@@ -218,7 +217,7 @@ struct overflow {
   BEST_INLINE_ALWAYS constexpr friend overflow operator+(overflow a) {
     return a;
   }
-  template <integer J>
+  template <best::is_int J>
   BEST_INLINE_ALWAYS constexpr friend overflow<common_int<Int, J>> operator+(
     overflow a, overflow<J> b) {
     using C = common_int<Int, J>;
@@ -230,14 +229,14 @@ struct overflow {
   }
 
   BEST_INLINE_ALWAYS constexpr friend overflow operator-(overflow a) {
-    if (best::signed_int<Int>) {
+    if (best::is_signed<Int>) {
       return a.value == min_of<Int> ? overflow{a.value, true}
                                     : overflow{-a.value, a.overflowed};
     }
 
     return {-a.value, a.overflowed || a.value != 0};
   }
-  template <integer J>
+  template <best::is_int J>
   BEST_INLINE_ALWAYS constexpr friend overflow<common_int<Int, J>> operator-(
     overflow a, overflow<J> b) {
     using C = common_int<Int, J>;
@@ -248,7 +247,7 @@ struct overflow {
     return {c, a.overflowed || b.overflowed || of};
   }
 
-  template <integer J>
+  template <best::is_int J>
   BEST_INLINE_ALWAYS constexpr friend overflow<common_int<Int, J>> operator*(
     overflow a, overflow<J> b) {
     using C = common_int<Int, J>;
@@ -259,12 +258,12 @@ struct overflow {
     return {c, a.overflowed || b.overflowed || of};
   }
 
-  template <integer J>
+  template <best::is_int J>
   BEST_INLINE_ALWAYS constexpr friend overflow<common_int<Int, J>> operator/(
     best::track_location<overflow> a, overflow<J> b) {
     return best::div(*a, b, a).quot;
   }
-  template <integer J>
+  template <best::is_int J>
   BEST_INLINE_ALWAYS constexpr friend overflow<common_int<Int, J>> operator%(
     best::track_location<overflow> a, overflow<J> b) {
     return best::div(*a, b, a).rem;
@@ -274,7 +273,7 @@ struct overflow {
     return {~a.value, a.overflowed};
   }
 
-  template <integer J>
+  template <best::is_int J>
   BEST_INLINE_ALWAYS constexpr friend overflow<common_int<Int, J>> operator&(
     overflow a, overflow<J> b) {
     using C = common_int<Int, J>;
@@ -282,7 +281,7 @@ struct overflow {
 
     return {ca & cb, a.overflowed || b.overflowed};
   }
-  template <integer J>
+  template <best::is_int J>
   BEST_INLINE_ALWAYS constexpr friend overflow<common_int<Int, J>> operator|(
     overflow a, overflow<J> b) {
     using C = common_int<Int, J>;
@@ -290,7 +289,7 @@ struct overflow {
 
     return {ca | cb, a.overflowed || b.overflowed};
   }
-  template <integer J>
+  template <best::is_int J>
   BEST_INLINE_ALWAYS constexpr friend overflow<common_int<Int, J>> operator^(
     overflow a, overflow<J> b) {
     using C = common_int<Int, J>;
@@ -299,37 +298,37 @@ struct overflow {
     return {ca ^ cb, a.overflowed || b.overflowed};
   }
 
-  template <integer J>
+  template <best::is_int J>
   BEST_INLINE_ALWAYS constexpr friend overflow<Int> operator<<(overflow a,
                                                                overflow<J> b) {
     auto shamt = b.value & (bits_of<Int> - 1);
     return {a.value << shamt, a.overflowed || b.overflowed || b.value != shamt};
   }
-  template <integer J>
+  template <best::is_int J>
   BEST_INLINE_ALWAYS constexpr friend overflow<Int> operator>>(overflow a,
                                                                overflow<J> b) {
     auto shamt = b.value & (bits_of<Int> - 1);
     return {a.value >> shamt, a.overflowed || b.overflowed || b.value != shamt};
   }
 
-#define BEST_OF_BOILERPLATE_(op_, opeq_)                                  \
-  BEST_INLINE_ALWAYS constexpr friend auto operator op_(overflow a,       \
-                                                        integer auto b) { \
-    return a op_ best::overflow(b);                                       \
-  }                                                                       \
-  BEST_INLINE_ALWAYS constexpr friend auto operator op_(integer auto a,   \
-                                                        overflow b) {     \
-    return best::overflow(a) op_ b;                                       \
-  }                                                                       \
-                                                                          \
-  template <integer J>                                                    \
-  BEST_INLINE_ALWAYS constexpr friend overflow& operator opeq_(           \
-    overflow & a, overflow<J> b) {                                        \
-    return a = a op_ b;                                                   \
-  }                                                                       \
-  BEST_INLINE_ALWAYS constexpr friend overflow& operator opeq_(           \
-    overflow & a, integer auto b) {                                       \
-    return a = a op_ b;                                                   \
+#define BEST_OF_BOILERPLATE_(op_, opeq_)                                       \
+  BEST_INLINE_ALWAYS constexpr friend auto operator op_(overflow a,            \
+                                                        best::is_int auto b) { \
+    return a op_ best::overflow(b);                                            \
+  }                                                                            \
+  BEST_INLINE_ALWAYS constexpr friend auto operator op_(best::is_int auto a,   \
+                                                        overflow b) {          \
+    return best::overflow(a) op_ b;                                            \
+  }                                                                            \
+                                                                               \
+  template <best::is_int J>                                                    \
+  BEST_INLINE_ALWAYS constexpr friend overflow& operator opeq_(                \
+    overflow & a, overflow<J> b) {                                             \
+    return a = a op_ b;                                                        \
+  }                                                                            \
+  BEST_INLINE_ALWAYS constexpr friend overflow& operator opeq_(                \
+    overflow & a, best::is_int auto b) {                                       \
+    return a = a op_ b;                                                        \
   }
 
   BEST_OF_BOILERPLATE_(+, +=)
@@ -345,14 +344,14 @@ struct overflow {
 
 #undef BEST_OF_BOILERPLATE_
 
-  template <integer J>
+  template <best::is_int J>
   BEST_INLINE_ALWAYS constexpr bool operator==(overflow<J> that)
     requires best::equatable<Int, J>
   {
     return value == that.value && overflowed == that.overflowed;
   }
 
-  template <integer J>
+  template <best::is_int J>
   BEST_INLINE_ALWAYS constexpr bool operator==(J that)
     requires best::equatable<Int, J>
   {
@@ -360,7 +359,7 @@ struct overflow {
   }
 };
 
-template <integer Int>
+template <best::is_int Int>
 overflow(Int) -> overflow<Int>;
 }  // namespace best
 

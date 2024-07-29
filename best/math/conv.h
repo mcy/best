@@ -40,7 +40,7 @@ struct atoi_error final {
 /// # `best::atoi()`
 ///
 /// Parses an integer from the given string type in the specified radix.
-template <best::integer Int>
+template <best::is_int Int>
 constexpr best::result<Int, best::atoi_error> atoi(const string_type auto &str,
                                                    uint32_t radix = 10);
 
@@ -48,7 +48,7 @@ constexpr best::result<Int, best::atoi_error> atoi(const string_type auto &str,
 ///
 /// Similar to `best::atoi()`, but determines which radix to parse in based
 /// on a prefix, such as `0x`, `0b`, `0o`, or `0`.
-template <best::integer Int>
+template <best::is_int Int>
 constexpr best::result<Int, best::atoi_error> atoi_with_prefix(
   const string_type auto &str);
 
@@ -56,7 +56,7 @@ constexpr best::result<Int, best::atoi_error> atoi_with_prefix(
 ///
 /// Similar to `best::atoi()`, but takes the sign of the value as a separate
 /// argument.
-template <best::integer Int>
+template <best::is_int Int>
 constexpr best::result<Int, best::atoi_error> atoi_with_sign(
   const string_type auto &str, bool is_negative, uint32_t radix) {
   if constexpr (best::is_pretext<decltype(str)>) {
@@ -80,7 +80,7 @@ constexpr best::result<Int, best::atoi_error> atoi_with_sign(
     // e.g. `80` will overflow `int8_t`.
     size_t total_codes = best::size(str);
     size_t maximum_codes_without_overflow =
-      sizeof(Int) * 2 - best::signed_int<Int>;
+      sizeof(Int) * 2 - best::is_signed<Int>;
     size_t cannot_overflow =
       radix <= 16 && total_codes <= maximum_codes_without_overflow;
 
@@ -126,7 +126,7 @@ constexpr best::result<Int, best::atoi_error> atoi_with_sign(
   }
 }
 
-template <best::integer Int>
+template <best::is_int Int>
 constexpr best::result<Int, best::atoi_error> atoi(const string_type auto &str_,
                                                    uint32_t radix) {
   if constexpr (best::is_pretext<decltype(str_)>) {
@@ -144,7 +144,7 @@ constexpr best::result<Int, best::atoi_error> atoi(const string_type auto &str_,
   }
 }
 
-template <best::integer Int>
+template <best::is_int Int>
 constexpr best::result<Int, best::atoi_error> atoi_with_prefix(
   const string_type auto &str_) {
   if constexpr (best::is_pretext<decltype(str_)>) {
