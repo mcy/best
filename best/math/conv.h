@@ -41,7 +41,7 @@ struct atoi_error final {
 ///
 /// Parses an integer from the given string type in the specified radix.
 template <best::is_int Int>
-constexpr best::result<Int, best::atoi_error> atoi(const string_type auto &str,
+constexpr best::result<Int, best::atoi_error> atoi(const best::is_string auto &str,
                                                    uint32_t radix = 10);
 
 /// # `best::atoi_with_prefix()`
@@ -50,7 +50,7 @@ constexpr best::result<Int, best::atoi_error> atoi(const string_type auto &str,
 /// on a prefix, such as `0x`, `0b`, `0o`, or `0`.
 template <best::is_int Int>
 constexpr best::result<Int, best::atoi_error> atoi_with_prefix(
-  const string_type auto &str);
+  const best::is_string auto &str);
 
 /// # `best::atoi_with_sign()`
 ///
@@ -58,7 +58,7 @@ constexpr best::result<Int, best::atoi_error> atoi_with_prefix(
 /// argument.
 template <best::is_int Int>
 constexpr best::result<Int, best::atoi_error> atoi_with_sign(
-  const string_type auto &str, bool is_negative, uint32_t radix) {
+  const best::is_string auto &str, bool is_negative, uint32_t radix) {
   if constexpr (best::is_pretext<decltype(str)>) {
     // Adapted slightly from the implementation found in Rust's
     // from_str_radix().
@@ -127,7 +127,7 @@ constexpr best::result<Int, best::atoi_error> atoi_with_sign(
 }
 
 template <best::is_int Int>
-constexpr best::result<Int, best::atoi_error> atoi(const string_type auto &str_,
+constexpr best::result<Int, best::atoi_error> atoi(const best::is_string auto &str_,
                                                    uint32_t radix) {
   if constexpr (best::is_pretext<decltype(str_)>) {
     if (radix > 36) {
@@ -146,7 +146,7 @@ constexpr best::result<Int, best::atoi_error> atoi(const string_type auto &str_,
 
 template <best::is_int Int>
 constexpr best::result<Int, best::atoi_error> atoi_with_prefix(
-  const string_type auto &str_) {
+  const best::is_string auto &str_) {
   if constexpr (best::is_pretext<decltype(str_)>) {
     auto str = str_;
     bool neg = str.consume_prefix('-');

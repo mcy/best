@@ -146,12 +146,12 @@ struct encoding_about final {
   bool allows_surrogates = false;
 };
 
-/// # `best::string_type`
+/// # `best::is_string`
 ///
 /// A string type: a contiguous range that defines the `BestEncoding()` FTADLE
 /// and whose data pointer matches that encoding.
 template <typename T>
-concept string_type =
+concept is_string =
   best::contiguous<T> && requires(best::ftadle& tag, const T& value) {
     { BestEncoding(tag, value) } -> best::encoding;
     {
@@ -162,24 +162,24 @@ concept string_type =
 /// # `best::encoding_of()`
 ///
 /// Extracts the encoding out of a string type.
-constexpr const auto& encoding_of(const string_type auto& string) {
+constexpr const auto& encoding_of(const best::is_string auto& string) {
   return BestEncoding(best::ftadle{}, string);
 }
 
 /// # `best::encoding_type<S>`
 ///
 /// Extracts the encoding type out of some string type.
-template <string_type S>
+template <best::is_string S>
 using encoding_type = best::as_auto<decltype(best::encoding_of(best::lie<S>))>;
 
 /// # `best::same_encoding()`
 ///
 /// Returns whether two string values have the same encoding. This verifies that
 /// their encodings compare as equal.
-constexpr bool same_encoding(const string_type auto& lhs,
-                             const string_type auto& rhs) {
-  if constexpr (best::equatable<encoding_type<decltype(lhs)>,
-                                encoding_type<decltype(rhs)>>) {
+constexpr bool same_encoding(const best::is_string auto& lhs,
+                             const best::is_string auto& rhs) {
+  if constexpr (best::equatable<best::encoding_type<decltype(lhs)>,
+                                best::encoding_type<decltype(rhs)>>) {
     return best::encoding_of(lhs) == best::encoding_of(rhs);
   }
 
@@ -189,9 +189,10 @@ constexpr bool same_encoding(const string_type auto& lhs,
 /// # `best::same_encoding_code()`
 ///
 /// Returns whether two string types have the same code unit type.
-template <string_type S1, string_type S2>
+template <best::is_string S1, best::is_string S2>
 constexpr bool same_encoding_code() {
-  return best::same<code<encoding_type<S1>>, code<encoding_type<S2>>>;
+  return best::same<best::code<best::encoding_type<S1>>,
+                    best::code<best::encoding_type<S2>>>;
 }
 }  // namespace best
 
