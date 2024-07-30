@@ -83,6 +83,7 @@ pieces of functionality.
 - `best/math` - Numeric and integer utilities.
 - `best/memory` - Low-level memory management.
 - `best/meta` - Metaprogramming utilities, including reflection.
+- `best/meta/traits` - Concepts and type traits.
 - `best/test` - A unit testing framework.
 - `best/text` - Text processing utilities. `best` is a Unicode-first library.
 
