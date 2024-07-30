@@ -26,7 +26,6 @@
 #include "best/base/hint.h"
 #include "best/base/port.h"
 #include "best/container/option.h"
-#include "best/meta/taxonomy.h"
 #include "best/meta/tlist.h"
 
 #define BEST_CONSTEXPR_MEMCMP_ BEST_HAS_FEATURE(cxx_constexpr_string_builtins)

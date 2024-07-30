@@ -189,8 +189,8 @@ struct format_spec final {
     template <typename T>
     static constexpr auto of = []<typename q = query> {
       q query;
-      if constexpr (requires { BestFmtQuery(query, best::as_ptr<T>()); }) {
-        BestFmtQuery(query, best::as_ptr<T>());
+      if constexpr (requires { BestFmtQuery(query, best::as_raw_ptr<T>()); }) {
+        BestFmtQuery(query, best::as_raw_ptr<T>());
       }
       return query;
     }
@@ -246,7 +246,7 @@ class formatter final {
   /// Writes character data directly to the output. Non-UTF-8 strings are
   /// transcoded as-needed.
   void write(rune r);
-  void write(const best::string_type auto& string);
+  void write(const best::is_string auto& string);
 
   /// # `formatter::format()`
   ///
@@ -425,7 +425,7 @@ void formatter::format(const best::format_spec& spec,
   cur_spec_ = old;
 }
 
-void formatter::write(const best::string_type auto& string) {
+void formatter::write(const best::is_string auto& string) {
   if constexpr (best::is_pretext<decltype(string)>) {
     if (indent_ == 0) {
       out_->push_lossy(string);

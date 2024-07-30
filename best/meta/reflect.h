@@ -23,8 +23,7 @@
 #include "best/container/row.h"
 #include "best/memory/span_sort.h"
 #include "best/meta/internal/reflect.h"
-#include "best/meta/taxonomy.h"
-#include "best/meta/traits.h"
+#include "best/meta/traits/types.h"
 #include "best/text/str.h"
 
 //! Struct and enum reflection.
@@ -208,7 +207,7 @@ class reflected_field final {
   }
   constexpr friend decltype(auto) operator->*(auto* struct_,
                                               reflected_field field)
-    requires best::same<best::as_auto<best::unptr<decltype(struct_)>>,
+    requires best::same<best::as_auto<best::un_raw_ptr<decltype(struct_)>>,
                         reflected>
   {
     return desc_.get_(*struct_);

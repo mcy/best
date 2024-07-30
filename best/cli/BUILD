@@ -37,7 +37,6 @@ cc_library(
     "//best/memory:allocator",
     "//best/meta:init",
     "//best/meta:reflect",
-    "//best/meta:taxonomy",
     "//best/text:format",
     "//best/text:str",
     "//best/text:strbuf",

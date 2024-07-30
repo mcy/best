@@ -21,7 +21,6 @@
 #define BEST_BASE_ACCESS_H_
 
 #include "best/base/fwd.h"
-#include "best/meta/taxonomy.h"
 
 //! The access helper.
 //!

@@ -24,7 +24,7 @@
 
 #include <type_traits>
 
-#include "best/meta/traits.h"
+#include "best/meta/traits/types.h"
 
 namespace best::int_internal {
 template <typename T>

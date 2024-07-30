@@ -24,8 +24,8 @@
 #include <source_location>
 
 #include "best/base/fwd.h"
-#include "best/meta/taxonomy.h"
-#include "best/meta/traits.h"
+#include "best/meta/traits/empty.h"
+#include "best/meta/traits/ptrs.h"
 
 namespace best {
 /// # `best::here`
@@ -103,14 +103,15 @@ class track_location {
   {
     return value_;
   }
-  constexpr best::as_ptr<const T> operator->() const& requires (
+  constexpr best::as_raw_ptr<const T> operator->() const& requires (
     !best::is_void<T>)
   {
-    return best::addr(value_);
+    return __builtin_addressof(value_);
   }
-  constexpr best::as_ptr<const T> operator->() & requires (!best::is_void<T>)
+  constexpr best::as_raw_ptr<const T> operator->() & requires (
+    !best::is_void<T>)
   {
-    return best::addr(value_);
+    return __builtin_addressof(value_);
   }
   constexpr operator best::as_ref<const T>() const { return value_; }
 

@@ -112,8 +112,8 @@ class choice final {
   template <size_t n> using ref = best::as_ref<type<n>>;
   template <size_t n> using crref = best::as_rref<const type<n>>;
   template <size_t n> using rref = best::as_rref<type<n>>;
-  template <size_t n> using cptr = best::as_ptr<const type<n>>;
-  template <size_t n> using ptr = best::as_ptr<type<n>>;
+  template <size_t n> using cptr = best::as_raw_ptr<const type<n>>;
+  template <size_t n> using ptr = best::as_raw_ptr<type<n>>;
   // clang-format on
 
   /// # `choice::choice(choice)`.

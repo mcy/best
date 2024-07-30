@@ -118,7 +118,7 @@ constexpr void BestFmtQuery(auto& query, T** range) {
   query.uses_method = [](rune r) { return r == 'p'; };
 }
 
-void BestFmt(auto& fmt, integer auto value) {
+void BestFmt(auto& fmt, best::is_int auto value) {
   // Taken liberally from Rust's implementation of Formatter::pad_integral().
 
   // First, select the base and prefix.
@@ -188,13 +188,13 @@ void BestFmt(auto& fmt, integer auto value) {
     for (size_t i = 0; i < post; ++i) { fmt.write(fill); }
   }
 }
-constexpr void BestFmtQuery(auto& query, integer auto*) {
+constexpr void BestFmtQuery(auto& query, best::is_int auto*) {
   query.requires_debug = false;
   query.supports_width = true;
   query.uses_method = [](auto r) { return str("boxX").contains(r); };
 }
 
-void BestFmt(auto& fmt, const best::string_type auto& s) {
+void BestFmt(auto& fmt, const best::is_string auto& s) {
   // Taken liberally from Rust's implementation of Formatter::pad().
   if constexpr (best::is_pretext<decltype(s)>) {
     auto str = s;
@@ -249,7 +249,7 @@ void BestFmt(auto& fmt, const best::string_type auto& s) {
   }
 }
 
-constexpr void BestFmtQuery(auto& query, best::string_type auto*) {
+constexpr void BestFmtQuery(auto& query, best::is_string auto*) {
   query.requires_debug = false;
   query.supports_width = true;
   query.supports_prec = true;
@@ -283,8 +283,7 @@ extern template void BestFmt(best::formatter&, unsigned long long);
 // TODO: invent ranges/iterator traits.
 template <typename R>
 void BestFmt(auto& fmt, const R& range)
-  requires (!best::string_type<R>) &&
-           requires { fmt.format(*std::begin(range)); }
+  requires (!best::is_string<R>) && requires { fmt.format(*std::begin(range)); }
 {
   // TODO: Printing for associative containers.
   auto list = fmt.list();
@@ -292,7 +291,7 @@ void BestFmt(auto& fmt, const R& range)
 }
 template <typename R>
 constexpr void BestFmtQuery(auto& query, R* range)
-  requires (!best::string_type<R>) && requires { *std::begin(*range); }
+  requires (!best::is_string<R>) && requires { *std::begin(*range); }
 {
   query = query.template of<decltype(*std::begin(*range))>;
   query.requires_debug = false;

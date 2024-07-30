@@ -50,7 +50,7 @@ cc_library(
     ],
   deps = [
     "//best/base:fwd",
-    "//best/meta:taxonomy",
+    "//best/meta/traits:quals",
   ],
 )
 

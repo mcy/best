@@ -17,41 +17,26 @@
 
 \* ////////////////////////////////////////////////////////////////////////// */
 
-#ifndef BEST_META_INTERNAL_TRAITS_H_
-#define BEST_META_INTERNAL_TRAITS_H_
+#ifndef BEST_META_TRAITS_OBJECTS_H_
+#define BEST_META_TRAITS_OBJECTS_H_
 
 #include <type_traits>
 
-namespace best::traits_internal {
-template <typename T, typename...>
-struct dependent {
-  using type = T;
-};
+//! Object type traits.
+//!
+//! This header provides traits related to object types. In C++, an "object
+//! type" is any type that is not void, a reference, or a function. `best`
+//! additionally does not consider array types to be object types, because they
+//! do not behave like aggregates as one might expect.
 
-template <bool cond, typename A, typename B>
-struct select {
-  using type = A;
-};
-template <typename A, typename B>
-struct select<false, A, B> {
-  using type = B;
-};
-
+namespace best {
+/// # `best::is_object`
+///
+/// An object type: anything that is not a reference, function, void, or an
+/// array.
 template <typename T>
-concept nonvoid = !std::is_void_v<T>;
+// TODO: make arrays not be objects.
+concept is_object = std::is_object_v<T> /*&& !std::is_array_v<T>*/;
+}  // namespace best
 
-struct wax {};
-template <typename Sealed>
-concept sealed = requires(Sealed sealed) {
-  sealed(wax{});
-  +sealed;  // Ensure that the user isn't passing a generic lambda.
-};
-
-template <typename T, sealed auto sealed = [](wax) { return T{}; }>
-inline constexpr auto seal = sealed;
-
-template <sealed S>
-using unseal = decltype(S{}(wax{}));
-}  // namespace best::traits_internal
-
-#endif  // BEST_META_INTERNAL_TRAITS_H_
+#endif  // BEST_META_TRAITS_OBJECTS_H_

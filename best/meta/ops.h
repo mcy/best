@@ -24,7 +24,7 @@
 
 #include "best/meta/init.h"
 #include "best/meta/internal/ops.h"
-#include "best/meta/traits.h"
+#include "best/meta/traits/types.h"
 
 //! Helpers for working with overloadable operators.
 

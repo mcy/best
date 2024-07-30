@@ -25,9 +25,8 @@
 #include "best/base/hint.h"
 #include "best/base/port.h"
 #include "best/memory/layout.h"
-#include "best/meta/empty.h"
 #include "best/meta/init.h"
-#include "best/meta/taxonomy.h"
+#include "best/meta/traits/empty.h"
 
 #define BEST_CONSTEXPR_MEMCPY_ BEST_HAS_FEATURE(cxx_constexpr_string_builtins)
 
@@ -65,7 +64,7 @@ class object_meta {
 
   template <typename P>
   constexpr explicit(
-    !best::same<best::unqual<typename P::type>, best::unqual<T>>)
+    !best::same<best::un_qual<typename P::type>, best::un_qual<T>>)
     object_meta(best::tlist<P>, const typename P::metadata&)
       requires best::convertible<pointee*, typename P::pointee*>
   {}
@@ -110,7 +109,7 @@ template <typename T>
 class ptr_like_meta {
  public:
   using type = T;
-  using pointee = best::as_ptr<T> const;
+  using pointee = best::as_raw_ptr<T> const;
   using metadata = best::empty;
   using as_const = T;
 
@@ -132,9 +131,9 @@ class ptr_like_meta {
     requires best::constructible<T, decltype(args)&&...>
   {
     if constexpr (best::is_ref<T>) {
-      *const_cast<best::unqual<pointee>*>(dst) = best::addr(args...);
+      *const_cast<best::un_qual<pointee>*>(dst) = best::addr(args...);
     } else if constexpr (best::is_func<T>) {
-      *const_cast<best::unqual<pointee>*>(dst) = (args, ...);
+      *const_cast<best::un_qual<pointee>*>(dst) = (args, ...);
     }
   }
 
@@ -204,7 +203,7 @@ class array_meta<T[len]> {
 
   template <typename P>
   constexpr explicit(
-    !best::same<best::unqual<typename P::type>, best::unqual<T>>)
+    !best::same<best::un_qual<typename P::type>, best::un_qual<T>>)
     array_meta(best::tlist<P>, const typename P::metadata&)
       requires best::convertible<pointee*, typename P::pointee*>
   {}

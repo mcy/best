@@ -25,8 +25,9 @@
 #include <cstdint>
 
 #include "best/base/tags.h"
-#include "best/meta/taxonomy.h"
-#include "best/meta/traits.h"
+#include "best/meta/traits/objects.h"
+#include "best/meta/traits/refs.h"
+#include "best/meta/traits/types.h"
 
 //! Forward declarations of all types in best that can be forward-declared.
 //!
@@ -126,9 +127,6 @@ template <best::is_object T, best::option<best::dependent<size_t, T>> =
                                best::option<best::dependent<size_t, T>>{}>
 class span;
 
-// best/meta/empty.h
-struct empty;
-
 // best/meta/names.h
 class type_names;
 
@@ -147,6 +145,13 @@ template <auto>
 struct val;
 template <typename...>
 class tlist;
+
+// best/meta/traits/arrays.h
+template <typename, size_t>
+class shape;
+
+// best/meta/traits/empty.h
+struct empty;
 
 // best/text/encoding.h
 struct encoding_about;

@@ -430,8 +430,10 @@ struct argv_query final {
   template <best::is_from_argv T>
   static constexpr auto of = []<typename q = argv_query> {
     q query;
-    if constexpr (requires { BestFromArgvQuery(query, best::as_ptr<T>()); }) {
-      BestFromArgvQuery(query, best::as_ptr<T>());
+    if constexpr (requires {
+                    BestFromArgvQuery(query, best::as_raw_ptr<T>());
+                  }) {
+      BestFromArgvQuery(query, best::as_raw_ptr<T>());
     }
     return query;
   }

@@ -131,7 +131,7 @@ class option final {
   static constexpr bool not_forbidden_conversion =
     (!best::same<best::in_place_t, best::as_auto<U>>)&&  //
     (!best::same<option, best::as_auto<U>>)&&            //
-    (!best::same<bool, best::unqual<T>>);
+    (!best::same<bool, best::un_qual<T>>);
 
  public:
   /// Helper type aliases.
@@ -142,8 +142,8 @@ class option final {
   using ref = best::as_ref<type>;
   using crref = best::as_rref<const type>;
   using rref = best::as_rref<type>;
-  using cptr = best::as_ptr<const type>;
-  using ptr = best::as_ptr<type>;
+  using cptr = best::as_raw_ptr<const type>;
+  using ptr = best::as_raw_ptr<type>;
 
   /// # `option::option()`
   ///
@@ -211,17 +211,18 @@ class option final {
   /// from `U`.
   template <is_option U>
   constexpr explicit(
-    !best::convertible<T, best::refcopy<best::option_type<U>, U&&>>)
+    !best::convertible<T, best::copy_ref<best::option_type<U>, U&&>>)
     option(U&& that)
       requires best::constructible<T,
-                                   best::refcopy<best::option_type<U>, U&&>> &&
+                                   best::copy_ref<best::option_type<U>, U&&>> &&
                cannot_init_from<U>
     : option() {
     *this = BEST_FWD(that);
   }
   template <is_option U>
   constexpr option& operator=(U&& that)
-    requires best::constructible<T, best::refcopy<best::option_type<U>, U&&>> &&
+    requires best::constructible<T,
+                                 best::copy_ref<best::option_type<U>, U&&>> &&
              cannot_init_from<U>
   {
     if (that.has_value()) {
@@ -961,7 +962,7 @@ constexpr option<T>&& option<T>::inspect(auto&& f) && {
 
 template <typename T>
 constexpr auto option<T>::then(auto&& f) const& {
-  using U = best::unref<best::call_result<decltype(f), cref>>;
+  using U = best::un_ref<best::call_result<decltype(f), cref>>;
   return impl().index_match([&](best::index_t<0>) -> U { return best::none; },
                             [&](best::index_t<1>, auto&&... args) -> U {
                               return best::call(BEST_FWD(f), BEST_FWD(args)...);
@@ -969,7 +970,7 @@ constexpr auto option<T>::then(auto&& f) const& {
 }
 template <typename T>
 constexpr auto option<T>::then(auto&& f) & {
-  using U = best::unref<best::call_result<decltype(f), ref>>;
+  using U = best::un_ref<best::call_result<decltype(f), ref>>;
   return impl().index_match([&](best::index_t<0>) -> U { return best::none; },
                             [&](best::index_t<1>, auto&&... args) -> U {
                               return best::call(BEST_FWD(f), BEST_FWD(args)...);
@@ -977,7 +978,7 @@ constexpr auto option<T>::then(auto&& f) & {
 }
 template <typename T>
 constexpr auto option<T>::then(auto&& f) const&& {
-  using U = best::unref<best::call_result<decltype(f), crref>>;
+  using U = best::un_ref<best::call_result<decltype(f), crref>>;
   return BEST_MOVE(*this).impl().index_match(
     [&](best::index_t<0>) -> U { return best::none; },
     [&](best::index_t<1>, auto&&... args) -> U {
@@ -986,7 +987,7 @@ constexpr auto option<T>::then(auto&& f) const&& {
 }
 template <typename T>
 constexpr auto option<T>::then(auto&& f) && {
-  using U = best::unref<best::call_result<decltype(f), rref>>;
+  using U = best::un_ref<best::call_result<decltype(f), rref>>;
   return BEST_MOVE(*this).impl().index_match(
     [&](best::index_t<0>) -> U { return best::none; },
     [&](best::index_t<1>, auto&&... args) -> U {

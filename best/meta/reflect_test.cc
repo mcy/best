@@ -97,7 +97,7 @@ best::test FindField = [](auto& t) {
   best::reflect<MyType>.match(
     "x", [&] {},
     [&](auto f) {
-      if constexpr (best::integer<typename decltype(f)::type>) { x0->*f = 42; }
+      if constexpr (best::is_int<typename decltype(f)::type>) { x0->*f = 42; }
     });
   t.expect_eq(x0, MyType{42, 2, 3, "foo", "bar"});
 

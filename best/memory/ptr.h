@@ -31,11 +31,11 @@
 #include "best/log/internal/crash.h"
 #include "best/memory/internal/ptr.h"
 #include "best/memory/layout.h"
-#include "best/meta/empty.h"
 #include "best/meta/init.h"
-#include "best/meta/taxonomy.h"
 #include "best/meta/tlist.h"
-#include "best/meta/traits.h"
+#include "best/meta/traits/arrays.h"
+#include "best/meta/traits/empty.h"
+#include "best/meta/traits/types.h"
 
 //! Raw pointers.
 //!
@@ -191,33 +191,6 @@ concept is_ptr_metadata =
     { meta.destroy(ptr) } -> best::same<void>;
   };
 
-/// # `best::is_thin`
-///
-/// Whether `best::ptr<T>` is a thin pointer. See `best::ptr::is_thin()`.
-template <typename T>
-concept is_thin = best::ptr<T>::is_thin();
-
-/// # `best::is_sized`
-///
-/// Whether `best::ptr<T>::layout()` depends on the pointer value.
-template <typename T>
-concept is_sized = requires { best::ptr_internal::meta<T>::layout(); };
-
-/// # `best::view`
-///
-/// The view type for `T`, i.e., the thing that `operator*` returns out of a
-/// `best::ptr<T>`.
-template <typename T>
-using view = best::ptr<T>::view;
-
-/// # `best::pointee<T>`
-///
-/// A suitable pointee type for representing values of the given type. In
-/// particular, this converts references into pointers, and function types
-/// into function pointers.
-template <typename T>
-using pointee = best::ptr<T>::pointee;
-
 /// # `best::ptr_constructible`
 ///
 /// Whether `T` can be constructed through a `best::ptr<T>` with the given
@@ -226,7 +199,7 @@ using pointee = best::ptr<T>::pointee;
 /// anything: for example, `best::ptr_constructable<int[], int[]>` is false.
 template <typename T, typename... Args>
 concept ptr_constructible = requires(best::ptr<T> p, Args... args) {
-  requires (!best::is_unbounded_array<Args> && ...);
+  requires (!best::is_unsized_array<Args> && ...);
   p.construct(BEST_FWD(args)...);
 };
 
@@ -279,8 +252,15 @@ class ptr final {
   /// The type returned by `operator*`. This can be either a reference, if
   /// the metadata type returns a pointer out of `deref`, or whatever view type
   /// `best::deref` returns.
-  using view =
-    best::select<best::is_ptr<arrow>, best::as_ref<best::unptr<arrow>>, arrow>;
+  using view = best::select<best::is_raw_ptr<arrow>,
+                            best::as_ref<best::un_raw_ptr<arrow>>, arrow>;
+
+  /// # `best::is_sized()`
+  ///
+  /// Whether `layout()` depends on the actual pointer value.
+  static constexpr bool is_sized() {
+    return requires { best::ptr_internal::meta<T>::layout(); };
+  }
 
   /// # `best::is_thin()`
   ///
@@ -288,7 +268,7 @@ class ptr final {
   /// is a trivial, empty type.
   static constexpr bool is_thin() {
     return std::is_trivial_v<metadata> && best::is_empty<metadata> &&
-           best::is_sized<T>;
+           is_sized();
   }
 
   /// # `best::is_const()`
@@ -415,7 +395,7 @@ class ptr final {
   constexpr auto get() const;
   constexpr view operator*() const { return deref(); }
   constexpr auto operator->() const {
-    if constexpr (best::is_ptr<decltype(get())>) {
+    if constexpr (best::is_raw_ptr<decltype(get())>) {
       return get();
     } else {
       return best::arrow(get());
@@ -806,8 +786,8 @@ constexpr bool ptr<T>::is_niche() const requires thin
 
 template <typename T>
 BEST_INLINE_SYNTHETIC constexpr auto ptr<T>::deref() const -> view {
-  if constexpr (best::is_ptr<decltype(get())>) {
-    if constexpr (best::is_void<best::unptr<decltype(get())>>) {
+  if constexpr (best::is_raw_ptr<decltype(get())>) {
+    if constexpr (best::is_void<best::un_raw_ptr<decltype(get())>>) {
       (void)get();
     } else {
       return *get();
@@ -932,7 +912,7 @@ BEST_INLINE_SYNTHETIC constexpr void ptr<T>::construct(niche) const
   if constexpr (best::is_object<T>) {
     new (raw()) T(niche{});
   } else if constexpr (best::is_ref<T>) {
-    *const_cast<best::unqual<pointee>*>(raw()) = nullptr;
+    *const_cast<best::un_qual<pointee>*>(raw()) = nullptr;
   }
 }
 

@@ -11,9 +11,8 @@ cc_library(
     "//best/base:niche",
     "//best/base:ord",
     "//best/meta:init",
-    "//best/meta:taxonomy",
     "//best/meta:tlist",
-    "//best/meta:traits",
+    "//best/meta/traits:types",
   ],
 )
 
@@ -62,6 +61,7 @@ cc_library(
     "//best/math:overflow",
     "//best/meta:ops",
     "//best/meta:tlist",
+    "//best/meta/traits:arrays",
   ]
 )
 

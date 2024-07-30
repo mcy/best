@@ -17,14 +17,10 @@
 
 \* ////////////////////////////////////////////////////////////////////////// */
 
-#ifndef BEST_META_INTERNAL_ABOMINABLE_H_
-#define BEST_META_INTERNAL_ABOMINABLE_H_
+#ifndef BEST_META_TRAITS_INTERNAL_FUNCS_H_
+#define BEST_META_TRAITS_INTERNAL_FUNCS_H_
 
-//! Implementation of best::tame_func.
-
-namespace best {
-namespace abominable_internal {
-
+namespace best::traits_internal {
 template <typename F>
 struct tame {
   using type = F;
@@ -69,10 +65,8 @@ BEST_TAME_(0, 1, 0, 1, volatile&& noexcept);
 BEST_TAME_(1, 1, 0, 0, const volatile noexcept);
 BEST_TAME_(1, 1, 1, 0, const volatile& noexcept);
 BEST_TAME_(1, 1, 0, 1, const volatile&& noexcept);
+}  // namespace best::traits_internal
 
 #undef BEST_TAME_
 
-}  // namespace abominable_internal
-}  // namespace best
-
-#endif  // BEST_META_INTERNAL_ABOMINABLE_H_
+#endif  // BEST_META_TRAITS_INTERNAL_FUNCS_H_

@@ -17,13 +17,17 @@
 
 \* ////////////////////////////////////////////////////////////////////////// */
 
-#ifndef BEST_META_TRAITS_H_
-#define BEST_META_TRAITS_H_
+#ifndef BEST_META_TRAITS_TYPES_H_
+#define BEST_META_TRAITS_TYPES_H_
 
-#include "best/meta/internal/traits.h"
+#include "best/meta/traits/internal/types.h"
 
-//! Traits for performing miscellaneous metaprogramming tasks. Many of these
-//! traits are implemented by `<type_traits>` but have horrendous names.
+//! Type traits.
+//!
+//! This header provides traits for operating on arbitrary types.
+//!
+//! Some of these traits are implemented by `<type_traits>` but have horrendous
+//! names.
 
 namespace best {
 /// # `best::id<T>`
@@ -34,6 +38,45 @@ template <typename T>
 struct id final {
   using type = T;
 };
+
+/// # `best::val<T>`
+///
+/// The identity value trait. Like `best::id`, but for values.
+template <auto x>
+struct val final {
+  using type = decltype(x);
+  static constexpr auto value = x;
+};
+
+/// # `best::dependent<...>`, `best::dependent_value<...>`
+///
+/// Makes a type dependent on template parameters.
+///
+/// There are sometimes cases where we want to force two-phase lookup[1] because
+/// we are using e.g. an incomplete type in complete position in a template, and
+/// the use is not dependent on the template parameters.
+///
+/// This always has the value of `T`, regardless of what `Deps` actually are.
+///
+/// [1]: https://en.cppreference.com/w/cpp/language/two-phase_lookup
+template <typename T, typename... Deps>
+using dependent = traits_internal::dependent<T, Deps...>::type;
+template <auto value, typename... Deps>
+using dependent_value =
+  traits_internal::dependent<best::val<value>, Deps...>::type::value;
+
+/// # `best::same<...>`
+///
+/// Returns whether a pack of types contains all the same type. `best::same<>`
+/// and `best::same<T> are always true.
+template <typename... Pack>
+concept same = traits_internal::same<Pack...>::value;
+
+/// # `best::lie<T>`
+///
+/// Lies to the compiler that we can materialize a `T`. This is just a shorter
+/// `std::declval()`.
+using ::best::traits_internal::lie;
 
 /// # `best::type_trait`
 ///
@@ -56,31 +99,6 @@ using extract_trait = T::type;
 /// `value`.
 template <typename T>
 concept value_trait = requires { T::value; };
-
-/// # `best::dependent<...>
-///
-/// Makes a type dependent on template parameters.
-///
-/// There are sometimes cases where we want to force two-phase lookup[1] because
-/// we are using e.g. an incomplete type in complete position in a template, and
-/// the use is not dependent on the template parameters.
-///
-/// This always has the value of `T`, regardless of what `Deps` actually are.
-///
-/// [1]: https://en.cppreference.com/w/cpp/language/two-phase_lookup
-template <typename T, typename... Deps>
-using dependent = traits_internal::dependent<T, Deps...>::type;
-
-/// # `best::lie<T>`
-///
-/// Lies to the compiler that we can materialize a `T`. This is just a shorter
-/// `std::declval()`.
-template <traits_internal::nonvoid T>
-T&& lie = [] {
-  static_assert(
-    sizeof(T) == 0,
-    "attempted to tell a best::lie: this value cannot be materialized");
-}();
 
 /// # `best::select<...>`
 ///
@@ -114,4 +132,4 @@ template <typename T>
 concept abridged = best::traits_internal::sealed<T>;
 }  // namespace best
 
-#endif  // BEST_META_TRAITS_H_
+#endif  // BEST_META_TRAITS_TYPES_H_

@@ -23,7 +23,9 @@
 #include <cstddef>
 
 #include "best/func/call.h"
-#include "best/meta/taxonomy.h"
+#include "best/meta/traits/funcs.h"
+#include "best/meta/traits/ptrs.h"
+#include "best/meta/traits/refs.h"
 
 namespace best::fnref_internal {
 template <typename F>
@@ -48,11 +50,11 @@ class impl {
       lambda_(+[](const void* captures, Args... args) -> R {
         if constexpr (best::is_void<R>) {
           best::call(
-            *reinterpret_cast<const best::unref<decltype(fn)>*>(captures),
+            *reinterpret_cast<const best::un_ref<decltype(fn)>*>(captures),
             BEST_FWD(args)...);
         } else {
           return best::call(
-            *reinterpret_cast<const best::unref<decltype(fn)>*>(captures),
+            *reinterpret_cast<const best::un_ref<decltype(fn)>*>(captures),
             BEST_FWD(args)...);
         }
       }) {}
@@ -62,11 +64,11 @@ class impl {
     : ptr_(best::addr(fn)),
       lambda_(+[](const void* captures, Args... args) -> R {
         if constexpr (best::is_void<R>) {
-          best::call(*reinterpret_cast<best::unref<decltype(fn)>*>(
+          best::call(*reinterpret_cast<best::un_ref<decltype(fn)>*>(
                        const_cast<void*>(captures)),
                      BEST_FWD(args)...);
         } else {
-          return best::call(*reinterpret_cast<best::unref<decltype(fn)>*>(
+          return best::call(*reinterpret_cast<best::un_ref<decltype(fn)>*>(
                               const_cast<void*>(captures)),
                             BEST_FWD(args)...);
         }

@@ -21,8 +21,6 @@
 #define BEST_FUNC_FNREF_H_
 
 #include "best/func/internal/fnref.h"
-#include "best/meta/internal/abominable.h"
-#include "best/meta/taxonomy.h"
 
 //! Dynamic function references.
 //!
@@ -45,10 +43,10 @@ namespace best {
 /// `best::fnref` is a somewhat dangerous type to return or place into a
 /// container. It's not forbidden, but it's something to do carefully.
 template <typename Signature>
-class fnref final : best::abominable_internal::tame<Signature>::template apply<
+class fnref final : best::traits_internal::tame<Signature>::template apply<
                       fnref_internal::impl> {
  private:
-  using impl_t = best::abominable_internal::tame<Signature>::template apply<
+  using impl_t = best::traits_internal::tame<Signature>::template apply<
     fnref_internal::impl>;
 
  public:

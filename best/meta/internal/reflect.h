@@ -24,8 +24,8 @@
 #include "best/base/port.h"
 #include "best/meta/internal/names.h"
 #include "best/meta/names.h"
-#include "best/meta/taxonomy.h"
-#include "best/meta/traits.h"
+#include "best/meta/traits/classes.h"
+#include "best/meta/traits/types.h"
 #include "best/text/str.h"
 
 //! Reflection descriptors.
@@ -114,7 +114,7 @@ struct discard {
 /// correctly.
 template <typename T, typename U>
 constexpr bool typed_addr_eq(T* a, U* b)
-  requires best::same<best::unqual<T>, best::unqual<U>>
+  requires best::same<best::un_qual<T>, best::un_qual<U>>
 {
   return a == b;
 }
@@ -175,7 +175,7 @@ constexpr decltype(auto) bind(auto&& val) {
         // Structured bindings' type does not preserve value category
         // correctly, so we need to adjust its type to match the value
         // category of `val`.
-        return best::refcopy<decltype(the_one), decltype(val)>(the_one);
+        return best::copy_ref<decltype(the_one), decltype(val)>(the_one);
       });
   });
 }
@@ -190,7 +190,7 @@ class fdesc final {
 
   using Tags = best::unabridge<Tags_>;
   using struct_ = S;
-  using type = best::unptr<decltype(p.unwrap)>;
+  using type = best::un_raw_ptr<decltype(p.unwrap)>;
   inline static constexpr auto Kind = Field;
 
   constexpr fdesc(best::vlist<p>, best::tlist<S>, Get get, Tags tags)

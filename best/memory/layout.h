@@ -27,8 +27,7 @@
 #include "best/math/int.h"
 #include "best/math/overflow.h"
 #include "best/memory/internal/layout.h"
-#include "best/meta/empty.h"
-#include "best/meta/traits.h"
+#include "best/meta/traits/arrays.h"
 
 namespace best {
 /// # `best::size_of<T>`
@@ -191,9 +190,8 @@ struct laid_out final {
   static constexpr best::layout layout() { return l; }
 
  private:
-  alignas(layout().align()) [[no_unique_address]] best::select<
-    l.size() == 0, best::empty,
-    char[layout().size() + (layout().size() == 0)]> data_;
+  alignas(layout().align())
+    [[no_unique_address]] best::as_array<char, layout().size()> data_;
 };
 }  // namespace best
 

@@ -179,11 +179,11 @@ class textbuf final {
   /// Creates a new string by transcoding from a different encoding. Returns
   /// `none` if `that` contains runes that this string's encoding cannot
   /// represent.
-  static best::option<textbuf> transcode(const string_type auto& that) {
+  static best::option<textbuf> transcode(const best::is_string auto& that) {
     return transcode(alloc{}, that);
   }
   static best::option<textbuf> transcode(alloc alloc,
-                                         const string_type auto& that) {
+                                         const best::is_string auto& that) {
     textbuf out(alloc);
     if (!out.push(that)) { return best::none; }
     return out;
@@ -300,7 +300,7 @@ class textbuf final {
   /// Pushes a rune or string to this vector. Returns `false` if input text
   /// contains characters that cannot be transcoded to this strings's encoding.
   bool push(rune r);
-  bool push(const string_type auto& that);
+  bool push(const best::is_string auto& that);
 
   /// # `textbuf::push_lossy()`.
   ///
@@ -309,7 +309,7 @@ class textbuf final {
   /// are replaced with `rune::Replacement`, or if that cannot be encoded, with
   /// `?`.
   void push_lossy(rune r);
-  void push_lossy(const string_type auto& that);
+  void push_lossy(const best::is_string auto& that);
 
   /// # `textbuf::clear()`.
   ///
@@ -321,19 +321,21 @@ class textbuf final {
   /// Strings can be compared regardless of encoding, and they may be
   /// compared with runes, too.
   bool operator==(rune r) const { return as_text() == r; }
-  bool operator==(const string_type auto& s) const { return as_text() == s; }
+  bool operator==(const best::is_string auto& s) const {
+    return as_text() == s;
+  }
   bool operator==(best::span<const code> span) const {
     return as_text() == span;
   }
   bool operator==(const code* lit) const { return as_text() == lit; }
 
-  // Make this into a best::string_type.
+  // Make this into a best::is_string.
   friend const encoding& BestEncoding(auto, const textbuf& t) {
     return t.enc();
   }
 
   constexpr best::ord operator<=>(rune r) const { return as_text() <=> r; }
-  constexpr best::ord operator<=>(const string_type auto& s) const {
+  constexpr best::ord operator<=>(const best::is_string auto& s) const {
     return as_text() <=> s;
   }
   constexpr best::ord operator<=>(best::span<const code> span) const {
@@ -379,7 +381,7 @@ bool textbuf<E, A>::push(rune r) {
   return false;
 }
 template <typename E, allocator A>
-bool textbuf<E, A>::push(const string_type auto& that) {
+bool textbuf<E, A>::push(const best::is_string auto& that) {
   if constexpr (best::is_text<decltype(that)> &&
                 best::same_encoding_code<textbuf, decltype(that)>()) {
     if (best::same_encoding(*this, that)) {
@@ -422,7 +424,7 @@ void textbuf<E, A>::push_lossy(rune r) {
 }
 
 template <typename E, allocator A>
-void textbuf<E, A>::push_lossy(const string_type auto& that) {
+void textbuf<E, A>::push_lossy(const best::is_string auto& that) {
   if constexpr (best::is_text<decltype(that)> &&
                 best::same_encoding_code<textbuf, decltype(that)>()) {
     if (best::same_encoding(*this, that)) {

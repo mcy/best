@@ -27,7 +27,6 @@
 #include "best/base/guard.h"
 #include "best/math/overflow.h"
 #include "best/memory/span.h"
-#include "best/meta/taxonomy.h"
 #include "best/text/encoding.h"
 #include "best/text/rune.h"
 #include "best/text/utf8.h"
@@ -268,7 +267,7 @@ class text final {
   constexpr bool starts_with(rune prefix) const {
     return text_.starts_with(prefix);
   }
-  constexpr bool starts_with(const string_type auto& prefix) const {
+  constexpr bool starts_with(const best::is_string auto& prefix) const {
     return text_.starts_with(prefix);
   }
   constexpr bool starts_with(best::callable<bool(rune)> auto&& pred) const {
@@ -286,7 +285,7 @@ class text final {
     return best::none;
   }
   constexpr best::option<text> strip_prefix(
-    const string_type auto& prefix) const {
+    const best::is_string auto& prefix) const {
     if (auto suffix = text_.strip_prefix(prefix)) {
       return text(unsafe("suffix was created from a best::text"), *suffix);
     }
@@ -310,7 +309,7 @@ class text final {
     if (suffix) { *this = *suffix; }
     return suffix.has_value();
   }
-  constexpr bool consume_prefix(const string_type auto& s) {
+  constexpr bool consume_prefix(const best::is_string auto& s) {
     auto suffix = strip_prefix(s);
     if (suffix) { *this = *suffix; }
     return suffix.has_value();
@@ -346,8 +345,7 @@ class text final {
   /// implementations of e.g. `memchr` and `memcmp` for finding the desired
   /// pattern. Therefore, when possible, prefer to provide a needle by value.
   constexpr best::option<size_t> find(best::rune needle) const;
-  constexpr best::option<size_t> find(
-    const best::string_type auto& needle) const;
+  constexpr best::option<size_t> find(const best::is_string auto& needle) const;
   constexpr best::option<size_t> find(
     best::callable<bool(rune)> auto&& pred) const;
 
@@ -359,7 +357,7 @@ class text final {
   constexpr bool contains(rune needle) const {
     return find(needle).has_value();
   }
-  constexpr bool contains(const string_type auto& needle) const {
+  constexpr bool contains(const best::is_string auto& needle) const {
     return find(needle).has_value();
   }
   constexpr bool contains(best::callable<bool(rune)> auto&& needle) const {
@@ -374,7 +372,7 @@ class text final {
   /// A pattern for a separator may be as in `text::find()`.
   constexpr best::option<best::row<text, text>> split_once(rune needle) const;
   constexpr best::option<best::row<text, text>> split_once(
-    const string_type auto& needle) const;
+    const best::is_string auto& needle) const;
   constexpr best::option<best::row<text, text>> split_once(
     best::callable<bool(rune)> auto&& pred) const;
 
@@ -385,7 +383,7 @@ class text final {
   ///
   /// A pattern for a separator may be as in `text::find()`.
   constexpr auto split(best::rune needle) const;
-  constexpr auto split(const best::string_type auto& needle) const;
+  constexpr auto split(const best::is_string auto& needle) const;
   constexpr auto split(best::callable<bool(rune)> auto&& pred) const;
 
  private:
@@ -400,7 +398,7 @@ class text final {
   /// Strings can be compared regardless of encoding, and they may be compared
   /// with runes, too.
   constexpr bool operator==(rune r) const { return text_ == r; }
-  constexpr bool operator==(const string_type auto& s) const {
+  constexpr bool operator==(const best::is_string auto& s) const {
     return text_ == s;
   }
   constexpr bool operator==(const text&) const = default;
@@ -412,7 +410,7 @@ class text final {
   }
 
   constexpr best::ord operator<=>(rune r) const { return text_ <=> r; }
-  constexpr best::ord operator<=>(const string_type auto& s) const {
+  constexpr best::ord operator<=>(const best::is_string auto& s) const {
     return text_ <=> s;
   }
   constexpr best::ord operator<=>(best::span<const code> span) const {
@@ -422,7 +420,7 @@ class text final {
     return text_ <=> best::span<const code>::from_nul(lit);
   }
 
-  // Make this into a best::string_type.
+  // Make this into a best::is_string.
   constexpr friend const encoding& BestEncoding(auto, const text& t) {
     return t.enc();
   }
@@ -486,7 +484,7 @@ class pretext final {
   ///
   /// Creates a new string from some other string type whose encoding we can
   /// divine.
-  constexpr pretext(const best::string_type auto& data)
+  constexpr pretext(const best::is_string auto& data)
     requires best::same<encoding, best::encoding_type<decltype(data)>>
     : span_(data), enc_(best::encoding_of(data)) {}
 
@@ -495,8 +493,8 @@ class pretext final {
   /// Creates a new string from an arbitrary span.
   template <best::contiguous R>
   constexpr pretext(const R& data, encoding enc = {})
-    requires best::same<best::unqual<best::data_type<R>>, code> &&
-               (!best::string_type<R> ||
+    requires best::same<best::un_qual<best::data_type<R>>, code> &&
+               (!best::is_string<R> ||
                 !best::same<encoding, best::encoding_type<decltype(data)>>)
     : span_(data), enc_(BEST_MOVE(enc)) {}
 
@@ -625,8 +623,7 @@ class pretext final {
   /// implementations of e.g. `memchr` and `memcmp` for finding the desired
   /// pattern. Therefore, when possible, prefer to provide a needle by value.
   constexpr best::option<size_t> find(best::rune needle) const;
-  constexpr best::option<size_t> find(
-    const best::string_type auto& needle) const;
+  constexpr best::option<size_t> find(const best::is_string auto& needle) const;
   constexpr best::option<size_t> find(
     best::callable<bool(rune)> auto&& pred) const;
 
@@ -638,7 +635,7 @@ class pretext final {
   constexpr bool contains(best::rune needle) const {
     return find(needle).has_value();
   }
-  constexpr bool contains(const best::string_type auto& needle) const {
+  constexpr bool contains(const best::is_string auto& needle) const {
     return find(needle).has_value();
   }
   constexpr bool contains(best::callable<bool(rune)> auto&& pred) const {
@@ -654,7 +651,7 @@ class pretext final {
   constexpr best::option<best::row<pretext, pretext>> split_once(
     best::rune needle) const;
   constexpr best::option<best::row<pretext, pretext>> split_once(
-    const best::string_type auto& needle) const;
+    const best::is_string auto& needle) const;
   constexpr best::option<best::row<pretext, pretext>> split_once(
     best::callable<bool(rune)> auto&& pred) const;
 
@@ -665,7 +662,7 @@ class pretext final {
   ///
   /// A pattern for a separator may be as in `pretext::find()`.
   constexpr auto split(best::rune needle) const;
-  constexpr auto split(const best::string_type auto& needle) const;
+  constexpr auto split(const best::is_string auto& needle) const;
   constexpr auto split(best::callable<bool(rune)> auto&& pred) const;
 
  private:
@@ -681,7 +678,7 @@ class pretext final {
   constexpr bool starts_with(best::rune prefix) const {
     return strip_prefix(prefix).has_value();
   }
-  constexpr bool starts_with(const best::string_type auto& prefix) const {
+  constexpr bool starts_with(const best::is_string auto& prefix) const {
     return strip_prefix(prefix).has_value();
   }
   constexpr bool starts_with(best::callable<bool(rune)> auto&& pred) const {
@@ -694,7 +691,7 @@ class pretext final {
   /// otherwise returns `best::none.
   constexpr best::option<pretext> strip_prefix(best::rune prefix) const;
   constexpr best::option<pretext> strip_prefix(
-    const best::string_type auto& prefix) const;
+    const best::is_string auto& prefix) const;
   constexpr best::option<pretext> strip_prefix(
     best::callable<bool(rune)> auto&& pred) const;
 
@@ -707,7 +704,7 @@ class pretext final {
     if (rest) { *this = *rest; }
     return rest.has_value();
   }
-  constexpr bool consume_prefix(const best::string_type auto& prefix) {
+  constexpr bool consume_prefix(const best::is_string auto& prefix) {
     auto rest = strip_prefix(prefix);
     if (rest) { *this = *rest; }
     return rest.has_value();
@@ -724,7 +721,7 @@ class pretext final {
   /// Strings can be compared regardless of encoding, and they may be compared
   /// with runes, too.
   constexpr bool operator==(rune) const;
-  constexpr bool operator==(const string_type auto&) const;
+  constexpr bool operator==(const best::is_string auto&) const;
   constexpr bool operator==(const pretext&) const = default;
   constexpr bool operator==(best::span<const code> span) const {
     return span_ == span;
@@ -734,7 +731,7 @@ class pretext final {
   }
 
   constexpr best::ord operator<=>(rune) const;
-  constexpr best::ord operator<=>(const string_type auto&) const;
+  constexpr best::ord operator<=>(const best::is_string auto&) const;
   constexpr best::ord operator<=>(best::span<const code> span) const {
     return span_ <=> span;
   }
@@ -742,9 +739,9 @@ class pretext final {
     return span_ <=> best::span<const code>::from_nul(lit);
   }
 
-  // Make this into a best::string_type. Need to make this into a funny template
+  // Make this into a best::is_string. Need to make this into a funny template
   // to avoid infinite recursion while checking
-  // best::string_type<best::pretext>.
+  // best::is_string<best::pretext>.
   constexpr friend const encoding& BestEncoding(auto, const auto& t)
     requires best::same<decltype(t), const pretext&>
   {
@@ -759,7 +756,7 @@ class pretext final {
 };
 template <best::encoding E>
 pretext(E) -> pretext<E>;
-template <best::string_type S>
+template <best::is_string S>
 pretext(const S&) -> pretext<best::encoding_type<S>>;
 
 template <typename E>
@@ -1072,7 +1069,7 @@ constexpr best::option<size_t> text<E>::find(best::rune needle) const {
 }
 template <typename E>
 constexpr best::option<size_t> text<E>::find(
-  const best::string_type auto& needle) const {
+  const best::is_string auto& needle) const {
   auto [a, b] =
     str_internal::splits(best::pretext(*this), best::pretext(needle));
   if (a == -1) { return best::none; }
@@ -1097,7 +1094,7 @@ constexpr best::option<best::row<text<E>, text<E>>> text<E>::split_once(
 
 template <typename E>
 constexpr best::option<best::row<text<E>, text<E>>> text<E>::split_once(
-  const best::string_type auto& needle) const {
+  const best::is_string auto& needle) const {
   auto [a, b] =
     str_internal::splits(best::pretext(*this), best::pretext(needle));
   if (a == -1) { return best::none; }
@@ -1120,7 +1117,7 @@ constexpr auto text<E>::split(best::rune needle) const {
   });
 }
 template <typename E>
-constexpr auto text<E>::split(const best::string_type auto& needle) const {
+constexpr auto text<E>::split(const best::is_string auto& needle) const {
   return text_.split(needle).map([](auto pre) {
     return text{unsafe("valid because text_ was already valid"), pre};
   });
@@ -1214,7 +1211,7 @@ constexpr best::option<pretext<E>> pretext<E>::strip_prefix(
 
 template <typename E>
 constexpr best::option<pretext<E>> pretext<E>::strip_prefix(
-  const best::string_type auto& s) const {
+  const best::is_string auto& s) const {
   if constexpr (best::is_pretext<best::as_auto<decltype(s)>>) {
     if constexpr (best::same_encoding_code<pretext, decltype(s)>() &&
                   About.is_self_syncing) {
@@ -1255,7 +1252,7 @@ constexpr best::option<size_t> pretext<E>::find(best::rune needle) const {
 }
 template <typename E>
 constexpr best::option<size_t> pretext<E>::find(
-  const best::string_type auto& needle) const {
+  const best::is_string auto& needle) const {
   auto [a, b] = str_internal::splits(*this, best::pretext(needle));
   if (a == -1) { return best::none; }
   return a;
@@ -1279,7 +1276,7 @@ pretext<E>::split_once(best::rune needle) const {
 
 template <typename E>
 constexpr best::option<best::row<pretext<E>, pretext<E>>>
-pretext<E>::split_once(const best::string_type auto& needle) const {
+pretext<E>::split_once(const best::is_string auto& needle) const {
   auto [a, b] = str_internal::splits(*this, best::pretext(needle));
   if (a == -1) { return best::none; }
   best::unsafe u("splits() does a bounds-check for us");
@@ -1299,7 +1296,7 @@ constexpr auto pretext<E>::split(best::rune needle) const {
   return split_iter<rune>(split_impl<rune>(needle, *this));
 }
 template <typename E>
-constexpr auto pretext<E>::split(const best::string_type auto& needle) const {
+constexpr auto pretext<E>::split(const best::is_string auto& needle) const {
   pretext text = needle;
   return split_iter<decltype(text)>(split_impl<decltype(text)>(text, *this));
 }
@@ -1315,7 +1312,7 @@ constexpr bool pretext<E>::operator==(rune r) const {
 }
 
 template <typename E>
-constexpr bool pretext<E>::operator==(const string_type auto& s) const {
+constexpr bool pretext<E>::operator==(const best::is_string auto& s) const {
   return strip_prefix(s).has_value(&pretext::is_empty);
 }
 
@@ -1330,7 +1327,8 @@ constexpr best::ord pretext<E>::operator<=>(rune r) const {
 }
 
 template <typename E>
-constexpr best::ord pretext<E>::operator<=>(const string_type auto& str) const {
+constexpr best::ord pretext<E>::operator<=>(
+  const best::is_string auto& str) const {
   if constexpr (best::is_pretext<best::as_auto<decltype(str)>>) {
     if constexpr (best::bytes_internal::byte_comparable<code> &&
                   About.is_self_syncing &&

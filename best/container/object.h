@@ -27,8 +27,8 @@
 #include "best/base/ord.h"
 #include "best/base/tags.h"
 #include "best/memory/ptr.h"
-#include "best/meta/empty.h"
 #include "best/meta/init.h"
+#include "best/meta/traits/empty.h"
 
 //! Objectification: turn any C++ type into a something you can use as a class
 //! member.
@@ -57,7 +57,7 @@ class object final {
   /// # `object::wrapped_type`
   ///
   /// The representation for the value we're wrapping.
-  using wrapped_type = best::devoid<best::unqual<best::pointee<T>>>;
+  using wrapped_type = best::devoid<best::un_qual<best::pointee<T>>>;
 
   using type = T;
   using value_type = best::as_auto<T>;
