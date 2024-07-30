@@ -41,8 +41,8 @@ struct atoi_error final {
 ///
 /// Parses an integer from the given string type in the specified radix.
 template <best::is_int Int>
-constexpr best::result<Int, best::atoi_error> atoi(const best::is_string auto &str,
-                                                   uint32_t radix = 10);
+constexpr best::result<Int, best::atoi_error> atoi(
+  const best::is_string auto &str, uint32_t radix = 10);
 
 /// # `best::atoi_with_prefix()`
 ///
@@ -127,8 +127,8 @@ constexpr best::result<Int, best::atoi_error> atoi_with_sign(
 }
 
 template <best::is_int Int>
-constexpr best::result<Int, best::atoi_error> atoi(const best::is_string auto &str_,
-                                                   uint32_t radix) {
+constexpr best::result<Int, best::atoi_error> atoi(
+  const best::is_string auto &str_, uint32_t radix) {
   if constexpr (best::is_pretext<decltype(str_)>) {
     if (radix > 36) {
       crash_internal::crash("from_digit() radix too large: %u > 36", radix);

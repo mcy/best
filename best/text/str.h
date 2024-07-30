@@ -345,8 +345,7 @@ class text final {
   /// implementations of e.g. `memchr` and `memcmp` for finding the desired
   /// pattern. Therefore, when possible, prefer to provide a needle by value.
   constexpr best::option<size_t> find(best::rune needle) const;
-  constexpr best::option<size_t> find(
-    const best::is_string auto& needle) const;
+  constexpr best::option<size_t> find(const best::is_string auto& needle) const;
   constexpr best::option<size_t> find(
     best::callable<bool(rune)> auto&& pred) const;
 
@@ -624,8 +623,7 @@ class pretext final {
   /// implementations of e.g. `memchr` and `memcmp` for finding the desired
   /// pattern. Therefore, when possible, prefer to provide a needle by value.
   constexpr best::option<size_t> find(best::rune needle) const;
-  constexpr best::option<size_t> find(
-    const best::is_string auto& needle) const;
+  constexpr best::option<size_t> find(const best::is_string auto& needle) const;
   constexpr best::option<size_t> find(
     best::callable<bool(rune)> auto&& pred) const;
 
@@ -1329,7 +1327,8 @@ constexpr best::ord pretext<E>::operator<=>(rune r) const {
 }
 
 template <typename E>
-constexpr best::ord pretext<E>::operator<=>(const best::is_string auto& str) const {
+constexpr best::ord pretext<E>::operator<=>(
+  const best::is_string auto& str) const {
   if constexpr (best::is_pretext<best::as_auto<decltype(str)>>) {
     if constexpr (best::bytes_internal::byte_comparable<code> &&
                   About.is_self_syncing &&

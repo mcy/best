@@ -59,6 +59,28 @@ inline constexpr auto seal = sealed;
 
 template <sealed S>
 using unseal = decltype(S{}(wax{}));
+
+template <typename...>
+struct same {
+  static constexpr bool value = false;
+};
+
+template <>
+struct same<> {
+  static constexpr bool value = true;
+};
+
+template <typename A>
+struct same<A, A> {
+  static constexpr bool value = true;
+};
+
+template <typename A, typename... B>
+requires (sizeof...(B) > 1)
+struct same<A, B...> {
+  static constexpr bool value = (same<A, B>::value && ...);
+};
+
 }  // namespace best::traits_internal
 
 #endif  // BEST_META_TRAITS_INTERNAL_TYPES_H_

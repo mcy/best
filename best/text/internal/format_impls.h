@@ -283,8 +283,7 @@ extern template void BestFmt(best::formatter&, unsigned long long);
 // TODO: invent ranges/iterator traits.
 template <typename R>
 void BestFmt(auto& fmt, const R& range)
-  requires (!best::is_string<R>) &&
-           requires { fmt.format(*std::begin(range)); }
+  requires (!best::is_string<R>) && requires { fmt.format(*std::begin(range)); }
 {
   // TODO: Printing for associative containers.
   auto list = fmt.list();

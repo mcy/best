@@ -191,33 +191,6 @@ concept is_ptr_metadata =
     { meta.destroy(ptr) } -> best::same<void>;
   };
 
-/// # `best::is_thin`
-///
-/// Whether `best::ptr<T>` is a thin pointer. See `best::ptr::is_thin()`.
-template <typename T>
-concept is_thin = best::ptr<T>::is_thin();
-
-/// # `best::is_sized`
-///
-/// Whether `best::ptr<T>::layout()` depends on the pointer value.
-template <typename T>
-concept is_sized = requires { best::ptr_internal::meta<T>::layout(); };
-
-/// # `best::view`
-///
-/// The view type for `T`, i.e., the thing that `operator*` returns out of a
-/// `best::ptr<T>`.
-template <typename T>
-using view = best::ptr<T>::view;
-
-/// # `best::pointee<T>`
-///
-/// A suitable pointee type for representing values of the given type. In
-/// particular, this converts references into pointers, and function types
-/// into function pointers.
-template <typename T>
-using pointee = best::ptr<T>::pointee;
-
 /// # `best::ptr_constructible`
 ///
 /// Whether `T` can be constructed through a `best::ptr<T>` with the given
@@ -282,13 +255,20 @@ class ptr final {
   using view = best::select<best::is_raw_ptr<arrow>,
                             best::as_ref<best::un_raw_ptr<arrow>>, arrow>;
 
+  /// # `best::is_sized()`
+  ///
+  /// Whether `layout()` depends on the actual pointer value.
+  static constexpr bool is_sized() {
+    return requires { best::ptr_internal::meta<T>::layout(); };
+  }
+
   /// # `best::is_thin()`
   ///
   /// Returns whether this is a "thin pointer", i.e., a pointer whose metadata
   /// is a trivial, empty type.
   static constexpr bool is_thin() {
     return std::is_trivial_v<metadata> && best::is_empty<metadata> &&
-           best::is_sized<T>;
+           is_sized();
   }
 
   /// # `best::is_const()`

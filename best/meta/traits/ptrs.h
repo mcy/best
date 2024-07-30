@@ -22,6 +22,7 @@
 
 #include <type_traits>
 
+#include "best/base/fwd.h"
 #include "best/meta/traits/funcs.h"
 
 //! Pointer type traits.
@@ -64,6 +65,33 @@ concept is_func_ptr = best::is_raw_ptr<T> && best::is_func<best::un_raw_ptr<T>>;
 /// The returned type is *always* a raw pointer.
 template <typename T>
 using as_raw_ptr = std::add_pointer_t<best::tame<T>>;
+
+/// # `best::view`
+///
+/// The view type for `T`, i.e., the thing that `operator*` returns out of a
+/// `best::ptr<T>`.
+template <typename T>
+using view = best::ptr<T>::view;
+
+/// # `best::pointee<T>`
+///
+/// A suitable pointee type for representing values of the given type. In
+/// particular, this converts references into pointers, and function types
+/// into function pointers.
+template <typename T>
+using pointee = best::ptr<T>::pointee;
+
+/// # `best::is_thin`
+///
+/// Whether `best::ptr<T>` is a thin pointer. See `best::ptr::is_thin()`.
+template <typename T>
+concept is_thin = best::ptr<T>::is_thin();
+
+/// # `best::is_sized`
+///
+/// Whether `best::ptr<T>::layout()` depends on the pointer value.
+template <typename T>
+concept is_sized = best::ptr<T>::is_sized();
 
 /// # `best::addr()`
 ///

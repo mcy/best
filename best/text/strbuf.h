@@ -321,7 +321,9 @@ class textbuf final {
   /// Strings can be compared regardless of encoding, and they may be
   /// compared with runes, too.
   bool operator==(rune r) const { return as_text() == r; }
-  bool operator==(const best::is_string auto& s) const { return as_text() == s; }
+  bool operator==(const best::is_string auto& s) const {
+    return as_text() == s;
+  }
   bool operator==(best::span<const code> span) const {
     return as_text() == span;
   }

@@ -99,12 +99,6 @@ inline constexpr auto indices = []<size_t... i>(std::index_sequence<i...>) {
   return best::vals<i...>;
 }(std::make_index_sequence<n>{});
 
-/// Variadic version of std::is_same/std::same_as.
-template <typename... Ts>
-concept same =
-  (std::same_as<Ts, typename best::tlist<Ts...>::template type<0, void>> &&
-   ...);
-
 /// # `best::tlist<...>`
 ///
 /// A type-level type list. This type makes it easy to manipulate packs of types

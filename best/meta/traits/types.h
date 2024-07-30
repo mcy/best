@@ -65,6 +65,13 @@ template <auto value, typename... Deps>
 using dependent_value =
   traits_internal::dependent<best::val<value>, Deps...>::type::value;
 
+/// # `best::same<...>`
+///
+/// Returns whether a pack of types contains all the same type. `best::same<>`
+/// and `best::same<T> are always true.
+template <typename... Pack>
+concept same = traits_internal::same<Pack...>::value;
+
 /// # `best::lie<T>`
 ///
 /// Lies to the compiler that we can materialize a `T`. This is just a shorter
