@@ -212,9 +212,10 @@ concept ptr_constructible = requires(best::ptr<T> p, Args... args) {
 /// pointer.
 template <typename T, typename U>
 concept ptr_losslessly_converts_to =
-  requires(best::ptr_internal::meta<U>& to, best::ptr_internal::meta<T> from) {
+  requires(best::ptr_internal::meta<U>& to,
+           const best::ptr_internal::meta<T>::metadata& from) {
     {
-      to = {best::types<T>, from}
+      to = {best::types<best::ptr<T>>, from}
     };
   };
 
@@ -307,6 +308,11 @@ class ptr final {
   /// Wraps a C++ pointer. Requires `best::ptr<T>` to be a thin pointer.
   constexpr ptr(pointee* ptr) requires thin
     : BEST_PTR_(ptr) {}
+
+  template <typename U>
+  constexpr ptr(U* p) requires (best::ptr<U>::is_thin() &&
+                                best::constructible<best::ptr<T>, best::ptr<U>>)
+    : ptr(best::ptr<U>(p)) {}
 
   /// # `ptr::ptr(ptr<U>)`
   ///
@@ -631,22 +637,27 @@ class ptr final {
   ///
   /// On success, returns a new `best::ptr<T>` with the correct metadata
   /// attached.
-  [[nodiscard(
-    "ptr::try_copy() returns whether or not it "
-    "succeeded")]] BEST_INLINE_ALWAYS constexpr ptr
-  try_copy(ptr that) const {
-    if (!meta_().is_dynamically_copyable()) { return nullptr; }
-    meta_().copy(that, *this, false);
-    return {raw(), that.meta()};
+  [[nodiscard("ptr::try_copy() returns whether or not it succeeded")]]  //
+  BEST_INLINE_ALWAYS constexpr ptr
+  try_copy(ptr from) const {
+    if (!from.can_copy()) { return nullptr; }
+    from.meta_().copy(raw(), from.raw(), false);
+    return ptr{raw(), from.meta()};
   }
   [[nodiscard(
-    "ptr::try_copy_assign() returns whether or not it "
-    "succeeded")]] BEST_INLINE_ALWAYS constexpr ptr
-  try_copy_assign(ptr that) const {
-    if (!meta_().is_dynamically_copyable()) { return nullptr; }
-    meta_().copy(that, *this, true);
-    return {raw(), that.meta()};
+    "ptr::try_copy_assign() returns whether or not it succeeded")]]  //
+  BEST_INLINE_ALWAYS constexpr ptr
+  try_copy_assign(ptr from) const {
+    if (!from.can_copy()) { return nullptr; }
+    from.meta_().copy(raw(), from.raw(), true);
+    return ptr{raw(), from.meta()};
   }
+
+  /// # `ptr::can_copy()`
+  ///
+  /// Checks whether or not the pointee is dynamically copyable. This may be
+  /// true even when `ptr::copy()` fails overload resolution.
+  constexpr bool can_copy() const { return meta_().is_dynamically_copyable(); }
 
   /// # `ptr::copy_overlapping()`, `ptr::move_overlapping()`
   ///

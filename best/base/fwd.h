@@ -185,6 +185,9 @@ class test;
 namespace ptr_internal {
 struct access;
 }
+namespace dyn_internal {
+struct access;
+}
 }  // namespace best
 
 #endif  // BEST_BASE_FWD_H_

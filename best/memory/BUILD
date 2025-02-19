@@ -7,12 +7,37 @@ cc_library(
     "internal/ptr.h",
   ],
   deps = [
+    "//best/base:access",
     "//best/base:hint",
     "//best/base:niche",
     "//best/base:ord",
     "//best/meta:init",
     "//best/meta:tlist",
     "//best/meta/traits:types",
+  ],
+)
+
+cc_library(
+  name = "dyn",
+  hdrs = [
+    "dyn.h",
+    "internal/dyn.h",  
+  ],
+  deps = [
+    ":layout",
+    "//best/base:access",
+    "//best/meta/traits:types",
+  ],
+)
+
+cc_test(
+  name = "dyn_test",
+  srcs = ["dyn_test.cc"],
+  linkopts = ["-rdynamic"],
+  deps = [
+    ":dyn",
+    "//best/container:box",
+    "//best/test",
   ],
 )
 

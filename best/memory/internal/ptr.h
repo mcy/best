@@ -22,6 +22,7 @@
 
 #include <cstddef>
 
+#include "best/base/access.h"
 #include "best/base/hint.h"
 #include "best/base/port.h"
 #include "best/memory/layout.h"
@@ -344,9 +345,9 @@ class array_meta<T[]> {
 
 struct access {
   template <typename T>
-  static auto get_meta() {
-    if constexpr (requires { typename T::BestPtrMetadata; }) {
-      return best::id<typename T::BestPtrMetadata>{};
+  static constexpr auto get_meta() {
+    if constexpr (!best::is_void<best::access::BestPtrMetadata<T>>) {
+      return best::id<best::access::BestPtrMetadata<T>>{};
     } else if constexpr (best::is_array<T>) {
       return best::id<array_meta<T>>{};
     } else if constexpr (best::is_object<T>) {
