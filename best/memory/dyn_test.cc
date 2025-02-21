@@ -19,6 +19,7 @@
 
 #include "best/memory/dyn.h"
 
+#include "best/memory/ptr.h"
 #include "best/test/test.h"
 
 namespace best::dyn_test {
@@ -74,7 +75,7 @@ constexpr int ct_test() {
 
 best::test Ptr = [](best::test& t) {
   int x = 42;
-  best::ptr<best::dyn<IntHolder>> p = &x;
+  best::dynptr<IntHolder> p = &x;
   t.expect_eq(p->get(), -42);
 
   Struct y{42};
@@ -83,8 +84,11 @@ best::test Ptr = [](best::test& t) {
 };
 
 best::test Box = [](best::test& t) {
-  best::box<best::dyn<IntHolder>> p = best::box(42);
+  best::dynbox<IntHolder> p = best::box(42);
+  best::dynptr<IntHolder> p_ = p;
+
   t.expect_eq(p->get(), -42);
+  t.expect_eq(p_->get(), -42);
 
   p = best::box(Struct{42});
   t.expect_eq(p->get(), 84);
@@ -96,5 +100,19 @@ best::test Box = [](best::test& t) {
   (*p2)->set(45);
   t.expect_eq(p->get(), 84);
   t.expect_eq((*p2)->get(), 90);
+};
+
+best::test Of = [](best::test& t) {
+  int x = 1;
+  Struct y = {.value = 2};
+  best::dynptr<IntHolder> p = &x;
+  best::dynbox<IntHolder> q = best::box(y);
+
+  t.expect_eq(best::dyn<IntHolder>::of(x)->get(), -1);
+  t.expect_eq(best::dyn<IntHolder>::of(y)->get(), 4);
+  t.expect_eq(best::dyn<IntHolder>::of(&x)->get(), -1);
+  t.expect_eq(best::dyn<IntHolder>::of(&y)->get(), 4);
+  t.expect_eq(best::dyn<IntHolder>::of(p)->get(), -1);
+  t.expect_eq(best::dyn<IntHolder>::of(q)->get(), 4);
 };
 }  // namespace best::dyn_test

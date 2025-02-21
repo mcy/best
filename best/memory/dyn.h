@@ -26,7 +26,10 @@
 #include "best/memory/internal/dyn.h"
 #include "best/memory/layout.h"
 #include "best/memory/ptr.h"
+#include "best/meta/init.h"
+#include "best/meta/traits/ptrs.h"
 #include "best/meta/traits/quals.h"
+#include "best/meta/traits/refs.h"
 
 namespace best {
 /// # `best::vtable`
@@ -155,27 +158,68 @@ concept interface = requires(void* vp, const I& iface) {
 /// must return an appropriate vtable type.
 ///
 /// Both arguments actually passed to `BestImplements` will be null.
-template <typename T, typename I>
-concept implements = requires(T* ptr, I* iptr) {
-  requires best::interface<I>;
-  { BestImplements(ptr, iptr) } -> best::same<const best::vtable<I>&>;
+template <typename T, typename Interface>
+concept implements = requires(T* ptr, Interface* iptr) {
+  requires best::interface<Interface>;
+  { BestImplements(ptr, iptr) } -> best::same<const best::vtable<Interface>&>;
 };
 
-/// # `best::dyn<T>`
+/// # `best::dyn<Interface>`
 ///
 /// A generic polymorphic type wrapper, for use with e.g. `best::box`.
 /// `best::dyn` generalizes C++ virtual functions in a way that allows users to
 /// define new interfaces for types the do not own.
-template <best::interface I>
+template <best::interface Interface>
 class dyn {
  public:
   // Non-constructible; only usable with e.g. best::box and best::ptr.
   constexpr dyn() = delete;
 
+  /// # `best::dyn::of()`
+  ///
+  /// Wraps a value which satisfies `Interface` in an appropriate way, producing
+  /// a `best::dynptr<Interface>` for the contained value. A type which can be
+  /// passed to `of` satisfies `best::as_dyn<Interface>`.
+  ///
+  /// This function returns the least-qualified of `best::dynptr<Interface>`
+  /// or `best::dynptr<const Interface>` possible.
+  template <typename P>
+  static constexpr auto of(P&& ptr) requires (
+    best::converts_to<P &&, best::ptr<best::dyn<Interface>>> ||
+    best::converts_to<P &&, best::ptr<best::dyn<const Interface>>> ||
+    best::converts_to<best::un_ref<P>*, best::ptr<best::dyn<Interface>>> ||
+    best::converts_to<best::un_ref<P>*, best::ptr<best::dyn<const Interface>>>)
+  {
+    if constexpr (best::converts_to<best::un_ref<P>*,
+                                    best::ptr<best::dyn<Interface>>>) {
+      return best::ptr<best::dyn<Interface>>(best::addr(ptr));
+    } else if constexpr (best::converts_to<
+                           best::un_ref<P>*,
+                           best::ptr<best::dyn<const Interface>>>) {
+      return best::ptr<best::dyn<const Interface>>(best::addr(ptr));
+    } else if constexpr (best::converts_to<P&&,
+                                           best::ptr<best::dyn<Interface>>>) {
+      return best::ptr<best::dyn<Interface>>(BEST_FWD(ptr));
+    } else if constexpr (best::converts_to<
+                           P&&, best::ptr<best::dyn<const Interface>>>) {
+      return best::ptr<best::dyn<const Interface>>(BEST_FWD(ptr));
+    }
+  }
+
  private:
   class meta;
   friend best::access;
   using BestPtrMetadata = meta;
+};
+
+/// # `best::as_dyn<Interface>`
+///
+/// A type that can be accessed as a `best::dyn<Interface>`. This includes all
+/// types which implement it, as well as pointer types that convert to
+/// `best::dynptr<Interface>`.
+template <typename T, typename Interface>
+concept as_dyn = requires(T&& value) {
+  { best::dyn<Interface>::of(value) };
 };
 
 /// # `best::dynbox<I>`

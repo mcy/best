@@ -229,6 +229,21 @@ class BEST_RELOCATABLE box final {
     return BEST_MOVE(*this).into_raw().first();
   }
 
+  template <typename U>
+  constexpr operator best::ptr<U>() const requires requires {
+    { as_ptr().as_const() } -> best::converts_to<best::ptr<U>>;
+  }
+  {
+    return as_ptr().as_const();
+  }
+  template <typename U>
+  constexpr operator best::ptr<U>() requires requires {
+    { as_ptr() } -> best::converts_to<best::ptr<U>>;
+  }
+  {
+    return as_ptr();
+  }
+
   friend void BestFmt(auto& fmt, const box& box) {
     if constexpr (requires { fmt.format(*box); }) {
       if (fmt.current_spec().method != 'p') { fmt.format(*box); }
