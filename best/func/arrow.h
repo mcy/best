@@ -20,6 +20,8 @@
 #ifndef BEST_FUNC_ARROW_H_
 #define BEST_FUNC_ARROW_H_
 
+#include "best/meta/traits/ptrs.h"
+
 //! Arrows, helpers for implementing exotic `operator->`s.
 //!
 //! When C++ sees `a->b`, and `a` is not a raw pointer, it replaces it with

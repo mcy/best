@@ -22,6 +22,16 @@ cc_library(
 cc_library(
   name = "port",
   hdrs = ["port.h"],
+  deps = [":macro"],
+)
+
+cc_library(
+  name = "macro",
+  hdrs = [
+    "internal/macro.h",
+    "internal/macro.inc",
+    "macro.h",
+  ],
 )
 
 cc_library(

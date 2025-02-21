@@ -111,13 +111,14 @@ struct int_range;
 template <typename>
 class track_location;
 
+// best/memory/dyn.h
+template <typename I>
+requires requires { typename I::BestFuncs; }
+class vtable;
+
 // best/memory/ptr.h
 template <typename>
 class ptr;
-
-// best/memory/vptr.h
-template <typename...>
-class vptr;
 
 // best/memory/span.h
 // To actually forward-declare this, we can't utter best::option<size_t> here

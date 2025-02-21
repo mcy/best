@@ -20,6 +20,8 @@
 #ifndef BEST_BASE_PORT_H_
 #define BEST_BASE_PORT_H_
 
+#include "best/base/macro.h"
+
 //! Miscellaneous helper/portability macros.
 
 namespace best {
@@ -69,17 +71,6 @@ inline constexpr bool is_debug() {
 #else
 #define BEST_HAS_INCLUDE(x_) __has_include(x_)
 #endif
-
-/// # `BEST_STRINGIFY()`
-///
-/// Stringifies a token string.
-#define BEST_STRINGIFY(...) BEST_STRINGIFY_(__VA_ARGS__)
-#define BEST_STRINGIFY_(...) #__VA_ARGS__
-
-/// # `BEST_PRAGMA()`
-///
-/// Helper macro for generating more readable pragma definitions.
-#define BEST_PRAGMA(...) _Pragma(BEST_STRINGIFY(__VA_ARGS__))
 
 /// # `BEST_WEAK`
 ///

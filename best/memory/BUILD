@@ -25,6 +25,7 @@ cc_library(
   ],
   deps = [
     ":layout",
+    "//best/func:fnref",
     "//best/base:access",
     "//best/meta/traits:types",
   ],

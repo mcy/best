@@ -21,37 +21,66 @@
 #define BEST_META_TRAITS_REFS_H2_
 
 #include <cstddef>
+
 #include "best/base/access.h"
 #include "best/memory/internal/dyn.h"
 #include "best/memory/layout.h"
 #include "best/memory/ptr.h"
+#include "best/meta/traits/quals.h"
 
 namespace best {
-/// # `best::vtable_header`
+/// # `best::vtable`
 ///
-/// The header for a `best::dyn` interface's vtable. It should be the first
-/// field of the vtable struct.
-struct vtable_header {
-  best::layout layout;
-  void (*dtor)(void*) = nullptr;
-  void (*copy)(void* dst, void* src) = nullptr;
+/// A complete, raw vtable for a `best::dyn`. This includes a custom
+/// per-interface function pointer table, plus
+template <typename Interface>
+requires requires { typename Interface::BestFuncs; }
+class vtable final {
+ public:
+  /// # `best::vtable::funcs`
+  ///
+  /// Function table information specific to `Interface`.
+  using funcs = Interface::BestFuncs;
 
+  /// # `best::vtable::vtable()`
+  ///
+  /// Constructs a new vtable witnessing that the type `T` implements
+  /// `Interface`, with the given `Interface`-specific data.
+  ///
+  /// This constructor has no way of checking that `funcs` is actually
+  /// appropriate for this vtable.
   template <typename T>
-  static constexpr auto of() {
-    vtable_header hdr = {
-      .layout = best::layout::of<T>(),
-      .dtor = +[](void* vp) { best::ptr<T>((T*)vp).destroy(); },
-    };
+  constexpr vtable(best::tlist<T>, funcs funcs);
 
-    if constexpr (best::copyable<T>) {
-      hdr.copy = +[](void* dst_, void* src_) {
-        best::ptr<T> dst((T*)dst_), src((T*)src_);
-        dst.copy(src);
-      };
-    }
+  /// # `best::vtable::layout()`
+  ///
+  /// Returns the layout for the type this vtable represents.
+  constexpr best::layout layout() const { return layout_; }
 
-    return hdr;
-  }
+  /// # `best::vtable::can_copy()`, `best::vtable::copy()`
+  ///
+  /// Runs the copy constructor for this vtable's type. Some types are not
+  /// copyable; this can be queried with `can_copy()`. Calling `copy()` on a
+  /// non-copyable type is undefined behavior.
+  constexpr bool can_copy() const { return copy_ != nullptr; }
+  constexpr void copy(void* dst, void* src) const { copy_(dst, src); }
+
+  /// # `best::vtable::destroy`
+  ///
+  /// Runs the destructor for this vtable's type. `ptr` must be a pointer to
+  /// an initialized value of the type this vtable was constructed with.
+  constexpr void destroy(void* ptr) const { dtor_(ptr); }
+
+  /// # `best::vtable::operator->`
+  ///
+  /// Provides access to this vtable's `funcs` value.
+  constexpr const funcs* operator->() const { return best::addr(funcs_); }
+
+ private:
+  best::layout layout_;
+  void (*dtor_)(void*);
+  void (*copy_)(void* dst, void* src) = nullptr;
+  funcs funcs_;
 };
 
 /// # `best::interface<I>`
@@ -60,44 +89,64 @@ struct vtable_header {
 /// is a class with the following interface:
 ///
 /// ```
-/// class my_iface final {
+/// class MyIface final {
 ///  public:
 ///   friend best::access;
 ///
-///   struct BestVtable {
-///     best::vtable_header header;
+///   struct BestFuncs {
 ///     // ...
 ///   };
 ///
-///   const BestVtable* vtable() { return vt_; }
+///   const best::vtable<MyIface>& vtable() { return *vt_; }
 ///
 ///  private:
-///   constexpr my_iface(void* data, const BestVtable* vt)
+///   constexpr my_iface(void* data, const best::vtable<MyIface>* vt)
 ///     : data_(data), vt_(vt) {}
 ///
 ///   void* data_;
-///   const BestVtable* vt_;
-/// }
+///   const best::vtable<MyIface>* vt_;
+/// };
 /// ```
 ///
-/// In other words, it must have a member type named `BestVtable`, and it must
-/// be privately constructible from a const pointer to it.
+/// In other words, it must have a member type named `BestFuncs`, and it must
+/// be privately constructible from a `best::vtable`, which will contain a
+/// `BestFuncs`.
 ///
 /// The class is expected to define member functions that call function pointers
-/// stored in `my_iface.vt_`. TODO: Complete example.
+/// stored in in `vtable().funcs`. The `BEST_INTERFACE()` macro can be used to
+/// ease implementing such boilerplate.
 template <typename I>
-concept interface =
-  requires(void* vp, const I& iface, const typename I::BestVtable* vt) {
-    { iface.vtable() } -> best::same<const typename I::BestVtable*>;
-    { vt->header } -> best::same<const best::vtable_header&>;
-    requires best::dyn_internal::access::can_wrap<I>();
-  };
+concept interface = requires(void* vp, const I& iface) {
+  { iface.vtable() } -> best::same<const best::vtable<best::un_const<I>>&>;
+  requires best::dyn_internal::access::can_wrap<best::un_const<I>>();
+};
 
-/// # `best::vtable<I>`
+/// # `BEST_INTERFACE()`
 ///
-/// The raw vtable type associated with some interface type.
-template <best::interface I>
-using vtable = const typename I::BestVtable*;
+/// Helper macro for defining a `best::interface` type.
+///
+/// This macro should be invoked in the body of a class type named `Interface_`.
+/// The remaining arguments to this macro specify the virtual functions to
+/// generate, in the format (Return, name, (args), options), where options is
+/// a comma-delimited list of options for the function. The only supported
+/// option is currently `const`, which const-qualifies the function.
+///
+/// For example:
+///
+/// ```
+/// class IntHolder final {
+///  public:
+///   BEST_INTERFACE(IntHolder,
+///                  (int, get, (), const),
+///                  (void, set, (int x)));
+/// };
+/// ```
+///
+/// This will generate functions named `get` and `set`, the relevant
+/// `best::vtable` boilerplate, and a `BestImplements` implementation that
+/// causes any type with a matching member function interface to implement the
+/// interface.
+#define BEST_INTERFACE(Interface_, ...) BEST_INTERFACE_(Interface_, __VA_ARGS__)
 
 /// # `best::implements<T, I>`
 ///
@@ -109,7 +158,7 @@ using vtable = const typename I::BestVtable*;
 template <typename T, typename I>
 concept implements = requires(T* ptr, I* iptr) {
   requires best::interface<I>;
-  { BestImplements(ptr, iptr) } -> best::same<best::vtable<I>>;
+  { BestImplements(ptr, iptr) } -> best::same<const best::vtable<I>&>;
 };
 
 /// # `best::dyn<T>`
@@ -122,7 +171,6 @@ class dyn {
  public:
   // Non-constructible; only usable with e.g. best::box and best::ptr.
   constexpr dyn() = delete;
-  constexpr ~dyn() = delete;
 
  private:
   class meta;
@@ -142,33 +190,53 @@ using dynptr = best::ptr<best::dyn<I>>;
 \* ////////////////////////////////////////////////////////////////////////// */
 
 namespace best {
+template <typename I>
+requires requires { typename I::BestFuncs; }
+template <typename T>
+constexpr vtable<I>::vtable(best::tlist<T>, funcs funcs)
+  : layout_(best::layout::of<T>()),
+    dtor_(+[](void* vp) { best::ptr<T>((T*)vp).destroy(); }),
+    funcs_(funcs) {
+  if constexpr (best::copyable<T>) {
+    copy_ = +[](void* dst_, void* src_) {
+      best::ptr<T> dst((T*)dst_), src((T*)src_);
+      dst.copy(src);
+    };
+  }
+}
+
 template <best::interface I>
 class dyn<I>::meta {
+  using Interface = best::un_const<I>;
  public:
   using type = I;
-  using pointee = void;
-  using metadata = best::vtable<I>;
-  using as_const = const I;
+  using pointee = best::copy_quals<void, I>;
+  using metadata = const best::vtable<Interface>*;
+  using as_const = dyn<const Interface>;
 
   constexpr meta() = default;
   constexpr meta(metadata vt) : vt_(vt) {}
   constexpr const metadata& to_metadata() const { return vt_; }
 
-  constexpr meta(best::tlist<best::ptr<I>>, const metadata& vt) : vt_(vt) {}
+  constexpr meta(best::tlist<best::ptr<dyn>>, const metadata& vt) : vt_(vt) {}
+  constexpr meta(best::tlist<best::ptr<dyn<Interface>>>,
+                 const metadata& vt) requires best::is_const<I>
+    : vt_(vt) {}
 
   template <typename P>
   constexpr meta(best::tlist<P>, const typename P::metadata&)
-    requires (P::is_thin() && best::implements<typename P::pointee, I>)
-    : vt_(BestImplements((typename P::pointee*)nullptr, (I*)nullptr)) {}
+    requires (P::is_thin() && best::implements<typename P::pointee, Interface>)
+    : vt_(&BestImplements((typename P::pointee*)nullptr, (Interface*)nullptr)) {}
 
-  constexpr best::layout layout() const { return vt_->header.layout; }
+  constexpr best::layout layout() const { return vt_->layout(); }
   constexpr auto deref(pointee* ptr) const {
-    return best::dyn_internal::access::wrap<I>(ptr, vt_);
+    return best::arrow<I>(
+      best::dyn_internal::access::wrap<Interface>(ptr, vt_));
   }
 
   template <best::implements<I> T>
   static constexpr meta meta_for(T&&) {
-    return BestImplements((T*)nullptr, (I*)nullptr);
+    return BestImplements((T*)nullptr, (Interface*)nullptr);
   }
   template <typename T>
   static constexpr void construct(pointee* dst, bool assign, T&& arg) {
@@ -176,16 +244,14 @@ class dyn<I>::meta {
   }
 
   static constexpr bool is_statically_copyable() { return false; }
-  constexpr bool is_dynamically_copyable() const {
-    return vt_->header.copy != nullptr;
-  }
+  constexpr bool is_dynamically_copyable() const { return vt_->can_copy(); }
 
   constexpr void copy(pointee* dst, pointee* src, bool assign) const {
     if (assign) { destroy(dst); }
-    vt_->header.copy(dst, src);
+    vt_->copy(dst, src);
   }
 
-  constexpr void destroy(pointee* ptr) const { vt_->header.dtor(ptr); }
+  constexpr void destroy(pointee* ptr) const { vt_->destroy(ptr); }
 
  private:
   metadata vt_ = nullptr;

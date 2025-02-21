@@ -52,4 +52,14 @@ best::test FromLambda = [](auto& t) {
 
   static_assert(!requires { best::fnref<int(int) const>(mut); });
 };
+
+best::test Unsafe = [](auto& t) {
+  using F = best::fnref<int(int) const>;
+
+  int data = 5;
+  typename F::fnptr raw = [](const int* x, int y) { return *x + y; };
+  F f(best::unsafe{"the closure takes a const int argument"}, &data, raw);
+  t.expect_eq(f(4), 9);
+};
+
 }  // namespace best::fnref_internal

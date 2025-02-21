@@ -19,60 +19,62 @@
 
 #include "best/memory/dyn.h"
 
-#include "best/base/access.h"
 #include "best/test/test.h"
-#include "best/text/format.h"
 
 namespace best::dyn_test {
-class Iface {
+class IntHolder {
  public:
-  friend best::access;
-
-  struct BestVtable {
-    best::vtable_header header;
-    int (*get)(void*);
-  };
-
-  int get() const { return vt_->get(data_); }
-
-  const BestVtable* vtable() const { return vt_; }
-
- private:
-  constexpr Iface(void* data, const BestVtable* vt) : data_(data), vt_(vt) {}
-
-  void* data_;
-  const BestVtable* vt_;
+  BEST_INTERFACE(IntHolder,                  //
+                 (int, get, (), const),  //
+                 (void, set, (int x)));
 };
 
-inline const Iface::BestVtable int_vtable = {
-  .header = best::vtable_header::of<int>(),
-  .get = +[](void* thiz) { return -*(int*)thiz; }};
+constexpr const best::vtable<IntHolder> int_vtable(
+  best::types<int>, {
+                      .get = [](const int* thiz) { return -*thiz; },
+                      .set = [](int* thiz, int x) { *thiz = x; },
+                    });
 
-constexpr best::vtable<Iface> BestImplements(int*, Iface*) {
-  return &int_vtable;
+constexpr const best::vtable<IntHolder>& BestImplements(int*, IntHolder*) {
+  return int_vtable;
 }
 
 struct Struct {
   int value;
+
+  int get() const { return value * 2; }
+  int set(int x) { return value = x; }
 };
 
-inline const Iface::BestVtable struct_vtable = {
-  .header = best::vtable_header::of<Struct>(),
-  .get = +[](void* thiz) { return ((Struct*)thiz)->value * 2; }};
+static_assert(best::interface<IntHolder>);
+static_assert(best::implements<int, IntHolder>);
+static_assert(best::implements<Struct, IntHolder>);
+static_assert(best::same<best::ptr<best::dyn<IntHolder>>::metadata,
+                         const best::vtable<IntHolder>*>);
 
-constexpr best::vtable<Iface> BestImplements(Struct*, Iface*) {
-  return &struct_vtable;
+template <typename T>
+constexpr bool can_set = requires(T& p) {
+  { p->set(42) };
+};
+
+static_assert(can_set<best::dynptr<IntHolder>>);
+static_assert(!can_set<best::dynptr<const IntHolder>>);
+static_assert(can_set<best::dynbox<IntHolder>>);
+static_assert(!can_set<best::dynbox<const IntHolder>>);
+
+constexpr int ct_test() {
+  int x;
+  best::ptr<best::dyn<IntHolder>> p = &x;
+  p->set(42);
+  return p->get();
 }
 
-static_assert(best::interface<Iface>);
-static_assert(best::implements<int, Iface>);
-static_assert(best::implements<Struct, Iface>);
-static_assert(
-  best::same<best::ptr<best::dyn<Iface>>::metadata, best::vtable<Iface>>);
+// Doesn't work in constexpr... yet!
+// constexpr auto run_ct_test = ct_test();
 
 best::test Ptr = [](best::test& t) {
   int x = 42;
-  best::ptr<best::dyn<Iface>> p = &x;
+  best::ptr<best::dyn<IntHolder>> p = &x;
   t.expect_eq(p->get(), -42);
 
   Struct y{42};
@@ -81,16 +83,18 @@ best::test Ptr = [](best::test& t) {
 };
 
 best::test Box = [](best::test& t) {
-  best::box<best::dyn<Iface>> p = best::box(42);
+  best::box<best::dyn<IntHolder>> p = best::box(42);
   t.expect_eq(p->get(), -42);
 
   p = best::box(Struct{42});
   t.expect_eq(p->get(), 84);
 
   auto p2 = p.try_copy();
-  best::println("{} {} {}", p->vtable(), p->vtable()->header.dtor, p->vtable()->get);
-  best::println("{} {} {}", (*p2)->vtable(), (*p2)->vtable()->header.dtor, (*p2)->vtable()->get);
   t.expect(p2.has_value());
   t.expect_eq((*p2)->get(), 84);
+
+  (*p2)->set(45);
+  t.expect_eq(p->get(), 84);
+  t.expect_eq((*p2)->get(), 90);
 };
 }  // namespace best::dyn_test

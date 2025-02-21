@@ -4,6 +4,7 @@ cc_library(
   name = "arrow",
   hdrs = ["arrow.h"],
   deps = [
+    "//best/meta/traits:ptrs",
   ]
 )
 
@@ -31,6 +32,8 @@ cc_library(
   ],
   deps = [
     ":call",
+    "//best/base:unsafe",
+    "//best/meta/traits:classes",
     "//best/meta/traits:funcs",
     "//best/meta/traits:ptrs",
     "//best/meta/traits:refs",
