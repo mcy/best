@@ -110,6 +110,10 @@ struct int_range;
 // best/io/ioerr.h
 class ioerr;
 
+// best/io/path.h
+class path;
+class pathbuf;
+
 // best/log/location.h
 template <typename>
 class track_location;
