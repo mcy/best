@@ -17,8 +17,8 @@
 
 \* ////////////////////////////////////////////////////////////////////////// */
 
-#ifndef BEST_META_TRAITS_REFS_H2_
-#define BEST_META_TRAITS_REFS_H2_
+#ifndef BEST_MEMORY_DYN_H_
+#define BEST_MEMORY_DYN_H_
 
 #include <cstddef>
 
@@ -208,6 +208,7 @@ constexpr vtable<I>::vtable(best::tlist<T>, funcs funcs)
 template <best::interface I>
 class dyn<I>::meta {
   using Interface = best::un_const<I>;
+
  public:
   using type = I;
   using pointee = best::copy_quals<void, I>;
@@ -219,14 +220,15 @@ class dyn<I>::meta {
   constexpr const metadata& to_metadata() const { return vt_; }
 
   constexpr meta(best::tlist<best::ptr<dyn>>, const metadata& vt) : vt_(vt) {}
-  constexpr meta(best::tlist<best::ptr<dyn<Interface>>>,
-                 const metadata& vt) requires best::is_const<I>
+  constexpr meta(best::tlist<best::ptr<dyn<Interface>>>, const metadata& vt)
+    requires best::is_const<I>
     : vt_(vt) {}
 
   template <typename P>
   constexpr meta(best::tlist<P>, const typename P::metadata&)
     requires (P::is_thin() && best::implements<typename P::pointee, Interface>)
-    : vt_(&BestImplements((typename P::pointee*)nullptr, (Interface*)nullptr)) {}
+    : vt_(&BestImplements((typename P::pointee*)nullptr, (Interface*)nullptr)) {
+  }
 
   constexpr best::layout layout() const { return vt_->layout(); }
   constexpr auto deref(pointee* ptr) const {
@@ -258,4 +260,4 @@ class dyn<I>::meta {
 };
 }  // namespace best
 
-#endif
+#endif  // BEST_MEMORY_DYN_H_

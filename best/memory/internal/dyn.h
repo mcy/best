@@ -17,8 +17,8 @@
 
 \* ////////////////////////////////////////////////////////////////////////// */
 
-#ifndef BEST_MEMORY_INTERNAL_PTR2_H_
-#define BEST_MEMORY_INTERNAL_PTR2_H_
+#ifndef BEST_MEMORY_INTERNAL_DYN_H_
+#define BEST_MEMORY_INTERNAL_DYN_H_
 
 #include <cstddef>
 
@@ -142,4 +142,4 @@ struct sig<R(Arg)> {
 
 }  // namespace best::dyn_internal
 
-#endif
+#endif  // BEST_MEMORY_INTERNAL_DYN_H_

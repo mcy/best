@@ -17,8 +17,8 @@
 
 \* ////////////////////////////////////////////////////////////////////////// */
 
-#ifndef BEST_BASE_HINT2_H_
-#define BEST_BASE_HINT2_H_
+#ifndef BEST_BASE_MACRO_H_
+#define BEST_BASE_MACRO_H_
 
 #include "best/base/internal/macro.h"
 
@@ -127,4 +127,4 @@ namespace best {
 
 }  // namespace best
 
-#endif  // BEST_BASE_HINT_H_
+#endif  // BEST_BASE_MACRO_H_

@@ -17,8 +17,8 @@
 
 \* ////////////////////////////////////////////////////////////////////////// */
 
-#ifndef BEST_BASE_HINT222_H_
-#define BEST_BASE_HINT222_H_
+#ifndef BEST_BASE_INTERNAL_MACRO_H_
+#define BEST_BASE_INTERNAL_MACRO_H_
 
 namespace best {
 // clang-format off
@@ -72,4 +72,4 @@ namespace best {
 
 }  // namespace best
 
-#endif  // BEST_BASE_HINT_H_
+#endif  // BEST_BASE_INTERNAL_MACRO_H_

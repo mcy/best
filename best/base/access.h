@@ -42,7 +42,7 @@ class access final {
   static T::BestPtrMetadata _BestPtrMetadata(int);
   template <typename T>
   static void _BestPtrMetadata(...);
-  template<typename T>
+  template <typename T>
   using BestPtrMetadata = decltype(_BestPtrMetadata<T>(0));
 
   template <typename T>

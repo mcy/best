@@ -24,7 +24,7 @@
 namespace best::dyn_test {
 class IntHolder {
  public:
-  BEST_INTERFACE(IntHolder,                  //
+  BEST_INTERFACE(IntHolder,              //
                  (int, get, (), const),  //
                  (void, set, (int x)));
 };
