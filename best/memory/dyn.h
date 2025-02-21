@@ -55,6 +55,17 @@ class vtable final {
   template <typename T>
   constexpr vtable(best::tlist<T>, funcs funcs);
 
+  /// # `best::vtable::of()`
+  ///
+  /// Returns the vtable for the given type, if it implements `Interface`.
+  template <typename T>
+  requires requires {
+    { BestImplements((T*)nullptr, (Interface*)nullptr) };
+  }
+  static constexpr const vtable& of(best::tlist<T> = {}) {
+    return BestImplements((T*)nullptr, (Interface*)nullptr);
+  }
+
   /// # `best::vtable::layout()`
   ///
   /// Returns the layout for the type this vtable represents.
@@ -115,6 +126,19 @@ class vtable final {
 /// be privately constructible from a `best::vtable`, which will contain a
 /// `BestFuncs`.
 ///
+/// Although not required, it is recommended to add a static `of` function with
+/// the following signature:
+///
+/// ```
+/// template <best::as_dyn<MyIface> T>
+/// static constexpr auto of(T&& value) {
+///   return best::dyn<MyIface>::of(BEST_FWD(value));
+/// }
+/// ```
+///
+/// That way, it's easy to access interface methods generically by writing
+/// `MyIface::of(value)->foo()`.
+///
 /// The class is expected to define member functions that call function pointers
 /// stored in in `vtable().funcs`. The `BEST_INTERFACE()` macro can be used to
 /// ease implementing such boilerplate.
@@ -149,7 +173,38 @@ concept interface = requires(void* vp, const I& iface) {
 /// `best::vtable` boilerplate, and a `BestImplements` implementation that
 /// causes any type with a matching member function interface to implement the
 /// interface.
-#define BEST_INTERFACE(Interface_, ...) BEST_INTERFACE_(Interface_, __VA_ARGS__)
+///
+/// ## Default Implementations
+///
+/// A default implementation for an interface function can be provided by
+/// defining a private member functions whose signature matches the function to
+/// be defaulted, but with a leading `best::defaulted` argument.
+///
+/// For example, the following interface is conformed to by all types, because
+/// its one method is defaulted:
+///
+/// ```
+/// class Any final {
+///  public:
+///   BEST_INTERFACE(Any, (uint64_t, type_id, (), const));
+///  private:
+///   uint64_t type_id(best::defaulted) const {
+///     return reinterpret_cast<uintptr_t>(&vtable());
+///   }
+/// };
+/// ```
+///
+/// Thus, this allows writing `best::dyn<Any>::of(x)->type_id()` to obtain a
+/// unique, integer value per-type.
+#define BEST_INTERFACE(Interface_, ...) BEST_IFACE_(Interface_, __VA_ARGS__)
+
+/// # `best::defaulted`
+///
+/// A tag for specifying a default impl in a `BEST_INTERFACE`-generated
+/// function. Given an interface function with a signature `F(a, b)`, if the
+/// interface type also defines (a possibly private) `F(defaulted, a, b)`,
+/// implementations do not need to provide this function to conform.
+struct defaulted final {};
 
 /// # `best::implements<T, I>`
 ///
@@ -159,10 +214,29 @@ concept interface = requires(void* vp, const I& iface) {
 ///
 /// Both arguments actually passed to `BestImplements` will be null.
 template <typename T, typename Interface>
-concept implements = requires(T* ptr, Interface* iptr) {
-  requires best::interface<Interface>;
-  { BestImplements(ptr, iptr) } -> best::same<const best::vtable<Interface>&>;
+concept implements = requires {
+  { best::vtable<Interface>::of(best::types<T>) };
 };
+
+template <best::interface>
+class dyn;
+
+/// # `best::as_dyn<Interface>`
+///
+/// A type that can be accessed as a `best::dyn<Interface>`. This includes all
+/// types which implement it, as well as pointer types that convert to
+/// `best::dynptr<Interface>`. Use `best::dyn<Interface>::of()` to obtain a
+/// `best::dynptr`.
+template <typename T, typename Interface>
+concept as_dyn = requires(T&& value) {
+  { best::dyn<Interface>::of(value) };
+};
+
+/// # `best::dynptr<I>`
+///
+/// A pointer to a `best::dyn`. This is a convenience shorthand.
+template <best::interface I>
+using dynptr = best::ptr<best::dyn<I>>;
 
 /// # `best::dyn<Interface>`
 ///
@@ -170,7 +244,7 @@ concept implements = requires(T* ptr, Interface* iptr) {
 /// `best::dyn` generalizes C++ virtual functions in a way that allows users to
 /// define new interfaces for types the do not own.
 template <best::interface Interface>
-class dyn {
+class dyn final {
  public:
   // Non-constructible; only usable with e.g. best::box and best::ptr.
   constexpr dyn() = delete;
@@ -184,25 +258,21 @@ class dyn {
   /// This function returns the least-qualified of `best::dynptr<Interface>`
   /// or `best::dynptr<const Interface>` possible.
   template <typename P>
-  static constexpr auto of(P&& ptr) requires (
-    best::converts_to<P &&, best::ptr<best::dyn<Interface>>> ||
-    best::converts_to<P &&, best::ptr<best::dyn<const Interface>>> ||
-    best::converts_to<best::un_ref<P>*, best::ptr<best::dyn<Interface>>> ||
-    best::converts_to<best::un_ref<P>*, best::ptr<best::dyn<const Interface>>>)
+  static constexpr auto of(P&& ptr)
+    requires (best::converts_to<P &&, dynptr<Interface>> ||
+              best::converts_to<P &&, dynptr<const Interface>> ||
+              best::converts_to<best::as_raw_ptr<P>, dynptr<Interface>> ||
+              best::converts_to<best::as_raw_ptr<P>, dynptr<const Interface>>)
   {
-    if constexpr (best::converts_to<best::un_ref<P>*,
-                                    best::ptr<best::dyn<Interface>>>) {
-      return best::ptr<best::dyn<Interface>>(best::addr(ptr));
-    } else if constexpr (best::converts_to<
-                           best::un_ref<P>*,
-                           best::ptr<best::dyn<const Interface>>>) {
-      return best::ptr<best::dyn<const Interface>>(best::addr(ptr));
-    } else if constexpr (best::converts_to<P&&,
-                                           best::ptr<best::dyn<Interface>>>) {
-      return best::ptr<best::dyn<Interface>>(BEST_FWD(ptr));
-    } else if constexpr (best::converts_to<
-                           P&&, best::ptr<best::dyn<const Interface>>>) {
-      return best::ptr<best::dyn<const Interface>>(BEST_FWD(ptr));
+    if constexpr (best::converts_to<best::as_raw_ptr<P>, dynptr<Interface>>) {
+      return dynptr<Interface>(best::addr(ptr));
+    } else if constexpr (best::converts_to<best::as_raw_ptr<P>,
+                                           dynptr<const Interface>>) {
+      return dynptr<const Interface>(best::addr(ptr));
+    } else if constexpr (best::converts_to<P&&, dynptr<Interface>>) {
+      return dynptr<Interface>(BEST_FWD(ptr));
+    } else if constexpr (best::converts_to<P&&, dynptr<const Interface>>) {
+      return dynptr<const Interface>(BEST_FWD(ptr));
     }
   }
 
@@ -211,22 +281,6 @@ class dyn {
   friend best::access;
   using BestPtrMetadata = meta;
 };
-
-/// # `best::as_dyn<Interface>`
-///
-/// A type that can be accessed as a `best::dyn<Interface>`. This includes all
-/// types which implement it, as well as pointer types that convert to
-/// `best::dynptr<Interface>`.
-template <typename T, typename Interface>
-concept as_dyn = requires(T&& value) {
-  { best::dyn<Interface>::of(value) };
-};
-
-/// # `best::dynbox<I>`
-///
-/// A pointer to a `best::dyn`.
-template <best::interface I>
-using dynptr = best::ptr<best::dyn<I>>;
 }  // namespace best
 
 /* ////////////////////////////////////////////////////////////////////////// *\
@@ -246,6 +300,12 @@ constexpr vtable<I>::vtable(best::tlist<T>, funcs funcs)
       best::ptr<T> dst((T*)dst_), src((T*)src_);
       dst.copy(src);
     };
+  }
+
+  if constexpr (requires {
+                  { I::template BestFuncDefaults<T>(funcs_) };
+                }) {
+    I::template BestFuncDefaults<T>(funcs_);
   }
 }
 
@@ -282,7 +342,7 @@ class dyn<I>::meta {
 
   template <best::implements<I> T>
   static constexpr meta meta_for(T&&) {
-    return BestImplements((T*)nullptr, (Interface*)nullptr);
+    return &best::vtable<I>::of(best::types<T>);
   }
   template <typename T>
   static constexpr void construct(pointee* dst, bool assign, T&& arg) {

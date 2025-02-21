@@ -57,7 +57,7 @@ best::test Unsafe = [](auto& t) {
   using F = best::fnref<int(int) const>;
 
   int data = 5;
-  typename F::fnptr raw = [](const int* x, int y) { return *x + y; };
+  typename F::fnptr raw = [](const int& x, int y) { return x + y; };
   F f(best::unsafe{"the closure takes a const int argument"}, &data, raw);
   t.expect_eq(f(4), 9);
 };
