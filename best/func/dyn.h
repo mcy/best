@@ -23,7 +23,7 @@
 #include <cstddef>
 
 #include "best/base/access.h"
-#include "best/memory/internal/dyn.h"
+#include "best/func/internal/dyn.h"
 #include "best/memory/layout.h"
 #include "best/memory/ptr.h"
 #include "best/meta/init.h"

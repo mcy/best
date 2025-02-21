@@ -51,6 +51,31 @@ cc_test(
 )
 
 cc_library(
+  name = "dyn",
+  hdrs = [
+    "dyn.h",
+    "internal/dyn.h",  
+  ],
+  deps = [
+    ":fnref",
+    "//best/base:access",
+    "//best/meta/traits:types",
+    "//best/memory:layout",
+  ],
+)
+
+cc_test(
+  name = "dyn_test",
+  srcs = ["dyn_test.cc"],
+  linkopts = ["-rdynamic"],
+  deps = [
+    ":dyn",
+    "//best/container:box",
+    "//best/test",
+  ],
+)
+
+cc_library(
   name = "tap",
   hdrs = ["tap.h"],
   deps = [

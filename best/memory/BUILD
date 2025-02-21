@@ -17,31 +17,6 @@ cc_library(
   ],
 )
 
-cc_library(
-  name = "dyn",
-  hdrs = [
-    "dyn.h",
-    "internal/dyn.h",  
-  ],
-  deps = [
-    ":layout",
-    "//best/func:fnref",
-    "//best/base:access",
-    "//best/meta/traits:types",
-  ],
-)
-
-cc_test(
-  name = "dyn_test",
-  srcs = ["dyn_test.cc"],
-  linkopts = ["-rdynamic"],
-  deps = [
-    ":dyn",
-    "//best/container:box",
-    "//best/test",
-  ],
-)
-
 cc_test(
   name = "ptr_test",
   srcs = ["ptr_test.cc"],

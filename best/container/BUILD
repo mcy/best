@@ -142,8 +142,8 @@ cc_library(
   name = "box",
   hdrs = ["box.h"],
   deps = [
+    "//best/func:dyn",
     "//best/memory:allocator",
-    "//best/memory:dyn",
     "//best/memory:ptr",
   ]
 )

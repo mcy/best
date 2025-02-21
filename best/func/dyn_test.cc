@@ -17,7 +17,7 @@
 
 \* ////////////////////////////////////////////////////////////////////////// */
 
-#include "best/memory/dyn.h"
+#include "best/func/dyn.h"
 
 #include "best/memory/ptr.h"
 #include "best/test/test.h"
