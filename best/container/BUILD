@@ -143,7 +143,7 @@ cc_library(
   hdrs = ["box.h"],
   deps = [
     "//best/memory:allocator",
-    "//best/memory:span",
+    "//best/memory:dyn",
     "//best/memory:ptr",
   ]
 )

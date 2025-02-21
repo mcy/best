@@ -24,7 +24,9 @@
 #include "best/base/ord.h"
 #include "best/base/tags.h"
 #include "best/container/object.h"
+#include "best/container/option.h"
 #include "best/memory/allocator.h"
+#include "best/memory/dyn.h"
 #include "best/memory/layout.h"
 #include "best/memory/ptr.h"
 #include "best/meta/init.h"
@@ -123,7 +125,7 @@ class BEST_RELOCATABLE box final {
   }
 
   template <best::ptr_losslessly_converts_to<T> U>
-  constexpr explicit box(box<U>&& that)
+  constexpr box(box<U>&& that)
     : box(unsafe("this is ok, because we only allow lossless conversions"),
           BEST_MOVE(that.allocator()), BEST_MOVE(that).leak()) {}
 
@@ -166,6 +168,14 @@ class BEST_RELOCATABLE box final {
   ///
   /// Returns the layout of the pointed-to value.
   constexpr best::layout layout() const { return as_ptr().layout(); }
+
+  /// # `box::try_copy()`
+  ///
+  /// Returns a copy of this box's contents, if it is copyable at runtime.
+  ///
+  /// Some types, such as `best::dyn`s, *can* be copied at runtime, but not
+  /// necessarily. This function exposes this as a fallible operation.
+  constexpr best::option<box> try_copy() const requires best::copyable<alloc>;
 
   /// # `box::operator*, box::operator->`
   ///
@@ -262,9 +272,6 @@ class BEST_RELOCATABLE box final {
   constexpr bool operator==(niche) const { return ptr_ == nullptr; }
 
  private:
-  template <typename, typename>
-  friend class vbox;
-
   best::ptr<T> ptr_;
   [[no_unique_address]] best::object<alloc> alloc_;
 };
@@ -274,6 +281,11 @@ box(T&&) -> box<best::as_auto<T>>;
 template <best::is_object T>
 box(std::initializer_list<T>) -> box<T[]>;
 
+/// # `best::dynbox<I>`
+///
+/// A shorthand for a box containing a `best::dyn`.
+template <best::interface I, typename A = best::malloc>
+using dynbox = best::box<best::dyn<I>, A>;
 }  // namespace best
 
 /* ////////////////////////////////////////////////////////////////////////// *\
@@ -319,6 +331,21 @@ constexpr box<T, A>& box<T, A>::operator=(box&& that)
   this->~box();
   return *new (this) box(BEST_MOVE(that));
 }
+
+template <typename T, typename A>
+constexpr best::option<box<T, A>> box<T, A>::try_copy() const
+  requires best::copyable<A>
+{
+  if (!as_ptr().can_copy()) { return best::none; }
+
+  best::ptr<T> copy{
+    allocator().alloc(as_ptr().layout()).cast(best::types<pointee>),
+    {},
+  };
+  return box(best::unsafe("raw has been appropriately allocated"), allocator(),
+             copy.try_copy(as_ptr()));
+}
+
 }  // namespace best
 
 #endif  // BEST_CONTAINER_BOX_H_

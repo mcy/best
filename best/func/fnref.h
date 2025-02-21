@@ -29,7 +29,7 @@
 //! passing arbitrary callables into non-templates.
 
 namespace best {
-/// `best::fnref<R(...) const>`
+/// # `best::fnref<R(...) const>`
 ///
 /// A function reference. This type is a function pointer with associated data
 /// captured by reference. You can construct a `best::fnref` from a lambda or
@@ -54,6 +54,12 @@ class fnref final : best::traits_internal::tame<Signature>::template apply<
   ///
   /// The output of this function.
   using output = impl_t::output;
+
+  /// # `fnref::fnptr`
+  ///
+  /// The function pointer part of a fnref. This can be used to construct a new
+  /// fnref using an arbitrary data pointer using an unsafe constructor.
+  using fnptr = impl_t::fnptr;
 
   /// # `fnref::is_const`
   ///

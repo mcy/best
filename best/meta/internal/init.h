@@ -25,6 +25,7 @@
 #include "best/meta/traits/empty.h"
 #include "best/meta/traits/funcs.h"
 #include "best/meta/traits/ptrs.h"
+#include "best/meta/traits/refs.h"
 
 //! Rule-based implementation of constructable/convertible/assignable, using
 //! overload resolution as a reasonably fast lookup.

@@ -34,13 +34,16 @@ namespace best {
 /// may not want to make public API, such as `BestPtrMetadata`, `BestRowKey`,
 /// and so on.
 class access final {
- private:
+ public:
   ~access() = delete;
 
   // Types and other members we want access to.
   template <typename T>
-  requires requires { typename T::BestPtrMetadata; }
-  using BestPtrMetadata = T::BestPtrMetadata;
+  static T::BestPtrMetadata _BestPtrMetadata(int);
+  template <typename T>
+  static void _BestPtrMetadata(...);
+  template <typename T>
+  using BestPtrMetadata = decltype(_BestPtrMetadata<T>(0));
 
   template <typename T>
   static constexpr T constructor(auto&&... args)
@@ -51,6 +54,7 @@ class access final {
 
   // Best types that can access them.
   friend ::best::ptr_internal::access;
+  friend ::best::dyn_internal::access;
 };
 }  // namespace best
 
