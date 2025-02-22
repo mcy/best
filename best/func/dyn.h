@@ -32,6 +32,9 @@
 #include "best/meta/traits/refs.h"
 
 namespace best {
+template <typename T, typename I>
+void BestImplements(T*, I*) = delete;
+
 /// # `best::vtable`
 ///
 /// A complete, raw vtable for a `best::dyn`. This includes a custom
@@ -206,6 +209,50 @@ concept interface = requires(void* vp, const I& iface) {
 /// implementations do not need to provide this function to conform.
 struct defaulted final {};
 
+/// # `best::vtable_binder`
+///
+/// A wrapper over a function pointer with an extra `void*` argument,
+/// representing a type-erased this pointer. This is used as the type for
+/// function types in a `best::interface`'s vtable.
+template <typename Signature>
+class vtable_binder final
+  : best::traits_internal::tame<Signature>::template apply<
+      dyn_internal::binder_impl> {
+ private:
+  using impl_t = best::traits_internal::tame<Signature>::template apply<
+    dyn_internal::binder_impl>;
+
+ public:
+  /// # `vtable_binder::fnptr`
+  ///
+  /// The underlying fnptr type.
+  using fnptr = impl_t::fnptr;
+
+  /// # `vtable_binder::vtable_binder()`
+  ///
+  /// Constructs a new binder. This can be either from `nullptr`, an appropriate
+  /// function pointer with a leading `void*` argument, or a capture-less
+  /// closure whose first argument is a reference.
+  ///
+  /// In the last case, the constructor  will automatically erase the first
+  /// argument. This allows initializing a `vtable_binder<int(int)>` from
+  /// something like `[](MyClass& x, int y) { return x.field += y; }`
+  using impl_t::impl_t;
+
+  /// # `vtable_binder()`
+  ///
+  /// Calls the function. The first argument is the this pointer.
+  using impl_t::operator();
+
+  /// # `vtable_binder::operator==`
+  ///
+  /// `vtable_binder`s may be compared to `nullptr` (and no other pointer).
+  using impl_t::operator==;
+  using impl_t::operator bool;
+
+  using impl_t::operator fnptr;
+};
+
 /// # `best::implements<T, I>`
 ///
 /// Checks whether a type implements the given interface type. To implement it,
@@ -215,6 +262,11 @@ struct defaulted final {};
 /// Both arguments actually passed to `BestImplements` will be null.
 template <typename T, typename Interface>
 concept implements = requires {
+  // Force this constraint to resolve before we name best::vtable to avoid a
+  // requirement cycle. This might be a clang bug, but concepts are so
+  // impossible to understand it might also be nominal. :)
+  typename Interface::BestFuncs;
+
   { best::vtable<Interface>::of(best::types<T>) };
 };
 
@@ -295,7 +347,7 @@ constexpr vtable<I>::vtable(best::tlist<T>, funcs funcs)
   : layout_(best::layout::of<T>()),
     dtor_(+[](void* vp) { best::ptr<T>((T*)vp).destroy(); }),
     funcs_(funcs) {
-  if constexpr (best::copyable<T>) {
+  if constexpr (best::ptr<T>::can_statically_copy()) {
     copy_ = +[](void* dst_, void* src_) {
       best::ptr<T> dst((T*)dst_), src((T*)src_);
       dst.copy(src);

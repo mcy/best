@@ -53,6 +53,53 @@ struct sig<R(Arg)> {
   using type = Arg;
 };
 
+template <typename F>
+concept no_captures = requires(F f) {
+  requires best::is_class<F>;
+  { +f } -> best::is_func_ptr;
+};
+
+template <typename P>
+struct ptr_cast {
+  template <typename T>
+  constexpr operator T&() {
+    return *static_cast<T*>(ptr);
+  }
+  P* ptr;
+};
+
+template <typename Func, typename R, typename... Args>
+class binder_impl {
+ private:
+  using ptr = best::select<best::is_const_func<Func>, const void*, void*>;
+
+ public:
+  using fnptr = R (*)(ptr, Args...);
+
+  constexpr binder_impl() = default;
+  constexpr binder_impl(std::nullptr_t){};
+
+  constexpr binder_impl(no_captures auto closure)
+    : fnptr_(+[](ptr self, Args... args) {
+        decltype(closure) closure;
+        return closure(ptr_cast{.ptr = self}, BEST_FWD(args)...);
+      }) {}
+
+  constexpr binder_impl(R (*fnptr)(ptr, Args...)) : fnptr_(fnptr) {}
+
+  constexpr bool operator==(std::nullptr_t) const { return fnptr_ == nullptr; }
+  constexpr explicit operator bool() const { return *this != nullptr; }
+
+  constexpr R operator()(ptr self, Args... args) const {
+    return fnptr_(self, BEST_FWD(args)...);
+  }
+
+  constexpr operator fnptr() const { return fnptr_; }
+
+ private:
+  fnptr fnptr_ = nullptr;
+};
+
 // clang-format off
 #define BEST_IFACE_(Interface_, ...)                                      \
  public:                                                                  \
@@ -75,8 +122,6 @@ struct sig<R(Arg)> {
   }                                                                       \
                                                                           \
  private:                                                                 \
-  friend ::best::access;                                                  \
-  friend BestFuncs;                                                       \
                                                                           \
   template <typename BEST_T_, typename BEST_This_>                        \
   static constexpr ::best::vtable<BEST_This_> BEST_implements_{           \
@@ -101,7 +146,11 @@ struct sig<R(Arg)> {
     : BEST_data_(data), BEST_vt_(vt) {}                                   \
                                                                           \
   void* BEST_data_;                                                       \
-  const ::best::vtable<Interface_>* BEST_vt_  // Require a trailing comma.
+  const ::best::vtable<Interface_>* BEST_vt_;                             \
+ public:                                                                 \
+  friend ::best::access;                                                  \
+  friend BestFuncs                                                        \
+    // Require a trailing semi.
 
 #define BEST_IFACE_CONST_(args_) BEST_IFACE_CONST2_##args_
 #define BEST_IFACE_CONST2_
@@ -113,14 +162,8 @@ struct sig<R(Arg)> {
   name_(BEST_IFACE_PARAMS_(, args_))                                           \
   BEST_IFACE_CONST_(__VA_ARGS__)                                               \
   {                                                                            \
-    BEST_IFACE_FNREF_(ret_, args_, __VA_ARGS__) fn(                            \
-      ::best::unsafe("we assume that the vtable was constructed correctly"),   \
-      BEST_data_, (*BEST_vt_)->name_);                                         \
-      return fn(BEST_IFACE_ARGS_(, args_));                                    \
+    return (*BEST_vt_)->name_(BEST_IFACE_ARGS_(BEST_data_, args_));            \
   }
-
-#define BEST_IFACE_FNREF_(ret_, args_, ...) \
-  ::best::fnref<BEST_IFACE_RET_(ret_) args_ BEST_IFACE_CONST_(__VA_ARGS__)>
 
 #define BEST_IFACE_RET_(ret_) \
   typename ::best::id<BEST_REMOVE_PARENS(ret_)>::type
@@ -140,7 +183,7 @@ struct sig<R(Arg)> {
 
 #define BEST_IFACE_FNPTR_(pack) BEST_IFACE_FNPTR_UNPACKED_ pack
 #define BEST_IFACE_FNPTR_UNPACKED_(ret_, name_, args_, ...)                    \
-  typename BEST_IFACE_FNREF_(ret_, args_, __VA_ARGS__)::fnptr name_;
+  ::best::vtable_binder<BEST_IFACE_RET_(ret_) args_ BEST_IFACE_CONST_(__VA_ARGS__)> name_;
   
 #define BEST_IFACE_DEFAULT_FNPTR_(pack) BEST_IFACE_DEFAULT_FNPTR_UNPACKED_ pack
 #define BEST_IFACE_DEFAULT_FNPTR_UNPACKED_(ret_, name_, args_, ...)        \

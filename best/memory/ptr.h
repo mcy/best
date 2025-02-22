@@ -658,6 +658,9 @@ class ptr final {
   /// Checks whether or not the pointee is dynamically copyable. This may be
   /// true even when `ptr::copy()` fails overload resolution.
   constexpr bool can_copy() const { return meta_().is_dynamically_copyable(); }
+  static constexpr bool can_statically_copy() {
+    return best::ptr_internal::meta<T>::is_statically_copyable();
+  }
 
   /// # `ptr::copy_overlapping()`, `ptr::move_overlapping()`
   ///

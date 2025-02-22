@@ -76,6 +76,31 @@ cc_test(
 )
 
 cc_library(
+  name = "fn",
+  hdrs = [
+    "fn.h",
+    "internal/fn.h",  
+  ],
+  deps = [
+    ":call",
+    ":dyn",
+    "//best/meta/traits:funcs",
+    "//best/meta/traits:refs",
+  ],
+)
+
+cc_test(
+  name = "fn_test",
+  srcs = ["fn_test.cc"],
+  linkopts = ["-rdynamic"],
+  deps = [
+    ":fn",
+    "//best/container:box",
+    "//best/test",
+  ],
+)
+
+cc_library(
   name = "tap",
   hdrs = ["tap.h"],
   deps = [

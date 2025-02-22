@@ -105,7 +105,7 @@ BEST_INLINE_SYNTHETIC constexpr decltype(auto) call(auto&& func, auto&&... args)
 BEST_INLINE_SYNTHETIC constexpr void call() {}
 
 template <typename F, typename... TParams, typename R, typename... Args>
-constexpr bool can_call(tag<TParams...>, R (*)(Args...))
+constexpr bool can_call(tag<R(Args...), TParams...>)
   requires requires(F f, Args... args) {
     call_internal::call<TParams...>(f, BEST_FWD(args)...);
   }
@@ -113,6 +113,17 @@ constexpr bool can_call(tag<TParams...>, R (*)(Args...))
   return best::is_void<R> ||
          best::convertible<R, decltype(call_internal::call<TParams...>(
                                 best::lie<F>, best::lie<Args>...))>;
+}
+
+template <typename F, typename... TParams, typename R, typename... Args>
+constexpr bool can_call(tag<R(Args...) const, TParams...>)
+  requires requires(const F f, Args... args) {
+    call_internal::call<TParams...>(f, BEST_FWD(args)...);
+  }
+{
+  return best::is_void<R> ||
+         best::convertible<R, decltype(call_internal::call<TParams...>(
+                                best::lie<const F>, best::lie<Args>...))>;
 }
 
 template <typename F, typename... Args>

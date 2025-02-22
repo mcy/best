@@ -95,7 +95,7 @@ BEST_INLINE_SYNTHETIC constexpr decltype(auto) call_devoid(auto &&...args)
 /// `operator()`.
 template <typename F, typename Signature, typename... Ts>
 concept callable =
-  call_internal::can_call<F>(call_internal::tag<Ts...>{}, (Signature *)nullptr);
+  call_internal::can_call<F>(call_internal::tag<Signature, Ts...>{});
 
 /// # `best::call_result`.
 ///
