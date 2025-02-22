@@ -17,8 +17,8 @@
 
 \* ////////////////////////////////////////////////////////////////////////// */
 
-#ifndef BEST_MEMORY_DYN_H_
-#define BEST_MEMORY_DYN_H_
+#ifndef BEST_FUNC_DYN_H_
+#define BEST_FUNC_DYN_H_
 
 #include <cstddef>
 
@@ -416,4 +416,4 @@ class dyn<I>::meta {
 };
 }  // namespace best
 
-#endif  // BEST_MEMORY_DYN_H_
+#endif  // BEST_FUNC_DYN_H_

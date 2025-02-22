@@ -17,8 +17,8 @@
 
 \* ////////////////////////////////////////////////////////////////////////// */
 
-#ifndef BEST_MEMORY_INTERNAL_DYN_H_
-#define BEST_MEMORY_INTERNAL_DYN_H_
+#ifndef BEST_FUNC_INTERNAL_DYN_H_
+#define BEST_FUNC_INTERNAL_DYN_H_
 
 #include <cstddef>
 
@@ -241,4 +241,4 @@ class binder_impl {
 // clang-format on
 }  // namespace best::dyn_internal
 
-#endif  // BEST_MEMORY_INTERNAL_DYN_H_
+#endif  // BEST_FUNC_INTERNAL_DYN_H_

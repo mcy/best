@@ -17,8 +17,8 @@
 
 \* ////////////////////////////////////////////////////////////////////////// */
 
-#ifndef BEST_FUNC_INTERNAL_FNREF2_H_
-#define BEST_FUNC_INTERNAL_FNREF2_H_
+#ifndef BEST_FUNC_INTERNAL_FN_H_
+#define BEST_FUNC_INTERNAL_FN_H_
 
 #include <cstddef>
 
@@ -82,4 +82,4 @@ class fn {
 };
 }  // namespace best::fn_internal
 
-#endif  // BEST_FUNC_INTERNAL_FNREF_H_
+#endif  // BEST_FUNC_INTERNAL_FN_H_

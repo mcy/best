@@ -17,8 +17,8 @@
 
 \* ////////////////////////////////////////////////////////////////////////// */
 
-#ifndef BEST_FUNC_FNREF2_H_
-#define BEST_FUNC_FNREF2_H_
+#ifndef BEST_FUNC_FN_H_
+#define BEST_FUNC_FN_H_
 
 #include "best/func/internal/fn.h"
 
@@ -48,4 +48,4 @@ template <typename Signature>
 using fnptr = best::ptr<best::dyn<best::fn<Signature>>>;
 }  // namespace best
 
-#endif  // BEST_FUNC_FNREF_H_
+#endif  // BEST_FUNC_FN_H_
