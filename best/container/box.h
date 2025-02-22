@@ -25,8 +25,8 @@
 #include "best/base/tags.h"
 #include "best/container/object.h"
 #include "best/container/option.h"
+#include "best/func/dyn.h"
 #include "best/memory/allocator.h"
-#include "best/memory/dyn.h"
 #include "best/memory/layout.h"
 #include "best/memory/ptr.h"
 #include "best/meta/init.h"
@@ -227,6 +227,21 @@ class BEST_RELOCATABLE box final {
   /// explicitly leaks memory by withholding the call to `dealloc()`.
   constexpr best::ptr<T> leak() && {
     return BEST_MOVE(*this).into_raw().first();
+  }
+
+  template <typename U>
+  constexpr operator best::ptr<U>() const requires requires {
+    { as_ptr().as_const() } -> best::converts_to<best::ptr<U>>;
+  }
+  {
+    return as_ptr().as_const();
+  }
+  template <typename U>
+  constexpr operator best::ptr<U>() requires requires {
+    { as_ptr() } -> best::converts_to<best::ptr<U>>;
+  }
+  {
+    return as_ptr();
   }
 
   friend void BestFmt(auto& fmt, const box& box) {

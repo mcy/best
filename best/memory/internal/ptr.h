@@ -28,6 +28,8 @@
 #include "best/memory/layout.h"
 #include "best/meta/init.h"
 #include "best/meta/traits/empty.h"
+#include "best/meta/traits/funcs.h"
+#include "best/meta/traits/types.h"
 
 #define BEST_CONSTEXPR_MEMCPY_ BEST_HAS_FEATURE(cxx_constexpr_string_builtins)
 
@@ -87,10 +89,14 @@ class object_meta {
     new (dst) T(BEST_FWD(args)...);
   }
 
-  static constexpr bool is_statically_copyable() { return best::copyable<T>; }
-  static constexpr bool is_dynamically_copyable() { return best::copyable<T>; }
+  static constexpr bool is_statically_copyable() {
+    return best::copyable<T> && !best::is_func<T>;
+  }
+  static constexpr bool is_dynamically_copyable() {
+    return is_statically_copyable();
+  }
   static constexpr void copy(pointee* dst, pointee* src, bool assign) {
-    if constexpr (best::copyable<T>) {
+    if constexpr (is_statically_copyable()) {
       if (assign) {
         *dst = *src;
       } else {

@@ -17,8 +17,9 @@
 
 \* ////////////////////////////////////////////////////////////////////////// */
 
-#include "best/memory/dyn.h"
+#include "best/func/dyn.h"
 
+#include "best/memory/ptr.h"
 #include "best/test/test.h"
 
 namespace best::dyn_test {
@@ -26,18 +27,23 @@ class IntHolder {
  public:
   BEST_INTERFACE(IntHolder,              //
                  (int, get, (), const),  //
-                 (void, set, (int x)));
+                 (void, set, (int x)),   //
+                 (void, reset, ()));
+
+ private:
+  void reset(best::defaulted) { set(0); }
 };
+
+constexpr const best::vtable<IntHolder>& BestImplements(int*, IntHolder*) {
+  extern const best::vtable<IntHolder> int_vtable;
+  return int_vtable;
+}
 
 constexpr const best::vtable<IntHolder> int_vtable(
   best::types<int>, {
-                      .get = [](const int* thiz) { return -*thiz; },
-                      .set = [](int* thiz, int x) { *thiz = x; },
+                      .get = [](const int& self) { return -self; },
+                      .set = [](int& self, int x) { self = x; },
                     });
-
-constexpr const best::vtable<IntHolder>& BestImplements(int*, IntHolder*) {
-  return int_vtable;
-}
 
 struct Struct {
   int value;
@@ -72,9 +78,14 @@ constexpr int ct_test() {
 // Doesn't work in constexpr... yet!
 // constexpr auto run_ct_test = ct_test();
 
+class Templates {
+ public:
+  BEST_INTERFACE(Templates, ((best::result<int, int>), get, ()));
+};
+
 best::test Ptr = [](best::test& t) {
   int x = 42;
-  best::ptr<best::dyn<IntHolder>> p = &x;
+  best::dynptr<IntHolder> p = &x;
   t.expect_eq(p->get(), -42);
 
   Struct y{42};
@@ -82,9 +93,33 @@ best::test Ptr = [](best::test& t) {
   t.expect_eq(p->get(), 84);
 };
 
+struct Struct2 {
+  int value;
+
+  int get() const { return value * 2; }
+  int set(int x) { return value = x; }
+  void reset() { value *= -1; }
+};
+
+best::test Default = [](best::test& t) {
+  int x = 42;
+  Struct y{42};
+  Struct2 z(42);
+
+  IntHolder::of(x)->reset();
+  IntHolder::of(y)->reset();
+  IntHolder::of(z)->reset();
+  t.expect_eq(x, 0);
+  t.expect_eq(y.value, 0);
+  t.expect_eq(z.value, -42);
+};
+
 best::test Box = [](best::test& t) {
-  best::box<best::dyn<IntHolder>> p = best::box(42);
+  best::dynbox<IntHolder> p = best::box(42);
+  best::dynptr<IntHolder> p_ = p;
+
   t.expect_eq(p->get(), -42);
+  t.expect_eq(p_->get(), -42);
 
   p = best::box(Struct{42});
   t.expect_eq(p->get(), 84);
@@ -96,5 +131,19 @@ best::test Box = [](best::test& t) {
   (*p2)->set(45);
   t.expect_eq(p->get(), 84);
   t.expect_eq((*p2)->get(), 90);
+};
+
+best::test Of = [](best::test& t) {
+  int x = 1;
+  Struct y = {.value = 2};
+  best::dynptr<IntHolder> p = &x;
+  best::dynbox<IntHolder> q = best::box(y);
+
+  t.expect_eq(IntHolder::of(x)->get(), -1);
+  t.expect_eq(IntHolder::of(y)->get(), 4);
+  t.expect_eq(IntHolder::of(&x)->get(), -1);
+  t.expect_eq(IntHolder::of(&y)->get(), 4);
+  t.expect_eq(IntHolder::of(p)->get(), -1);
+  t.expect_eq(IntHolder::of(q)->get(), 4);
 };
 }  // namespace best::dyn_test

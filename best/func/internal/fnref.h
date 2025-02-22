@@ -41,8 +41,8 @@ concept no_captures = requires(F f) {
 template <typename P>
 struct ptr_cast {
   template <typename T>
-  constexpr operator T*() {
-    return static_cast<T*>(ptr);
+  constexpr operator T&() {
+    return *static_cast<T*>(ptr);
   }
   P* ptr;
 };
@@ -59,59 +59,59 @@ class impl {
  public:
   using output = R;
 
-  union fnptr final {
-   private:
-    using bound = R (*)(ptr, Args...);
-    using free = R (*)(Args...);
-
+  struct bound final {
    public:
-    constexpr fnptr(no_captures auto closure)
-      : bound_(+[](ptr thiz, Args... args) {
+    constexpr bound() = default;
+    constexpr bound(std::nullptr_t){};
+
+    constexpr bound(no_captures auto closure)
+      : pc_(+[](ptr thiz, Args... args) {
           decltype(closure) closure;
           return closure(ptr_cast{.ptr = thiz}, BEST_FWD(args)...);
         }) {}
 
-    constexpr fnptr(bound f) : bound_(f) {}
-    constexpr fnptr(free f) : free_(f) {}
+    constexpr bound(R (*fnptr)(ptr, Args...)) : pc_(fnptr) {}
+
+    constexpr bool operator==(std::nullptr_t) const { return pc_ == nullptr; }
+    constexpr explicit operator bool() const { return *this != nullptr; }
 
    private:
     friend impl;
-    R (*bound_)(ptr, Args...);
-    R (*free_)(Args...);
+    R (*pc_)(ptr, Args...) = nullptr;
   };
+
+  using free = R (*)(Args...);
 
   constexpr impl() = delete;
 
-  constexpr impl(best::unsafe, ptr ptr, fnptr fnptr)
-    : ptr_(ptr), fnptr_(fnptr) {}
+  constexpr impl(best::unsafe, ptr ptr, bound fnptr)
+    : ptr_(ptr), fnptr_{.bound = fnptr} {}
 
-  constexpr impl(std::nullptr_t)
-    : ptr_(nullptr), fnptr_(typename fnptr::free(nullptr)) {}
-  constexpr impl(R (*fn)(Args...)) : ptr_(nullptr), fnptr_(fn) {}
+  constexpr impl(std::nullptr_t) : ptr_(nullptr), fnptr_{.free = nullptr} {}
+  constexpr impl(R (*fn)(Args...)) : ptr_(nullptr), fnptr_{.free = fn} {}
 
   constexpr impl(const auto& fn)
     requires best::callable<decltype(fn), R(Args...)> &&
                (!no_captures<decltype(fn)>)
-    : ptr_(best::addr(fn)), fnptr_(+[](ptr captures, Args... args) -> R {
+    : ptr_(best::addr(fn)),
+      fnptr_{.bound = [](decltype(fn)& f, Args... args) -> R {
         if constexpr (best::is_void<R>) {
-          best::call(*(best::un_ref<decltype(fn)>*)(captures),
-                     BEST_FWD(args)...);
+          best::call(f, BEST_FWD(args)...);
         } else {
-          return best::call(*(best::un_ref<decltype(fn)>*)(captures),
-                            BEST_FWD(args)...);
+          return best::call(f, BEST_FWD(args)...);
         }
-      }) {}
+      }} {}
 
   constexpr impl(best::callable<R(Args...)> auto&& fn)
     requires (!best::is_const_func<Func>) && (!no_captures<decltype(fn)>)
-    : ptr_(best::addr(fn)), fnptr_(+[](ptr captures, Args... args) -> R {
+    : ptr_(best::addr(fn)),
+      fnptr_{.bound = [](decltype(fn)& f, Args... args) -> R {
         if constexpr (best::is_void<R>) {
-          best::call(*(best::un_ref<decltype(fn)>*)captures, BEST_FWD(args)...);
+          best::call(f, BEST_FWD(args)...);
         } else {
-          return best::call(*(best::un_ref<decltype(fn)>*)captures,
-                            BEST_FWD(args)...);
+          return best::call(f, BEST_FWD(args)...);
         }
-      }) {}
+      }} {}
 
   constexpr impl(best::callable<R(Args...)> auto&& fn)
     requires no_captures<decltype(fn)>
@@ -120,28 +120,31 @@ class impl {
   constexpr R operator()(Args... args) const requires best::is_const_func<Func>
   {
     if (ptr_) {
-      return fnptr_.bound_(ptr_, BEST_FWD(args)...);
+      return fnptr_.bound.pc_(ptr_, BEST_FWD(args)...);
     } else {
-      return fnptr_.free_(BEST_FWD(args)...);
+      return fnptr_.free(BEST_FWD(args)...);
     }
   }
 
   constexpr R operator()(Args... args) {
     if (ptr_) {
-      return fnptr_.bound_(ptr_, BEST_FWD(args)...);
+      return fnptr_.bound.pc_(ptr_, BEST_FWD(args)...);
     } else {
-      return fnptr_.free_(BEST_FWD(args)...);
+      return fnptr_.free(BEST_FWD(args)...);
     }
   }
 
   constexpr bool operator==(std::nullptr_t) const {
-    return ptr_ == nullptr && fnptr_.free_ == nullptr;
+    return ptr_ == nullptr && fnptr_.free == nullptr;
   }
   constexpr explicit operator bool() const { return *this != nullptr; }
 
  private:
   ptr ptr_;
-  fnptr fnptr_;
+  union {
+    bound bound;
+    free free;
+  } fnptr_;
 };
 }  // namespace best::fnref_internal
 

@@ -69,6 +69,14 @@ class arrow final {
   constexpr const T* operator->() const { return best::addr(value_); }
   constexpr T* operator->() { return best::addr(value_); }
 
+  constexpr decltype(auto) operator()(auto&&... args)
+    requires requires(T value) {
+      { value(BEST_FWD(args)...) };
+    }
+  {
+    return value_(BEST_FWD(args)...);
+  }
+
   arrow() = delete;
   constexpr arrow(const arrow&) = default;
   constexpr arrow& operator=(const arrow&) = default;

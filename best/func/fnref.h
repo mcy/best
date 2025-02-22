@@ -59,7 +59,7 @@ class fnref final : best::traits_internal::tame<Signature>::template apply<
   ///
   /// The function pointer part of a fnref. This can be used to construct a new
   /// fnref using an arbitrary data pointer using an unsafe constructor.
-  using fnptr = impl_t::fnptr;
+  using fnptr = impl_t::bound;
 
   /// # `fnref::is_const`
   ///

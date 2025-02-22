@@ -54,6 +54,20 @@ namespace best {
 #define BEST_REMOVE_TRAILING_COMMA(...) \
   BEST_COUNT_(__VA_ARGS__, BEST_RTC_SEQ_)(__VA_ARGS__)
 
+/// # `BEST_VA_OPT()`, `BEST_VA_OPT_REC()`
+///
+/// Expands to the expr_ if the arguments are nonempty.
+#define BEST_VA_OPT(expr_, ...) \
+  BEST_EXPAND(BEST_VA_OPT_REC(expr_ __VA_OPT__(, ) __VA_ARGS__))
+#define BEST_VA_OPT_REC(expr_, ...) \
+  BEST_VA_OPT_REC2_ BEST_PARENS()(expr_ __VA_OPT__(, ) __VA_ARGS__)
+#define BEST_VA_OPT_REC_(expr_, ...) __VA_OPT__(expr_)
+#define BEST_VA_OPT_REC2_() BEST_VA_OPT_REC_
+
+#define BEST_VARIADIC3_(MACRO, n_, ...) \
+  BEST_VARIADIC4_ BEST_PARENS(MACRO, n_)(__VA_ARGS__)
+#define BEST_VARIADIC4_(MACRO, n_) MACRO##_##n_##_
+
 /// # `BEST_NTH()`
 ///
 /// If `idx` is a decimal integer literal up to 63, expands to the `idx`th
@@ -119,11 +133,6 @@ namespace best {
 ///
 /// Expands to the result of removing the parentheses around an expression.
 #define BEST_REMOVE_PARENS(...) BEST_REMOVE_PARENS_(__VA_ARGS__)
-
-/// # `BEST_COMMA()`
-///
-/// Expands to a comma if passed more than zero arguments.
-#define BEST_COMMA(...) __VA_OPT__(, )
 
 }  // namespace best
 
