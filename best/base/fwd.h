@@ -112,9 +112,10 @@ template <typename>
 class track_location;
 
 // best/memory/dyn.h
-template <typename I>
-requires requires { typename I::BestFuncs; }
-class vtable;
+template <typename>
+class interface_base;
+template <typename...>
+class itable;
 
 // best/memory/ptr.h
 template <typename>

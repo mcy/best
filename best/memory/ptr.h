@@ -28,6 +28,7 @@
 #include "best/base/ord.h"
 #include "best/base/port.h"
 #include "best/base/tags.h"
+#include "best/func/arrow.h"
 #include "best/log/internal/crash.h"
 #include "best/memory/internal/ptr.h"
 #include "best/memory/layout.h"
@@ -401,7 +402,7 @@ class ptr final {
   constexpr auto get() const;
   constexpr view operator*() const { return deref(); }
   constexpr auto operator->() const {
-    if constexpr (best::is_raw_ptr<decltype(get())>) {
+    if constexpr (best::can_arrow<decltype(get())>) {
       return get();
     } else {
       return best::arrow(get());

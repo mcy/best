@@ -577,25 +577,27 @@ constexpr auto row<A...>::as_args() && {
 
 template <typename... A>
 constexpr best::row<best::as_ref<const A>...> row<A...>::as_ref() const& {
-  apply([](auto&&... args) {
-    best::row<best::as_ref<const A>...>(BEST_FWD(args)...);
+  return apply([](auto&&... args) {
+    return best::row<best::as_ref<const A>...>(BEST_FWD(args)...);
   });
 }
 template <typename... A>
 constexpr best::row<best::as_ref<A>...> row<A...>::as_ref() & {
-  apply(
-    [](auto&&... args) { best::row<best::as_ref<A>...>(BEST_FWD(args)...); });
+  return apply([](auto&&... args) {
+    return best::row<best::as_ref<A>...>(BEST_FWD(args)...);
+  });
 }
 template <typename... A>
 constexpr best::row<best::as_rref<const A>...> row<A...>::as_ref() const&& {
-  BEST_MOVE(*this).apply([](auto&&... args) {
-    best::row<best::as_rref<const A>...>(BEST_FWD(args)...);
+  return BEST_MOVE(*this).apply([](auto&&... args) {
+    return best::row<best::as_rref<const A>...>(BEST_FWD(args)...);
   });
 }
 template <typename... A>
 constexpr best::row<best::as_rref<A>...> row<A...>::as_ref() && {
-  BEST_MOVE(*this).apply(
-    [](auto&&... args) { best::row<best::as_rref<A>...>(BEST_FWD(args)...); });
+  return BEST_MOVE(*this).apply([](auto&&... args) {
+    return best::row<best::as_rref<A>...>(BEST_FWD(args)...);
+  });
 }
 
 template <typename... A>

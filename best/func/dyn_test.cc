@@ -23,7 +23,7 @@
 #include "best/test/test.h"
 
 namespace best::dyn_test {
-class IntHolder {
+class IntHolder : public best::interface_base<IntHolder> {
  public:
   BEST_INTERFACE(IntHolder,              //
                  (int, get, (), const),  //
@@ -34,16 +34,17 @@ class IntHolder {
   void reset(best::defaulted) { set(0); }
 };
 
-constexpr const best::vtable<IntHolder>& BestImplements(int*, IntHolder*) {
-  extern const best::vtable<IntHolder> int_vtable;
-  return int_vtable;
-}
+class Reset : public best::interface_base<Reset> {
+ public:
+  BEST_INTERFACE(Reset, (void, reset, ()));
+};
 
-constexpr const best::vtable<IntHolder> int_vtable(
-  best::types<int>, {
-                      .get = [](const int& self) { return -self; },
-                      .set = [](int& self, int x) { self = x; },
-                    });
+constexpr best::vtable<IntHolder> BestImplements(int*, IntHolder*) {
+  return {
+    .get = [](const int& self) { return -self; },
+    .set = [](int& self, int x) { self = x; },
+  };
+}
 
 struct Struct {
   int value;
@@ -56,7 +57,7 @@ static_assert(best::interface<IntHolder>);
 static_assert(best::implements<int, IntHolder>);
 static_assert(best::implements<Struct, IntHolder>);
 static_assert(best::same<best::ptr<best::dyn<IntHolder>>::metadata,
-                         const best::vtable<IntHolder>*>);
+                         const best::itable<IntHolder>*>);
 
 template <typename T>
 constexpr bool can_set = requires(T& p) {
@@ -112,6 +113,16 @@ best::test Default = [](best::test& t) {
   t.expect_eq(x, 0);
   t.expect_eq(y.value, 0);
   t.expect_eq(z.value, -42);
+};
+
+best::test Mixed = [](best::test& t) {
+  Struct2 y(42);
+  best::dynptr<IntHolder, Reset> p = &y;
+  t.expect_eq(p[best::types<IntHolder>]->get(), 84);
+  t.expect_eq(IntHolder::of(p)->get(), 84);
+
+  Reset::of(p)->reset();
+  t.expect_eq(IntHolder::of(p)->get(), -84);
 };
 
 best::test Box = [](best::test& t) {

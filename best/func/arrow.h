@@ -58,16 +58,48 @@
 //! full expression, so the pointer that the final `->b` offsets will be valid.
 
 namespace best {
+/// # `best::deref_arrow()`
+///
+/// Runs an `operator->` deref sequence to completion, simulating the result
+/// of doing `x->y`, without the final "real" `->y` part.
+template <typename A>
+auto* deref_arrow(A&& ptr) requires (best::is_raw_ptr<best::as_auto<A>> ||
+                                     requires {
+                                       { deref_arrow(ptr.operator->()) };
+                                     })
+{
+  if constexpr (best::is_raw_ptr<best::as_auto<A>>) {
+    return ptr;
+  } else {
+    return deref_arrow(BEST_MOVE(ptr).operator->());
+  }
+}
+
+/// # `best::can_arrow<A>`
+///
+/// Returns whether `A` provides a valid `operator->`.
+template <typename A>
+concept can_arrow = requires(A a) {
+  { deref_arrow(a) };
+};
+
 /// # `best::arrow<T>`
 ///
 /// A wrapper over a `T` that implements a `operator->` that returns a pointer
-/// to that value.
+/// to that value. If `T` itself provides `operator->`, it calls that instead.
 template <typename T>
 class arrow final {
  public:
   constexpr arrow(auto&& arg) : value_(BEST_FWD(arg)) {}
-  constexpr const T* operator->() const { return best::addr(value_); }
-  constexpr T* operator->() { return best::addr(value_); }
+  constexpr auto operator->() && {
+    if constexpr (requires {
+                    { value_.operator->() };
+                  }) {
+      return value_;
+    } else {
+      return best::addr(value_);
+    }
+  }
 
   constexpr decltype(auto) operator()(auto&&... args)
     requires requires(T value) {

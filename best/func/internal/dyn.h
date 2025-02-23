@@ -31,16 +31,26 @@ using mark_as_used = best::fnref<void()>;
 struct access {
   template <typename I>
   static constexpr bool can_wrap() {
-    return requires(void* vp, const best::vtable<I>* vt) {
+    return requires(void* vp, const I::BestVtable* vt) {
       { best::access::constructor<I>(vp, vt) };
     };
   }
 
   template <typename I>
-  static constexpr I wrap(const void* vp, const best::vtable<I>* vt) {
+  static constexpr I wrap(const void* vp, const I::BestVtable* vt) {
     return best::access::constructor<I>(const_cast<void*>(vp), vt);
   }
 };
+
+template <typename I, typename T>
+constexpr auto apply_vtable_defaults(auto vt) {
+  if constexpr (requires {
+                  { I::template BestFuncDefaults<T>(vt) };
+                }) {
+    I::template BestFuncDefaults<T>(vt);
+  }
+  return vt;
+}
 
 // Used to convert a declarator like `int x` into just the type, `int`.
 // This takes advantage of the fact that you can write variable names in the
@@ -105,30 +115,19 @@ class binder_impl {
  public:                                                                  \
   BEST_MAP(BEST_IFACE_MEM_, __VA_ARGS__)                                  \
                                                                           \
-  constexpr const auto& vtable() const { return *BEST_vt_; }              \
-                                                                          \
-  template <::best::as_dyn<Interface_> BEST_T_>                           \
-  static constexpr auto of(BEST_T_&& BEST_value_) {                       \
-    return ::best::dyn<Interface_>::of(BEST_FWD(BEST_value_));            \
-  }                                                                       \
-                                                                          \
-  struct BestFuncs final {                                                \
+  struct BestVtable final {                                               \
     BEST_MAP(BEST_IFACE_FNPTR_, __VA_ARGS__)                              \
   };                                                                      \
                                                                           \
   template <typename BEST_T_, typename BEST_This_ = Interface_>           \
-  static constexpr void BestFuncDefaults(BestFuncs& BEST_funcs_) {        \
+  static constexpr void BestFuncDefaults(BestVtable& BEST_vt_) {          \
     BEST_MAP(BEST_IFACE_DEFAULT_FNPTR_, __VA_ARGS__)                      \
   }                                                                       \
                                                                           \
  private:                                                                 \
-                                                                          \
   template <typename BEST_T_, typename BEST_This_>                        \
   static constexpr ::best::vtable<BEST_This_> BEST_implements_{           \
     ::best::types<BEST_T_>, [] {                                          \
-      BestFuncs BEST_funcs_;                                              \
-      BEST_MAP(BEST_IFACE_GET_FNPTR_, __VA_ARGS__)                        \
-      return BEST_funcs_;                                                 \
     }(),                                                                  \
   };                                                                      \
                                                                           \
@@ -137,19 +136,20 @@ class binder_impl {
     requires true; /* Empty requires{} is not allowed. */                 \
     BEST_MAP(BEST_IFACE_REQ_, __VA_ARGS__)                                \
   }                                                                       \
-  constexpr friend const ::best::vtable<BEST_This_>&                      \
-  BestImplements(BEST_T_*, Interface_*) {                                 \
-    return BEST_implements_<BEST_T_, BEST_This_>;                         \
+  constexpr friend BestVtable BestImplements(BEST_T_*, Interface_*) {     \
+    BestVtable BEST_vt_;                                                  \
+    BEST_MAP(BEST_IFACE_GET_FNPTR_, __VA_ARGS__)                          \
+    return BEST_vt_;                                                      \
   }                                                                       \
                                                                           \
-  constexpr Interface_(void* data, const ::best::vtable<Interface_>* vt)  \
+  constexpr Interface_(void* data, const BestVtable* vt)                  \
     : BEST_data_(data), BEST_vt_(vt) {}                                   \
                                                                           \
   void* BEST_data_;                                                       \
-  const ::best::vtable<Interface_>* BEST_vt_;                             \
- public:                                                                 \
+  const BestVtable* BEST_vt_;                                             \
+ public:                                                                  \
   friend ::best::access;                                                  \
-  friend BestFuncs                                                        \
+  friend BestVtable                                                       \
     // Require a trailing semi.
 
 #define BEST_IFACE_CONST_(args_) BEST_IFACE_CONST2_##args_
@@ -162,7 +162,7 @@ class binder_impl {
   name_(BEST_IFACE_PARAMS_(, args_))                                           \
   BEST_IFACE_CONST_(__VA_ARGS__)                                               \
   {                                                                            \
-    return (*BEST_vt_)->name_(BEST_IFACE_ARGS_(BEST_data_, args_));            \
+    return BEST_vt_->name_(BEST_IFACE_ARGS_(BEST_data_, args_));               \
   }
 
 #define BEST_IFACE_RET_(ret_) \
@@ -188,14 +188,14 @@ class binder_impl {
 #define BEST_IFACE_DEFAULT_FNPTR_(pack) BEST_IFACE_DEFAULT_FNPTR_UNPACKED_ pack
 #define BEST_IFACE_DEFAULT_FNPTR_UNPACKED_(ret_, name_, args_, ...)        \
   if constexpr(BEST_IFACE_DEFAULT_REQ_(ret_, name_, args_, __VA_ARGS__)) { \
-    if (!BEST_funcs_.name_) {                                              \
-      BEST_funcs_.name_ = [](BEST_IFACE_PARAMS_(                           \
+    if (!BEST_vt_.name_) {                                              \
+      BEST_vt_.name_ = [](BEST_IFACE_PARAMS_(                           \
                 BEST_IFACE_CONST_(__VA_ARGS__) BEST_T_& BEST_this_,        \
                 args_)) -> decltype(auto)                                  \
       {                                                                    \
         BEST_IFACE_CONST_(__VA_ARGS__) BEST_This_ BEST_dyn_(               \
           ::best::addr(BEST_this_),                                        \
-          &best::vtable<BEST_This_>::of(best::types<BEST_T_>));            \
+          ::best::itable<BEST_This_>::of(::best::types<BEST_T_>).operator->()); \
         return BEST_dyn_.name_(                                            \
           BEST_IFACE_ARGS_(::best::defaulted{}, args_)                     \
         );                                                                 \
@@ -206,7 +206,7 @@ class binder_impl {
 #define BEST_IFACE_GET_FNPTR_(pack) BEST_IFACE_GET_FNPTR_UNPACKED_ pack
 #define BEST_IFACE_GET_FNPTR_UNPACKED_(ret_, name_, args_, ...)               \
   if constexpr (BEST_IFACE_PROVIDED_REQ_(ret_, name_, args_, __VA_ARGS__)) {  \
-    BEST_funcs_.name_ = [](BEST_IFACE_PARAMS_(                                \
+    BEST_vt_.name_ = [](BEST_IFACE_PARAMS_(                                \
                   BEST_IFACE_CONST_(__VA_ARGS__) BEST_T_& BEST_this_,         \
                   args_)) -> decltype(auto)                                   \
     {                                                                         \
