@@ -92,3 +92,21 @@ cc_test(
     "//best/test",
   ],
 )
+
+cc_library(
+  name = "defer",
+  hdrs = ["defer.h"],
+  deps = [
+    ":call",
+  ],
+)
+
+cc_test(
+  name = "defer_test",
+  srcs = ["defer_test.cc"],
+  linkopts = ["-rdynamic"],
+  deps = [
+    ":defer",
+    "//best/test",
+  ],
+)
