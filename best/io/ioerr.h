@@ -56,9 +56,7 @@ class ioerr final {
   /// Reads the `errno` value for this thread and wraps it in a best::ioresult.
   static best::ioresult<> current() {
     int value = errno;
-    if (value == 0) {
-      return best::ok();
-    }
+    if (value == 0) { return best::ok(); }
     return best::ioerr(value);
   }
 
