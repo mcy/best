@@ -116,8 +116,7 @@ constexpr int32_t undecode8(best::span<const char>* input) {
   size_t len = 1;
   for (; len < 5; ++len) {
     if (input->size() < len) { return OutOfBounds; }
-    auto byte =
-      input->at(unsafe("bounds check above"), input->size() - len);
+    auto byte = input->at(unsafe("bounds check above"), input->size() - len);
     if (best::leading_ones(byte) != 1) { break; }
   }
   if (len == 5) { return Invalid; }

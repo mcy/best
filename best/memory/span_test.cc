@@ -278,7 +278,7 @@ best::test Find = [](auto& t) {
     bytes.split('4').rev().to_vec(),
     {{'5', '6', '7', '8', '9', '\0'}, {}, {}, {}, {}, {'1', '2', '3'}});
 
-  int a[] = {1, 2, 3, 4, 4, 4, 4, 4, 5, 6, 7, 8, 9, 0};
+  const int a[] = {1, 2, 3, 4, 4, 4, 4, 4, 5, 6, 7, 8, 9, 0};
   best::span ints = a;
 
   t.expect_eq(ints.find(1), 0);
@@ -303,7 +303,7 @@ best::test Find = [](auto& t) {
   t.expect_eq(ints.split(4).rev().to_vec(),
               {{5, 6, 7, 8, 9, 0}, {}, {}, {}, {}, {1, 2, 3}});
 
-  SlowCmp b[] = {1, 2, 3, 4, 4, 4, 4, 4, 5, 6, 7, 8, 9, 0};
+  const SlowCmp b[] = {1, 2, 3, 4, 4, 4, 4, 4, 5, 6, 7, 8, 9, 0};
   best::span slow = b;
 
   t.expect_eq(slow.find(1), 0);

@@ -927,7 +927,8 @@ constexpr span<T, n> span<T, n>::from_nul(T* data) {
   }
 
   auto ptr = data;
-  while (*ptr++ != T{0});
+  while (*ptr++ != T{0})
+    ;
   return best::span(data, ptr - data - 1);
 }
 
@@ -1206,7 +1207,6 @@ constexpr best::option<best::row<span<T>, span<T>>> span<T, n>::split_once(
     best::span(data() + *idx + 1, size() - *idx - 1),
   }};
 }
-
 
 template <best::is_object T, best::option<best::dependent<size_t, T>> n>
 template <best::equatable<T> U>
