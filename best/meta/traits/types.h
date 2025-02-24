@@ -72,6 +72,12 @@ using dependent_value =
 template <typename... Pack>
 concept same = traits_internal::same<Pack...>::value;
 
+/// # `best::one_of<T, Alts...>
+///
+/// Returns whether `T` is among the types in `Alts`.
+template <typename T, typename... Alts>
+concept one_of = (best::same<T, Alts> || ...);
+
 /// # `best::lie<T>`
 ///
 /// Lies to the compiler that we can materialize a `T`. This is just a shorter

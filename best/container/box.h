@@ -299,8 +299,8 @@ box(std::initializer_list<T>) -> box<T[]>;
 /// # `best::dynbox<I>`
 ///
 /// A shorthand for a box containing a `best::dyn`.
-template <best::interface I, typename A = best::malloc>
-using dynbox = best::box<best::dyn<I>, A>;
+template <best::interface... Interfaces>
+using dynbox = best::box<best::dyn<Interfaces...>>;
 }  // namespace best
 
 /* ////////////////////////////////////////////////////////////////////////// *\

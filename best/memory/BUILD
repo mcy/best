@@ -11,6 +11,7 @@ cc_library(
     "//best/base:hint",
     "//best/base:niche",
     "//best/base:ord",
+    "//best/func:arrow",
     "//best/meta:init",
     "//best/meta:tlist",
     "//best/meta/traits:types",
