@@ -546,6 +546,13 @@ vec(Iter) -> vec<best::as_auto<typename best::iter_type<Iter>>>;
 \* ////////////////////////////////////////////////////////////////////////// */
 
 namespace best {
+namespace iter_internal {
+template <typename T>
+struct vec {
+  using type = best::vec<T>;
+};
+}  // namespace iter_internal
+
 template <best::relocatable T, size_t max_inline, best::allocator A>
 vec<T, max_inline, A>::vec(const vec& that)
   requires best::copyable<T> && best::copyable<alloc>

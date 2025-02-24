@@ -87,12 +87,14 @@ best::test Debug = [](auto& t) {
 
 best::test Iter = [](auto& t) {
   best::bounds b = {.start = 5, .end = 11};
-  t.expect_eq(best::vec(b.iter()), {5, 6, 7, 8, 9, 10});
+  t.expect_eq(b.iter().to_vec(), {5, 6, 7, 8, 9, 10});
+  t.expect_eq(b.iter().rev().to_vec(), {10, 9, 8, 7, 6, 5});
   t.expect_eq(b.iter().count(), 6);
   t.expect_eq(b.iter().last(), 10);
 
   b = {.start = 5, .including_end = 11};
-  t.expect_eq(best::vec(b.iter()), {5, 6, 7, 8, 9, 10, 11});
+  t.expect_eq(b.iter().to_vec(), {5, 6, 7, 8, 9, 10, 11});
+  t.expect_eq(b.iter().rev().to_vec(), {11, 10, 9, 8, 7, 6, 5});
   t.expect_eq(b.iter().count(), 7);
   t.expect_eq(b.iter().last(), 11);
 
@@ -100,14 +102,17 @@ best::test Iter = [](auto& t) {
     .start = best::max_of<size_t> - 1,
     .including_end = best::max_of<size_t>,
   };
-  t.expect_eq(best::vec(b.iter()),
+  t.expect_eq(b.iter().to_vec(),
               {best::max_of<size_t> - 1, best::max_of<size_t>});
+  t.expect_eq(b.iter().rev().to_vec(),
+              {best::max_of<size_t>, best::max_of<size_t> - 1});
   t.expect_eq(b.iter().count(), 2);
   t.expect_eq(b.iter().last(), best::max_of<size_t>);
 
   best::int_range i = {.start = uint8_t(0)};
-  t.expect_eq(best::vec(i.iter()),
-              best::vec(best::bounds{.count = 256}.iter()));
+  t.expect_eq(i.iter().to_vec(), best::bounds{.count = 256}.iter().to_vec());
+  t.expect_eq(i.iter().rev().to_vec(),
+              best::bounds{.count = 256}.iter().rev().to_vec());
   t.expect_eq(i.iter().count(), 256);
   t.expect_eq(i.iter().last(), 255);
 };

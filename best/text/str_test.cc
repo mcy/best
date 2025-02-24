@@ -21,7 +21,6 @@
 
 #include <string_view>
 
-#include "best/container/vec.h"
 #include "best/test/test.h"
 #include "best/text/utf32.h"
 
@@ -115,24 +114,23 @@ best::test Cmp = [](auto& t) {
 best::test Utf8Decode = [](auto& t) {
   best::str test = "solomon🧶🐈‍⬛黒猫";
   t.expect_eq(test.size(), 27);
-
-  best::vec<rune> runes;
-  for (rune r : test.runes()) { runes.push(r); }
-
-  t.expect_eq(runes,
+  t.expect_eq(test.runes().to_vec(),
               best::span<const rune>{'s', 'o', 'l', 'o', 'm', 'o', 'n', U'🧶',
                                      U'🐈', 0x200d, U'⬛', U'黒', U'猫'});
+  t.expect_eq(test.runes().rev().to_vec(),
+              best::span<const rune>{U'猫', U'黒', U'⬛', 0x200D, U'🐈', U'🧶',
+                                     'n', 'o', 'm', 'o', 'l', 'o', 's'});
 };
 
 best::test Utf16Decode = [](auto& t) {
   best::str16 test = u"solomon🧶🐈‍⬛黒猫";
   t.expect_eq(test.size(), 15);
-  best::vec<rune> runes;
-  for (rune r : test.runes()) { runes.push(r); }
-
-  t.expect_eq(runes,
+  t.expect_eq(test.runes().to_vec(),
               best::span<const rune>{'s', 'o', 'l', 'o', 'm', 'o', 'n', U'🧶',
                                      U'🐈', 0x200d, U'⬛', U'黒', U'猫'});
+  t.expect_eq(test.runes().rev().to_vec(),
+              best::span<const rune>{U'猫', U'黒', U'⬛', 0x200D, U'🐈', U'🧶',
+                                     'n', 'o', 'm', 'o', 'l', 'o', 's'});
 };
 
 best::test Affix = [](auto& t) {
@@ -147,9 +145,21 @@ best::test Affix = [](auto& t) {
   t.expect(haystack.starts_with(str16(u"a complicated string")));
   t.expect(!haystack.starts_with(str16(u"complicated string")));
 
+  t.expect(haystack.ends_with("see solomon: 🐈‍⬛"));
+  t.expect(!haystack.ends_with("see solomon:"));
+  t.expect(haystack.ends_with(u"see solomon: 🐈‍⬛"));
+  t.expect(!haystack.ends_with(u"see solomon:"));
+  t.expect(haystack.ends_with(str("see solomon: 🐈‍⬛")));
+  t.expect(!haystack.ends_with(str("see solomon:")));
+  t.expect(haystack.ends_with(str16(u"see solomon: 🐈‍⬛")));
+  t.expect(!haystack.ends_with(str16(u"see solomon:")));
+
   t.expect(haystack.starts_with('a'));
   t.expect(!haystack.starts_with('z'));
   t.expect(!haystack.starts_with(U'🧶'));
+  t.expect(haystack.ends_with(U'⬛'));
+  t.expect(!haystack.ends_with('z'));
+  t.expect(!haystack.ends_with(U'🧶'));
 };
 
 best::test Contains = [](auto& t) {
@@ -174,12 +184,23 @@ best::test Find = [](auto& t) {
   t.expect_eq(haystack.find(u"solomon"), 26);
   t.expect_eq(haystack.find(u"daisy"), best::none);
 
+  t.expect_eq(haystack.rfind(" s"), 25);
+  t.expect_eq(haystack.rfind("daisy"), best::none);
+  t.expect_eq(haystack.rfind(u" s"), 25);
+  t.expect_eq(haystack.rfind(u"daisy"), best::none);
+
   t.expect_eq(haystack.find(U'🐈'), 35);
   t.expect_eq(haystack.find('z'), best::none);
   t.expect_eq(haystack.find(U'🍣'), best::none);
   t.expect_eq(haystack.find(U"🐈‍⬛"), 35);
 
+  t.expect_eq(haystack.rfind('s'), 26);
+  t.expect_eq(haystack.rfind('z'), best::none);
+  t.expect_eq(haystack.rfind(U'🍣'), best::none);
+  t.expect_eq(haystack.rfind(U"🐈‍⬛"), 35);
+
   t.expect_eq(haystack.find(&rune::is_ascii_punct), 20);
+  t.expect_eq(haystack.rfind(&rune::is_ascii_punct), 33);
 };
 
 best::test Find16 = [](auto& t) {
@@ -190,12 +211,23 @@ best::test Find16 = [](auto& t) {
   t.expect_eq(haystack.find(u"solomon"), 26);
   t.expect_eq(haystack.find(u"daisy"), best::none);
 
+  t.expect_eq(haystack.rfind(" s"), 25);
+  t.expect_eq(haystack.rfind("daisy"), best::none);
+  t.expect_eq(haystack.rfind(u" s"), 25);
+  t.expect_eq(haystack.rfind(u"daisy"), best::none);
+
   t.expect_eq(haystack.find(U'🐈'), 35);
   t.expect_eq(haystack.find('z'), best::none);
   t.expect_eq(haystack.find(U'🍣'), best::none);
   t.expect_eq(haystack.find(U"🐈‍⬛"), 35);
 
+  t.expect_eq(haystack.rfind('s'), 26);
+  t.expect_eq(haystack.rfind('z'), best::none);
+  t.expect_eq(haystack.rfind(U'🍣'), best::none);
+  t.expect_eq(haystack.rfind(U"🐈‍⬛"), 35);
+
   t.expect_eq(haystack.find(&rune::is_ascii_punct), 20);
+  t.expect_eq(haystack.rfind(&rune::is_ascii_punct), 33);
 };
 
 best::test SplitAt = [](auto& t) {
@@ -259,5 +291,19 @@ best::test SplitOn = [](auto& t) {
 
   t.expect_eq(haystack.split_once(&rune::is_ascii_punct),
               best::row{"a complicated string", " see solomon: 🐈‍⬛"});
+};
+
+best::test Split = [](auto& t) {
+  best::str cat_names = "solomon,dragon,kuro,tax fraud";
+  t.expect_eq(cat_names.split(",").to_vec(),
+              {"solomon", "dragon", "kuro", "tax fraud"});
+  t.expect_eq(cat_names.split(",").rev().to_vec(),
+              {"tax fraud", "kuro", "dragon", "solomon"});
+
+  best::str16 cat_names16 = u"solomon,dragon,kuro,tax fraud";
+  t.expect_eq(cat_names16.split(",").to_vec(),
+              best::span<const str>{"solomon", "dragon", "kuro", "tax fraud"});
+  t.expect_eq(cat_names16.split(",").rev().to_vec(),
+              best::span<const str>{"tax fraud", "kuro", "dragon", "solomon"});
 };
 }  // namespace best::str_test
