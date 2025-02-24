@@ -71,7 +71,7 @@ class [[nodiscard(
 
  private:
   Cb cb_;
-  bool cancelled_;
+  bool cancelled_ = false;
 };
 
 template <typename Cb>
