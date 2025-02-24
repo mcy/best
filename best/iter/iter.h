@@ -94,6 +94,13 @@ class iter final {
   using impl = Impl;
   using item = best::option_type<decltype(best::lie<impl>.next())>;
 
+  /// # `iter::double_ended`
+  ///
+  /// Whether this is a double-ended iterator, which supports reverse iteration.
+  static constexpr bool double_ended = requires(impl& impl) {
+    { impl.next_back() };
+  };
+
   /// # `iter::iter()`
   ///
   /// Wraps an iterator implementation.
@@ -119,6 +126,17 @@ class iter final {
   /// it retuns `best::none`, that means we're done, although there is no
   /// requirement that it continue to yield `best::none` forever
   constexpr best::option<item> next() { return impl_.next(); }
+
+  /// # `iter::next_back()`
+  ///
+  /// Drives the iterator from the back.
+  ///
+  /// This yields elements from the *end* of the sequence. Iterators which
+  /// provide next_back() are called double-ended.
+  constexpr best::option<item> next_back() requires double_ended
+  {
+    return impl_.next_back();
+  }
 
 #define BEST_ITER_FWD(func_)                            \
   if constexpr (requires { BEST_MOVE(impl_).func_(); }) \
@@ -148,6 +166,11 @@ class iter final {
   constexpr Out collect() && {
     return Out(BEST_MOVE(*this));
   }
+
+  /// # `iter::to_vec()`
+  ///
+  /// Collects this iterator into a vector. Must include `vec.h` to use.
+  auto to_vec() &&;
 
   /// # `iter::count()`
   ///
@@ -198,6 +221,11 @@ class iter final {
   /// Produces a new iterator that only yields the first `n` elements.
   constexpr auto take(size_t n) &&;
 
+  /// # `iter::rev()`
+  ///
+  /// Produces a new iterator that yields elements in reverse order.
+  constexpr /*default*/ auto rev() && requires double_ended;
+
   /// # `iter::begin()`, `iter::end()`
   ///
   /// Bridges for C++'s range-for syntax. You should never call these directly.
@@ -214,8 +242,6 @@ class iter final {
  private:
   impl impl_;
 };
-
-#undef BEST_ITER_FWD
 
 /// # `best::iter_range_end`
 ///
@@ -300,6 +326,9 @@ class iter_range final {
 
 namespace best {
 namespace iter_internal {
+template <typename T>
+struct vec;
+
 template <typename Impl>
 class collect final {
  public:
@@ -321,11 +350,21 @@ constexpr auto iter<Impl>::collect() && {
   return iter_internal::collect<Impl>{BEST_MOVE(*this)};
 }
 
+template <typename Impl>
+auto iter<Impl>::to_vec() && {
+  return BEST_MOVE(*this)
+    .template collect<typename iter_internal::vec<item>::type>();
+}
+
 namespace iter_internal {
 template <typename Impl, typename Cb>
 class map final {
  public:
   constexpr auto next() { return iter_.next().map(cb_); }
+  constexpr auto next_back() requires iter<Impl>::double_ended
+  {
+    return iter_.next_back().map(cb_);
+  }
 
   constexpr best::size_hint size_hint() const { return iter_.size_hint(); }
 
@@ -429,6 +468,39 @@ template <typename I>
 constexpr auto iter<I>::take(size_t n) && {
   return best::iter(iter_internal::take(std::move(*this), n));
 }
+
+namespace iter_internal {
+template <typename Impl>
+class rev_ final {
+ public:
+  constexpr best::option<typename iter<Impl>::item> next() {
+    return iter_.next_back();
+  }
+
+  constexpr best::option<typename iter<Impl>::item> next_back() {
+    return iter_.next();
+  }
+
+  constexpr best::size_hint size_hint() const { return iter_.size_hint(); }
+
+  constexpr auto rev() const { return iter_; }
+
+ private:
+  constexpr explicit rev_(best::iter<Impl> iter) : iter_(BEST_MOVE(iter)) {}
+
+  friend best::iter<Impl>;
+  iter<Impl> iter_;
+};
+}  // namespace iter_internal
+
+template <typename I>
+constexpr auto iter<I>::rev() && requires double_ended
+{
+  BEST_ITER_FWD(rev);
+  return best::iter(best::iter_internal::rev_(std::move(*this)));
+}
+
+#undef BEST_ITER_FWD
 }  // namespace best
 
 #endif  // BEST_ITER_ITER_H_

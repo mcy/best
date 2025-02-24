@@ -238,6 +238,20 @@ struct int_range final {
       return ret;
     }
 
+    constexpr opt_t next_back() {
+      if (count_ == 0) {
+        if (plus_one_) {
+          plus_one_ = false;
+          return start_;
+        }
+        return {};
+      }
+
+      auto ret = start_ + count_ - !plus_one_;
+      count_ = (best::overflow(count_) - 1).wrap();
+      return ret;
+    }
+
     constexpr std::array<size_t, 2> size_hint() const {
       // TODO(mcyoung): This will overflow for uint64 ranges, need to return
       // something else.

@@ -113,17 +113,17 @@ constexpr int32_t decode8(const char* data, size_t rune_bytes) {
 }
 
 constexpr int32_t undecode8(best::span<const char>* input) {
-  size_t len = 0;
-  for (; len < 4; ++len) {
+  size_t len = 1;
+  for (; len < 5; ++len) {
     if (input->size() < len) { return OutOfBounds; }
     auto byte =
-      input->at(unsafe("bounds check above"), input->size() - len - 1);
+      input->at(unsafe("bounds check above"), input->size() - len);
     if (best::leading_ones(byte) != 1) { break; }
   }
-  if (len == 4) { return Invalid; }
+  if (len == 5) { return Invalid; }
   *input = {input->data(), input->size() - len};
 
-  return decode8(input->data().offset(input->size() - len).raw(), len);
+  return decode8(input->data().offset(input->size()).raw(), len);
 }
 
 // This function expects the caller to pre-compute encode8_size.
