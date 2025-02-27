@@ -143,4 +143,19 @@ inline constexpr bool is_debug() {
 #include <compare>
 #endif
 
+/// # `BEST_IS_WINDOWS`
+///
+/// True if this platform is Microsoft Windows.
+#if defined(_WIN32) || defined(WIN32)
+#define BEST_IS_WINDOWS 1
+#else
+#define BEST_IS_WINDOWS 0
+#endif
+
+/// # `BEST_IS_POSIX`
+///
+/// True if this platform is a POSIX-like. It is assumed that all non-Windows
+/// targets are POSIX-like.
+#define BEST_IS_POSIX !BEST_IS_WINDOWS
+
 #endif  // BEST_BASE_PORT_H_

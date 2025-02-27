@@ -42,6 +42,12 @@ namespace best {
 template <typename T>
 concept is_int = int_internal::is_int<best::un_qual<T>>;
 
+/// # `best::is_byte`
+///
+/// Any primitive byte type: `char`, `unsigned char`, and `signed char`.
+template <typename T>
+concept is_byte = best::is_int<T> && sizeof(T) == 1;
+
 /// # `best::bits_of<T>`
 ///
 /// The number of bits in `Int`.

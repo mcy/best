@@ -79,6 +79,7 @@ pieces of functionality.
   a container.
 - `best/func` - Helpers for manipulating functions as first-class objects.
 - `best/iter` - Iterators and other functional programming types.
+- `best/io` - I/O primitives for interfacing with the operating system.
 - `best/log` - Logging utilities.
 - `best/math` - Numeric and integer utilities.
 - `best/memory` - Low-level memory management.
