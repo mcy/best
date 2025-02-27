@@ -17,8 +17,9 @@
 
 \* ////////////////////////////////////////////////////////////////////////// */
 
+#include "best/io/ioerr.h"
+
 #include "best/base/guard.h"
-#include "best/io/errno_.h"
 
 namespace best {
 namespace {
@@ -32,14 +33,14 @@ const std::array Errnos = {
 };
 }  // namespace
 
-best::option<best::str> errnos::name() const {
+best::option<best::str> ioerr::name() const {
   if (value_ >= Errnos.size() || Errnos[value_].name.is_empty()) {
     return best::none;
   }
 
   return Errnos[value_].name;
 }
-best::option<best::str> errnos::message() const {
+best::option<best::str> ioerr::message() const {
   BEST_GUARD(name());
   return Errnos[value_].message;
 }
