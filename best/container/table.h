@@ -954,16 +954,18 @@ best::strbuf table<K, V, P>::debug(bool include_entries) const {
     best::format(out, "  {:p}: {:?}\n", key, best::make_formattable(*key));
   }
 
-  if constexpr (best::is_empty<V>) { return out; }
-  out.push("values:\n");
-  for (auto i : best::bounds{.count = raw_.cap().hard}) {
-    auto value = raw_.value(i);
-    if (raw_.ctrl(i).is_vacant()) {
-      best::format(out, "  {:p}: ---\n", value);
-      continue;
-    }
+  if constexpr (!best::is_empty<V>) {
+    out.push("values:\n");
+    for (auto i : best::bounds{.count = raw_.cap().hard}) {
+      auto value = raw_.value(i);
+      if (raw_.ctrl(i).is_vacant()) {
+        best::format(out, "  {:p}: ---\n", value);
+        continue;
+      }
 
-    best::format(out, "  {:p}: {:?}\n", value, best::make_formattable(*value));
+      best::format(out, "  {:p}: {:?}\n", value,
+                   best::make_formattable(*value));
+    }
   }
 
   return out;

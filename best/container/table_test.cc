@@ -189,7 +189,9 @@ best::test HammerStrings = [](auto& t) {
   best::table<best::strbuf> strs;
 
   best::strbuf k;
-  for (auto _ : best::bounds{.count = 100}) {
+  for (auto ignore : best::bounds{.count = 100}) {
+    (void)ignore;
+
     strs[k].insert();
     k.push('#');
   }
