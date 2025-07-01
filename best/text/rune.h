@@ -327,6 +327,11 @@ class rune final {
     query.uses_method = [](rune r) { return r == 'q'; };
   }
 
+  template <best::hash_state State>
+  constexpr friend void BestHash(best::hasher<State>& h, const rune& value) {
+    h.write(value.value_);
+  }
+
   // best::rune has a niche representation.
   constexpr explicit rune(niche) : value_(-1) {}
   constexpr bool operator==(niche) const { return value_ == -1; }

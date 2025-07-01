@@ -190,6 +190,10 @@ struct access;
 namespace dyn_internal {
 struct access;
 }
+namespace format_internal {
+template <typename, typename...>
+class templ;
+}
 }  // namespace best
 
 #endif  // BEST_BASE_FWD_H_

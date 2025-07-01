@@ -51,6 +51,8 @@ concept is_empty = best::is_void<T> || std::is_empty_v<T>;
 struct empty final {
   constexpr bool operator==(const empty& that) const = default;
   constexpr std::strong_ordering operator<=>(const empty& that) const = default;
+
+  constexpr friend void BestHash(auto& h, const auto& value) {}
 };
 
 /// # `best::devoid<T>`

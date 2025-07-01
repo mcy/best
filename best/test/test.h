@@ -22,6 +22,7 @@
 
 #include "best/cli/cli.h"
 #include "best/log/location.h"
+#include "best/meta/init.h"
 #include "best/text/format.h"
 #include "best/text/str.h"
 
@@ -99,10 +100,12 @@ class test final {
   /// ```
   /// if (!t.expect(...)) { return; }
   /// ```
-  template <best::formattable... Args>
-  bool expect(bool cond, best::format_template<Args...> message = "",
+  template <typename Cond, best::formattable... Args>
+  requires best::constructible<bool, Cond&&>
+  bool expect(Cond&& cond, best::format_template<Args...> message = "",
               const Args&... args) {
-    if (!cond) {
+    bool c = static_cast<bool>(BEST_FWD(cond));
+    if (!c) {
       best::eprintln("failed expect() at {:?}", message.where());
       if (!message.as_str().is_empty()) {
         best::eprint("=> ");
@@ -110,7 +113,7 @@ class test final {
       }
       failed_ = true;
     }
-    return cond;
+    return c;
   }
 
   /// # `test::expect_eq()` et. al.

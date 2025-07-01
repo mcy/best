@@ -1,2 +1,3 @@
 # Makes bazel test always print errors.
 test --test_output=errors
+build --copt=-ftemplate-backtrace-limit=0

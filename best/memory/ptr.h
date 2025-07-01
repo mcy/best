@@ -366,6 +366,21 @@ class ptr final {
     return (best::pointee<U>*)raw();
   }
 
+  /// # `ptr::skip()`
+  ///
+  /// Advances to a `U` stored after `count` `T`s. In other words, this
+  /// takes an array of type `T` with `count` elements, and skips past it to
+  /// an array of `U`s.
+  template <typename U>
+  constexpr best::ptr<U> skip(size_t count = 1, best::tlist<U> = {}) const
+    requires thin && best::ptr<U>::thin
+  {
+    auto end = offset(count);
+    return end.template cast<char>()
+      .offset(end.misalignment(best::align_of<U>))
+      .template cast<U>();
+  }
+
   /// # `ptr::to_addr()`, `ptr::from_addr()`
   ///
   /// Converts this pointer to/from a raw address.
@@ -373,6 +388,17 @@ class ptr final {
   static ptr from_addr(uintptr_t addr, metadata meta = {}) requires thin
   {
     return {reinterpret_cast<pointee*>(addr), BEST_MOVE(meta)};
+  }
+
+  /// # `ptr::misalignment()`
+  ///
+  /// Returns the byte offset from this pointer's address to the next address
+  /// aligned to `align`, which must be a power of two.
+  ptrdiff_t misalignment(size_t align) const {
+    auto addr = to_addr();
+    auto mask = align - 1;
+    auto next = (addr + mask) & ~mask;
+    return next - addr;
   }
 
   /// # `ptr::raw()`, `ptr::meta()`

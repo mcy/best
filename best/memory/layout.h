@@ -24,6 +24,8 @@
 #include <cstdlib>
 
 #include "best/base/unsafe.h"
+#include "best/hash/hash.h"
+#include "best/math/bit.h"
 #include "best/math/int.h"
 #include "best/math/overflow.h"
 #include "best/memory/internal/layout.h"
@@ -126,6 +128,48 @@ class layout final {
                   layout_internal::align_of<Members...>);
   }
 
+  /// # `layout::of_struct()`
+  ///
+  /// Appends several layouts together, as if by `layout::of_struct()`.
+  static constexpr layout of_struct(std::initializer_list<layout> layouts) {
+    size_t size = 0, align = 1;
+    for (auto layout : layouts) {
+      size = best::round_up_to_pow2(size, layout.align());
+      size += layout.size();
+      align = best::max(align, layout.align());
+    }
+    size = best::round_up_to_pow2(size, align);
+    return layout(unsafe("same impl as of_struct()"), size, align);
+  }
+
+  /// # `layout::of_struct()`
+  ///
+  /// Overlays several layouts together, as if by `layout::of_union()`.
+  static constexpr layout of_union(std::initializer_list<layout> layouts) {
+    size_t size = 0, align = 1;
+    for (auto layout : layouts) {
+      size = best::max(size, layout.size());
+      align = best::max(align, layout.align());
+    }
+    size = best::round_up_to_pow2(size, align);
+    return layout(unsafe("same impl as of_struct()"), size, align);
+  }
+
+  /// # `layout::repeat()`
+  ///
+  /// Appends several copies of this layout together, as if by
+  /// `layout::array()`.
+  constexpr layout repeat(size_t n) const {
+    auto [sz, of] = best::overflow(size()) * n;
+    if (of || sz > best::max_of<size_t>) {
+      best::crash_internal::crash(
+        "attempted to allocate more than max_of<size_t>/2 bytes");
+    }
+
+    return layout(unsafe("manifest from the bounds check above and align()"),
+                  sz, align());
+  }
+
   /// # `layout::size()`.
   ///
   /// The size, in bytes. This is always divisible by `align`.
@@ -150,6 +194,11 @@ class layout final {
     auto rec = fmt.record();
     rec.field("size", ly.size());
     rec.field("align", ly.align());
+  }
+
+  template <best::hash_state State>
+  constexpr friend void BestHash(best::hasher<State>& h, const layout& value) {
+    h.write(value.size(), value.align());
   }
 
  public:

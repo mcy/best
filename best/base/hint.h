@@ -106,6 +106,33 @@ BEST_INLINE_ALWAYS constexpr void assume(bool truth) {
   if (!std::is_constant_evaluated()) { asm volatile("" ::"m,r"(value)); }
   return decltype(value)(value);
 }
+
+/// # `best::prefetch_locality`
+///
+/// A locality value for a prefetch operation. Specifies which cache the
+/// prefetched memory should stick around in.
+enum class prefetch_locality {
+  Nontemporal = 0,
+  L3 = 1,
+  L2 = 2,
+  L1 = 3,
+};
+
+/// # `best::prefetch_for_read()`, `best::prefetch_for_write()`
+///
+/// Prefetches the given memory.
+template <best::prefetch_locality locality = best::prefetch_locality::L1>
+BEST_INLINE_SYNTHETIC constexpr void prefetch_for_read(const void* addr) {
+  if (!std::is_constant_evaluated()) {
+    __builtin_prefetch(addr, 0, int(locality));
+  }
+}
+template <best::prefetch_locality locality = best::prefetch_locality::L1>
+BEST_INLINE_SYNTHETIC constexpr void prefetch_for_write(const void* addr) {
+  if (!std::is_constant_evaluated()) {
+    __builtin_prefetch(addr, 1, int(locality));
+  }
+}
 }  // namespace best
 
 #endif  // BEST_BASE_HINT_H_

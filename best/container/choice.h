@@ -25,9 +25,11 @@
 #include "best/base/ord.h"
 #include "best/base/tags.h"
 #include "best/container/internal/choice.h"
+#include "best/hash/hash.h"
 #include "best/log/internal/crash.h"
 #include "best/log/location.h"
 #include "best/meta/init.h"
+#include "best/meta/traits/empty.h"
 
 //! A sum type, like `std::variant`.
 //!
@@ -327,6 +329,14 @@ class choice final {
     query.uses_method = [](auto r) {
       return (Q::template of<Alts>.uses_method(r) && ...);
     };
+  }
+
+  template <best::hash_state State>
+  constexpr friend void BestHash(best::hasher<State>& h, const choice& value)
+    requires (best::hashable<Alts> && ...)
+  {
+    value.index_match(
+      [&](auto idx, const auto& value) { h.write(idx.value, value); });
   }
 
   // Comparisons.

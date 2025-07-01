@@ -23,6 +23,7 @@
 #include <cstddef>
 #include <type_traits>
 
+#include "best/math/int.h"
 #include "best/meta/reflect.h"
 #include "best/text/rune.h"
 #include "best/text/str.h"
@@ -145,15 +146,16 @@ void BestFmt(auto& fmt, best::is_int auto value) {
   if (negative) { value = -value; }
 
   // Construct the actual digits.
+  auto uvalue = best::to_unsigned(value);
   char buf[128];
   size_t count = 0;
   do {
-    rune r = *rune::from_digit(value % base, base);
+    rune r = *rune::from_digit(uvalue % base, base);
     if (uppercase) { r = r.to_ascii_upper(); }
 
     buf[128 - count++ - 1] = r;
-    value /= base;
-  } while (value != 0);
+    uvalue /= base;
+  } while (uvalue != 0);
 
   best::str digits(unsafe("all characters are ascii"),
                    best::span(buf + 128 - count, count));

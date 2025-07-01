@@ -26,6 +26,11 @@ cc_library(
 )
 
 cc_library(
+  name = "arch",
+  hdrs = ["arch.h"],
+)
+
+cc_library(
   name = "macro",
   hdrs = [
     "internal/macro.h",

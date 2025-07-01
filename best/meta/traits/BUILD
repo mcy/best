@@ -40,6 +40,14 @@ cc_library(
 )
 
 cc_library(
+  name = "pairs",
+  hdrs = ["pairs.h"],
+  deps = [
+    ":types",
+  ]
+)
+
+cc_library(
   name = "ptrs",
   hdrs = ["ptrs.h"],
   deps = [

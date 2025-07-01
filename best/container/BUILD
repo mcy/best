@@ -10,6 +10,7 @@ cc_library(
     ":pun",
     "//best/base:port",
     "//best/base:tags",
+    "//best/hash",
     "//best/log/internal:crash",
   ],
 )
@@ -31,6 +32,7 @@ cc_library(
   deps = [
     "//best/base:ord",
     "//best/memory:ptr",
+    "//best/hash",
   ]
 )
 
@@ -49,6 +51,7 @@ cc_library(
   hdrs = ["option.h"],
   deps = [
     ":choice",
+    "//best/hash",
     "//best/log/internal:crash",
   ],
 )
@@ -97,6 +100,7 @@ cc_library(
   deps = [
     ":choice",
     ":row",
+    "//best/hash",
     "//best/log/internal:crash",
   ],
 )
@@ -122,6 +126,7 @@ cc_library(
   ],
   deps = [
     ":object",
+    "//best/hash",
     "//best/base:port",
     "//best/base:tags",
   ],
@@ -143,6 +148,7 @@ cc_library(
   hdrs = ["box.h"],
   deps = [
     "//best/func:dyn",
+    "//best/hash",
     "//best/memory:allocator",
     "//best/memory:ptr",
   ]
@@ -183,6 +189,36 @@ cc_test(
   linkopts = ["-rdynamic"],
   deps = [
     ":vec",
+    "//best/test",
+    "//best/test:fodder",
+  ],
+)
+hash
+cc_library(
+  name = "table",
+  hdrs = [
+    "table.h",
+    "internal/table.h",
+  ],
+  deps = [
+    ":option",
+    "//best/base:arch",
+    "//best/hash",
+    "//best/hash:fxhash",
+    "//best/hash:impls",
+    "//best/memory:allocator",
+    "//best/memory:span",
+    "//best/memory:layout",
+    "//best/meta/traits:pairs",
+  ],
+)
+
+cc_test(
+  name = "table_test",
+  srcs = ["table_test.cc"],
+  linkopts = ["-rdynamic"],
+  deps = [
+    ":table",
     "//best/test",
     "//best/test:fodder",
   ],

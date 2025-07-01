@@ -26,6 +26,7 @@
 #include "best/container/object.h"
 #include "best/container/option.h"
 #include "best/func/dyn.h"
+#include "best/hash/hash.h"
 #include "best/memory/allocator.h"
 #include "best/memory/layout.h"
 #include "best/memory/ptr.h"
@@ -258,6 +259,13 @@ class BEST_RELOCATABLE box final {
       auto that = best::as_auto<decltype(query)>::template of<T>.uses_method;
       return that && that(r);
     };
+  }
+
+  template <best::hash_state State>
+  constexpr friend void BestHash(best::hasher<State>& h, const box& value)
+    requires requires { h.write(*value); }
+  {
+    h.write(*value);
   }
 
   template <typename U>

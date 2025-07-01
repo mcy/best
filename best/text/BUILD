@@ -15,6 +15,7 @@ cc_library(
   hdrs = ["rune.h"],
   deps = [
     ":encoding",
+    "//best/hash",
     "//best/log/internal:crash",
   ]
 )

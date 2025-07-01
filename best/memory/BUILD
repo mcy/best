@@ -36,6 +36,7 @@ cc_library(
     "internal/bytes.h",
   ],
   deps = [
+    "//best/hash",
     "//best/container:option",
     "//best/container:result",
     "//best/iter",
@@ -59,7 +60,9 @@ cc_library(
     "internal/layout.h"
   ],
   deps = [
+    "//best/math:bit",
     "//best/base:unsafe",
+    "//best/hash",
     "//best/math:overflow",
     "//best/meta:ops",
     "//best/meta:tlist",

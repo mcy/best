@@ -423,6 +423,8 @@ class tlist final {
   constexpr bool operator==(best::is_tlist auto) const;
   constexpr best::partial_ord operator<=>(best::is_tlist auto that) const;
 
+  constexpr friend void BestHash(auto& h, const tlist& value) {}
+
  private:
   template <typename...>
   friend class tlist;
