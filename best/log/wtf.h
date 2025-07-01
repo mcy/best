@@ -20,6 +20,7 @@
 #ifndef BEST_LOG_WTF_H_
 #define BEST_LOG_WTF_H_
 
+#include "best/base/port.h"
 #include "best/text/format.h"
 #include "best/text/strbuf.h"
 
@@ -47,6 +48,34 @@ template <best::formattable... Args>
 
   crash_internal::die(templ.where(), write);
 }
+
+/// # `best::must()`
+///
+/// Crashes if `cond` is false. `cond` may be any type convertible to `bool`, or
+/// a callback that, when called with no arguments, produces a type convertible
+/// to `bool`.
+template <typename Truthy, best::formattable... Args>
+void must(Truthy&& cond, best::format_template<Args...> templ,
+          const Args&... args) {
+  if constexpr (requires { static_cast<bool>(BEST_FWD(cond)()); }) {
+    if (static_cast<bool>(BEST_FWD(cond)())) { return; }
+  } else if (static_cast<bool>(BEST_FWD(cond))) {
+    return;
+  }
+
+  best::wtf(templ, args...);
+}
+
+/// # `best::debug_must()`
+///
+/// Identical in all ways to `best::must()` except that it only checks the
+/// condition if `best::is_debug()` returns true.
+template <typename Truthy, best::formattable... Args>
+void debug_must(Truthy&& cond, best::format_template<Args...> templ,
+                const Args&... args) {
+  if (best::is_debug()) { best::must(BEST_FWD(cond), templ, args...); }
+}
+
 }  // namespace best
 
 #endif  // BEST_LOG_WTF_H_

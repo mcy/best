@@ -34,6 +34,48 @@ namespace best {
 template <best::is_int>
 struct overflow;
 
+/// # `best::mul`
+///
+/// Constructing a value of this type performs a full-width multiplication.
+///
+/// Multiplication without overflow produces a double-width value, a high and
+/// a low part. If the high part is zero (or, for signed integers, all ones),
+/// the product did not overflow.
+template <best::is_int Int>
+struct mul final {
+  constexpr mul(Int a, Int b) {
+    // There isn't an especially good intrinsic for this. For now, we just
+    // perform the operation in i128 and chop it back down.
+    if constexpr (best::is_signed<Int>) {
+      auto c = __int128(a) * __int128(b);
+      lo = (Int)(c);
+      hi = (Int)(c >> best::bits_of<Int>);
+    } else {
+      auto c = (unsigned __int128)(a) * (unsigned __int128)(b);
+      lo = (Int)(c);
+      hi = (Int)(c >> best::bits_of<Int>);
+    }
+  }
+
+  Int lo, hi;
+
+  // # `mul::overflowed()`
+  //
+  // Returns whether this operation overflowed.
+  constexpr bool overflowed() const {
+    return hi == 0 || (hi == -1 && best::is_signed<Int>);
+  }
+
+  // # `mul::mix()`
+  //
+  // Mixes the high and low results of this multiplication. Useful for writing
+  // non-cryptographic hashes.
+  constexpr Int mix() const { return lo ^ hi; }
+};
+
+template <best::is_int A, best::is_int B>
+mul(A, B) -> mul<common_int<A, B>>;
+
 /// # `best::div_t`
 ///
 /// The result of calling `best::div`: a quotient and a remainder.

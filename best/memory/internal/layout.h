@@ -23,6 +23,7 @@
 #include <cstddef>
 #include <cstdlib>
 
+#include "best/math/bit.h"
 #include "best/meta/tlist.h"
 #include "best/meta/traits/ptrs.h"
 
@@ -42,12 +43,7 @@ using to_object = best::devoid<
 ///
 /// This is guaranteed to be a power of 2.
 template <typename... Types>
-inline constexpr size_t align_of = [] {
-  size_t align = 1;
-  best::types<to_object<Types>...>.each(
-    [&]<typename T> { align = (align > alignof(T) ? align : alignof(T)); });
-  return align;
-}();
+inline constexpr size_t align_of = best::max(size_t{1}, alignof(to_object<Types>)...);
 
 /// Computes the size of a struct with the given member types.
 ///
@@ -57,21 +53,13 @@ template <typename... Types>
 inline constexpr size_t size_of = [] {
   if (sizeof...(Types) == 0) { return size_t{1}; }
 
-  size_t size = 0, align = 1;
-
-  auto align_to = [&size](size_t align) {
-    auto remainder = size % align;
-    if (remainder != 0) { size += align - remainder; }
-  };
-
+  size_t size = 0;
   best::types<to_object<Types>...>.each([&]<typename T> {
-    align_to(alignof(T));
-    align = (align > alignof(T) ? align : alignof(T));
+    size = best::round_up_to_pow2(size, alignof(T));
     size += sizeof(T);
   });
 
-  align_to(align);
-  return size;
+  return best::round_up_to_pow2(size, align_of<Types...>);
 }();
 
 /// Computes the size of a union with the given member types.
@@ -81,21 +69,10 @@ inline constexpr size_t size_of = [] {
 /// a size of 1.
 template <typename... Types>
 inline constexpr size_t size_of_union = [] {
-  if (sizeof...(Types) == 0) { return size_t{1}; }
+  if constexpr (sizeof...(Types) == 0) { return size_t{1}; }
 
-  size_t size = 0, align = 1;
-  auto align_to = [&](size_t align) {
-    auto remainder = size % align;
-    if (remainder != 0) { size += align - remainder; }
-  };
-
-  best::types<to_object<Types>...>.each([&]<typename T> {
-    align = (align > alignof(T) ? align : alignof(T));
-    size = (size > sizeof(T) ? size : sizeof(T));
-  });
-
-  align_to(align);
-  return size;
+  return best::round_up_to_pow2(best::max(0, sizeof(to_object<Types>)...),
+                                align_of<Types...>);
 }();
 }  // namespace best::layout_internal
 

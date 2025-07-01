@@ -36,6 +36,7 @@
 #include "best/memory/internal/bytes.h"
 #include "best/meta/init.h"
 #include "best/meta/tlist.h"
+#include "best/meta/traits/quals.h"
 
 //! Data spans.
 //!
@@ -307,6 +308,20 @@ class span final {
   constexpr size_t size() const requires is_dynamic
   {
     return size_;
+  }
+
+  /// # `span::as_bytes()`
+  ///
+  /// Returns a `char`-typed span of the same size as this span (adjusted for
+  /// scaling by the size of `T`).
+  constexpr best::span<best::copy_quals<char, T>,
+                       is_static ? *n * sizeof(T) : n>
+  as_bytes() const {
+    if constexpr (is_static) {
+      return {data().cast(best::types<char>)};
+    } else {
+      return {data().cast(best::types<char>), size() * sizeof(T)};
+    }
   }
 
   /// # `span::is_empty()`
@@ -927,8 +942,7 @@ constexpr span<T, n> span<T, n>::from_nul(T* data) {
   }
 
   auto ptr = data;
-  while (*ptr++ != T{0})
-    ;
+  while (*ptr++ != T{0});
   return best::span(data, ptr - data - 1);
 }
 

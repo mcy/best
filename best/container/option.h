@@ -26,6 +26,7 @@
 #include "best/base/fwd.h"
 #include "best/base/tags.h"
 #include "best/container/choice.h"
+#include "best/hash/hash.h"
 #include "best/log/internal/crash.h"
 #include "best/log/location.h"
 #include "best/meta/init.h"
@@ -78,6 +79,12 @@ concept is_option = requires {
 template <is_option T>
 using option_type = typename best::as_auto<T>::type;
 
+namespace option_internal {
+// A helper for threading formatting into option::check_ok. The corresponding
+// definition lives in format.h.
+struct fmt;
+};  // namespace option_internal
+
 /// # `best::option<T>`
 ///
 /// An optional value.
@@ -129,8 +136,8 @@ class option final {
 
   template <typename U>
   static constexpr bool not_forbidden_conversion =
-    (!best::same<best::in_place_t, best::as_auto<U>>)&&  //
-    (!best::same<option, best::as_auto<U>>)&&            //
+    (!best::same<best::in_place_t, best::as_auto<U>>) &&  //
+    (!best::same<option, best::as_auto<U>>) &&            //
     (!best::same<bool, best::un_qual<T>>);
 
  public:
@@ -267,14 +274,15 @@ class option final {
   /// This constructor is intended for constructing options that contain
   /// values with troublesome constructors.
   template <typename... Args>
-  constexpr explicit option(best::in_place_t, Args&&... args)
-    requires best::constructible<T, Args&&...>
+  constexpr explicit(sizeof...(Args) != 1)
+    option(best::in_place_t, Args&&... args)
+      requires best::constructible<T, Args&&...>
     : BEST_OPTION_IMPL_(best::index<1>, BEST_FWD(args)...) {}
 
   template <typename E, typename... Args>
-  constexpr explicit option(best::in_place_t, std::initializer_list<E> il,
-                            Args&&... args)
-    requires best::constructible<T, std::initializer_list<E>, Args&&...>
+  constexpr explicit(sizeof...(Args) != 1)
+    option(best::in_place_t, std::initializer_list<E> il, Args&&... args)
+      requires best::constructible<T, std::initializer_list<E>, Args&&...>
     : BEST_OPTION_IMPL_(best::index<1>, il, BEST_FWD(args)...) {}
 
   /// # `option::is_empty()`
@@ -350,6 +358,27 @@ class option final {
   constexpr ref value(best::location loc = best::here) &;
   constexpr crref value(best::location loc = best::here) const&&;
   constexpr rref value(best::location loc = best::here) &&;
+
+ private:
+  template <typename... Args>
+  using format_template = best::format_internal::templ<  //
+    format_spec, best::dependent<Args, Args...>...>;
+
+ public:
+  /// # `option::expect()`.
+  ///
+  /// Extracts the value of this option. Crashes with the given message.
+  template <typename... Args>
+  constexpr cref expect(format_template<Args...> templ,
+                        const Args&... args) const&;
+  template <typename... Args>
+  constexpr ref expect(format_template<Args...> templ, const Args&... args) &;
+  template <typename... Args>
+  constexpr crref expect(format_template<Args...> templ,
+                         const Args&... args) const&&;
+  template <typename... Args>
+  constexpr crref expect(format_template<Args...> templ,
+                         const Args&... args) &&;
 
   /// # `option::value_or(...)`
   ///
@@ -680,6 +709,13 @@ class option final {
     query.requires_debug = true;
   }
 
+  template <best::hash_state State>
+  constexpr friend void BestHash(best::hasher<State>& h, const option& value)
+    requires best::hashable<T>
+  {
+    h.write(value.BEST_OPTION_IMPL_);
+  }
+
   // Conversions w/ simple_option.
  private:
   using objT = best::select<best::is_object<T>, T, best::empty>;
@@ -757,6 +793,12 @@ class option final {
     if (best::unlikely(is_empty())) {
       crash_internal::crash({"unwrapped a best::none", loc});
     }
+  }
+
+  template <typename... Args, typename F = option_internal::fmt>
+  constexpr void check_ok(format_template<Args...> templ,
+                          const Args&... args) const {
+    if (best::unlikely(is_empty())) { F::wtf(templ, args...); }
   }
 
   constexpr const auto& impl() const& { return BEST_OPTION_IMPL_; }
@@ -868,6 +910,35 @@ constexpr option<T>::crref option<T>::value(best::location loc) const&& {
 template <typename T>
 constexpr option<T>::rref option<T>::value(best::location loc) && {
   return check_ok(loc),
+         BEST_MOVE(*this).value(unsafe("check_ok() called before this"));
+}
+
+template <typename T>
+template <typename... Args>
+constexpr option<T>::cref option<T>::expect(format_template<Args...> templ,
+                                            const Args&... args) const& {
+  return check_ok(templ, args...),
+         value(unsafe("check_ok() called before this"));
+}
+template <typename T>
+template <typename... Args>
+constexpr option<T>::ref option<T>::expect(format_template<Args...> templ,
+                                           const Args&... args) & {
+  return check_ok(templ, args...),
+         value(unsafe("check_ok() called before this"));
+}
+template <typename T>
+template <typename... Args>
+constexpr option<T>::crref option<T>::expect(format_template<Args...> templ,
+                                             const Args&... args) const&& {
+  return check_ok(templ, args...),
+         BEST_MOVE(*this).value(unsafe("check_ok() called before this"));
+}
+template <typename T>
+template <typename... Args>
+constexpr option<T>::crref option<T>::expect(format_template<Args...> templ,
+                                             const Args&... args) && {
+  return check_ok(templ, args...),
          BEST_MOVE(*this).value(unsafe("check_ok() called before this"));
 }
 

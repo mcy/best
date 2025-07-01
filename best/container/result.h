@@ -121,9 +121,9 @@ class [[nodiscard(
   template <typename U>
   static constexpr bool cannot_init_from =
     ((!best::constructible<T, const U&> && !best::constructible<T, U&&>) ||
-     best::is_void<T>)&&((!best::constructible<E, const U&> &&
-                          !best::constructible<E, U&&>) ||
-                         best::is_void<E>);
+     best::is_void<T>) &&
+    ((!best::constructible<E, const U&> && !best::constructible<E, U&&>) ||
+     best::is_void<E>);
 
  public:
   /// Helper type aliases.
@@ -390,6 +390,13 @@ class [[nodiscard(
       return (Q::template of<T>.uses_method(r) &&
               Q::template of<E>.uses_method(r));
     };
+  }
+
+  template <best::hash_state State>
+  constexpr friend void BestHash(best::hasher<State>& h, const result& value)
+    requires best::hashable<T> && best::hashable<E>
+  {
+    h.write(value.BEST_RESULT_IMPL_);
   }
 
  private:

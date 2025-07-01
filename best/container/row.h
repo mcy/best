@@ -25,8 +25,10 @@
 #include "best/base/tags.h"
 #include "best/container/internal/row.h"
 #include "best/container/object.h"
+#include "best/hash/hash.h"
 #include "best/meta/init.h"
 #include "best/meta/tlist.h"
+#include "best/meta/traits/refs.h"
 
 //! A product type, like `std::tuple`.
 //!
@@ -214,6 +216,14 @@ class row final
   constexpr best::row<best::as_ref<Elems>...> as_ref() &;
   constexpr best::row<best::as_rref<const Elems>...> as_ref() const&&;
   constexpr best::row<best::as_rref<Elems>...> as_ref() &&;
+
+  /// # `row::copied()`
+  ///
+  /// Copies a row of values copied from this row.
+  constexpr best::row<best::as_auto<Elems>...> copied() const&;
+  constexpr best::row<best::as_auto<Elems>...> copied() &;
+  constexpr best::row<best::as_auto<Elems>...> copied() const&&;
+  constexpr best::row<best::as_auto<Elems>...> copied() &&;
 
   /// # `row[index<n>]`, `row[best::values<bounds{...}>]`
   ///
@@ -511,6 +521,13 @@ class row final
     };
   }
 
+  template <best::hash_state State>
+  constexpr friend void BestHash(best::hasher<State>& h, const row& value)
+    requires (best::hashable<Elems> && ...)
+  {
+    value.each([&](const auto& x) { h.write(x); });
+  }
+
   // Comparisons.
   template <typename... Us>
   constexpr bool operator==(const row<Us...>& that) const
@@ -597,6 +614,31 @@ template <typename... A>
 constexpr best::row<best::as_rref<A>...> row<A...>::as_ref() && {
   return BEST_MOVE(*this).apply([](auto&&... args) {
     return best::row<best::as_rref<A>...>(BEST_FWD(args)...);
+  });
+}
+
+template <typename... A>
+constexpr best::row<best::as_auto<A>...> best::row<A...>::copied() const& {
+  return apply([](auto&&... args) {
+    return best::row<best::as_auto<A>...>(BEST_FWD(args)...);
+  });
+}
+template <typename... A>
+constexpr best::row<best::as_auto<A>...> best::row<A...>::copied() & {
+  return apply([](auto&&... args) {
+    return best::row<best::as_auto<A>...>(BEST_FWD(args)...);
+  });
+}
+template <typename... A>
+constexpr best::row<best::as_auto<A>...> best::row<A...>::copied() const&& {
+  return BEST_MOVE(*this).apply([](auto&&... args) {
+    return best::row<best::as_auto<A>...>(BEST_FWD(args)...);
+  });
+}
+template <typename... A>
+constexpr best::row<best::as_auto<A>...> best::row<A...>::copied() && {
+  return BEST_MOVE(*this).apply([](auto&&... args) {
+    return best::row<best::as_auto<A>...>(BEST_FWD(args)...);
   });
 }
 

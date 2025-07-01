@@ -181,6 +181,15 @@ BEST_INLINE_ALWAYS constexpr Int next_pow2(Int x) {
   return (best::next_pow2_minus1(x) + best::overflow(1)).strict();
 }
 
+/// # `best::round_up_to_pow2()`
+///
+/// Rounds `x` to the next multiple of `pow2`. `pow2` must be a power of 2.
+template <best::is_unsigned Int>
+BEST_INLINE_ALWAYS constexpr Int round_up_to_pow2(Int x, Int pow2) {
+  auto mask = pow2 - 1;
+  return (x + mask) & ~mask;
+}
+
 /// # `best::bits_for()`
 ///
 /// Computes the number of bits needed to store every value from `0` to `x`,

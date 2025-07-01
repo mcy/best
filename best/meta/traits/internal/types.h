@@ -47,18 +47,16 @@ T&& lie = [] {
     "attempted to tell a best::lie: this value cannot be materialized");
 }();
 
-struct wax {};
-template <typename Sealed>
-concept sealed = requires(Sealed sealed) {
-  sealed(wax{});
-  +sealed;  // Ensure that the user isn't passing a generic lambda.
+template <typename T>
+struct wax final {
+  using type = T;
 };
 
-template <typename T, sealed auto sealed = [](wax) { return T{}; }>
-inline constexpr auto seal = sealed;
+template <typename Sealed>
+concept sealed = requires(Sealed sealed) { sealed(wax<void>{}); };
 
 template <sealed S>
-using unseal = decltype(S{}(wax{}));
+using unseal = decltype(S{}(wax<void>{}))::type;
 
 template <typename...>
 struct same {
@@ -82,5 +80,36 @@ struct same<A, B...> {
 };
 
 }  // namespace best::traits_internal
+
+// This symbol is carefully crafted to be very small when mangled but also
+// readable in gdb's demangler.
+// It looks something like this: `sealed::{lambda(auto:1)#3}`.
+//
+// Asking for the name of this type using `best::type_name` will produce
+// something like `(lambda at :1:1)`, which is what the `#line` directive below
+// is for.
+namespace sealed {
+// clang-format off
+template <typename T, auto sealed =
+#line 1 "" // This hides the identity of the lambda when Clang prints its name.
+[](auto x) 
+  requires best::traits_internal::same<
+    decltype(x),
+    best::traits_internal::wax<void>
+  >::value
+  {
+    return best::traits_internal::wax<T>{};
+  }
+>
+inline constexpr auto BEST_MAKE_SEAL_ = sealed;
+// clang-format on
+}  // namespace sealed
+
+namespace best::traits_internal {
+template <typename T>
+inline constexpr auto seal = sealed::BEST_MAKE_SEAL_<T>;
+}
+
+#define BEST_MAKE_SEAL_ _priv
 
 #endif  // BEST_META_TRAITS_INTERNAL_TYPES_H_

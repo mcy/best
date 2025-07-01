@@ -193,8 +193,7 @@ struct format_spec final {
         BestFmtQuery(query, best::as_raw_ptr<T>());
       }
       return query;
-    }
-    ();
+    }();
   };
 
   constexpr bool operator==(const format_spec&) const = default;
@@ -585,6 +584,17 @@ void eprintln(best::format_template<Args...> templ, const Args&... args) {
   result.push('\n');
   ::fwrite(result.data(), 1, result.size(), stderr);
 }
+
+namespace option_internal {
+// See the matching decl in result.h.
+struct fmt final {
+  template <typename... Args>
+  BEST_INLINE_SYNTHETIC static void wtf(Args&&... args) {
+    auto message = best::format(BEST_FWD(args)...);
+    best::crash_internal::crash("%.*s", message.size(), message.data());
+  }
+};
+}  // namespace option_internal
 
 namespace result_internal {
 // See the matching decl in result.h.

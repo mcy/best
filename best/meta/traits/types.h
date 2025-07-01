@@ -127,9 +127,9 @@ using select_trait = traits_internal::select<cond, A, B>::type::type;
 /// This produces a new type with a very small opaque name that can be
 /// `best::unabridge`ed to produce the original type.
 template <typename T>
-using abridge = decltype(best::traits_internal::seal<best::id<T>>);
+using abridge = std::remove_const_t<decltype(best::traits_internal::seal<T>)>;
 template <typename T>
-using unabridge = best::traits_internal::unseal<T>::type;
+using unabridge = best::traits_internal::unseal<T>;
 
 /// # `best::abridged<T>`
 ///

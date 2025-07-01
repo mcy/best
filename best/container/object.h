@@ -26,6 +26,7 @@
 
 #include "best/base/ord.h"
 #include "best/base/tags.h"
+#include "best/hash/hash.h"
 #include "best/memory/ptr.h"
 #include "best/meta/init.h"
 #include "best/meta/traits/empty.h"
@@ -203,6 +204,13 @@ class object final {
   }
   constexpr friend void BestFmtQuery(auto& query, object*) {
     query = query.template of<T>;
+  }
+
+  template <best::hash_state State>
+  constexpr friend void BestHash(best::hasher<State>& h, const object& value)
+    requires requires { h.write(value.or_empty()); }
+  {
+    h.write(value.or_empty());
   }
 
  public:

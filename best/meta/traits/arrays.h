@@ -23,6 +23,7 @@
 #include <type_traits>
 
 #include "best/base/fwd.h"
+#include "best/meta/traits/ptrs.h"
 
 //! Type traits for array types.
 //!
@@ -60,6 +61,26 @@ concept is_sized_array = std::is_bounded_array_v<T>;
 /// Identifies a unsized array type, i.e. `T[]`.
 template <typename T>
 concept is_unsized_array = std::is_unbounded_array_v<T>;
+
+/// # `best::is_array`
+///
+/// Identifies an array type with a given element type.
+template <typename T, typename E>
+concept is_array_of = best::is_array<T> && best::same<E, best::un_array<T>>;
+
+/// # `best::is_sized_array_of`
+///
+/// Identifies a sized array type, i.e. `T[n]`, for some specific type T.
+template <typename T, typename E>
+concept is_sized_array_of =
+  best::is_sized_array<T> && best::same<E, best::un_array<T>>;
+
+/// # `best::is_unsized_array_of`
+///
+/// Identifies a unsized array type, i.e. `T[]`, for some specific type T.
+template <typename T, typename E>
+concept is_unsized_array_of =
+  best::is_unsized_array<T> && best::same<E, best::un_array<T>>;
 
 /// # `best::shape_of<T>`
 ///
