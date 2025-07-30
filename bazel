@@ -19,6 +19,10 @@ function download_bazelisk() {
     Darwin*)
       local os="darwin"
       ;;
+    MSYS*)
+      local os="windows"
+      local ext=".exe"
+      ;;
     *)
       echo "bazelisk: unsupported os $uname_os"
       exit 128
@@ -36,7 +40,7 @@ function download_bazelisk() {
       exit 128
   esac
 
-  local url="https://github.com/bazelbuild/bazelisk/releases/download/v$_BZ_VERSION/bazelisk-$os-$cpu"
+  local url="https://github.com/bazelbuild/bazelisk/releases/download/v$_BZ_VERSION/bazelisk-$os-$cpu$ext"
   echo "bazelisk: downloading $url to $_BZ_PATH"
   curl --proto '=https' --tlsv1.2 -sSfL -o "$_BZ_PATH" "$url"
   chmod +x "$_BZ_PATH"
